@@ -833,18 +833,24 @@
         }
 
         function renderParamField(param) {
-            const fullNameRaw = param.fullName == null ? '' : String(param.fullName);
-            const abbrRaw = param.abbreviation == null ? '' : String(param.abbreviation);
-            let fieldName = fullNameRaw.replace(/^--/, '').replace(/^-/, '');
-            if (!fieldName) fieldName = abbrRaw.replace(/^--/, '').replace(/^-/, '');
-            if (!fieldName) {
-                const base = (param.name == null ? '' : String(param.name)).trim()
-                    .replace(/[^a-zA-Z0-9_-]+/g, '_')
-                    .replace(/^_+|_+$/g, '');
-                const sortRaw = param.sort == null ? '' : String(param.sort).trim();
-                fieldName = 'unnamed_' + (base || 'param') + (sortRaw ? '_' + sortRaw : '');
+            let fieldName = '';
+            if (typeof fieldNameFromParamConfig === 'function') {
+                fieldName = fieldNameFromParamConfig(param);
+            } else {
+                const fullNameRaw = param.fullName == null ? '' : String(param.fullName);
+                const abbrRaw = param.abbreviation == null ? '' : String(param.abbreviation);
+                fieldName = fullNameRaw.replace(/^--/, '').replace(/^-/, '');
+                if (!fieldName) fieldName = abbrRaw.replace(/^--/, '').replace(/^-/, '');
+                if (!fieldName) {
+                    const base = (param.name == null ? '' : String(param.name)).trim()
+                        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+                        .replace(/^_+|_+$/g, '');
+                    const sortRaw = param.sort == null ? '' : String(param.sort).trim();
+                    fieldName = 'unnamed_' + (base || 'param') + (sortRaw ? '_' + sortRaw : '');
+                }
             }
             const fieldId = 'param_' + fieldName;
+            const enableId = 'param_enable_' + fieldName;
             // 也改为国际化的格式
             const displayName = t(param.name, param.fullName);
             const description = t(param.description, '');
@@ -853,12 +859,16 @@
             const values = param.values || [];
 
             let html = '';
-            const labelHtml = description
-                ? `<label class="form-label" for="${fieldId}">${displayName} <i class="fas fa-question-circle" style="color: #DCDCDC; cursor: help; margin-left: 4px;" title="${description}"></i></label>`
-                : `<label class="form-label" for="${fieldId}">${displayName}</label>`;
+            const labelContent = description
+                ? `${displayName} <i class="fas fa-question-circle" style="color: #DCDCDC; cursor: help; margin-left: 4px;" title="${description}"></i>`
+                : `${displayName}`;
+            const labelHtml = `<div class="param-label-row" style="display:flex; align-items:center; gap: 0.4rem; line-height: 1.1;">` +
+                `<input class="form-check-input param-enable-toggle" type="checkbox" id="${enableId}" checked style="margin: 0; width: 14px; height: 14px; flex: 0 0 auto; transform: translateY(1px);">` +
+                `<label class="form-label" for="${fieldId}" style="margin: 0; font-size: 15px; line-height: 1.1;">${labelContent}</label>` +
+                `</div>`;
 
             if (values && values.length > 0) {
-                html += '<div class="form-group">';
+                html += '<div class="form-group param-field">';
                 html += labelHtml;
                 html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
                 values.forEach(v => {
@@ -870,19 +880,19 @@
             } else {
                 switch (type) {
                     case 'INTEGER':
-                        html += '<div class="form-group">';
+                        html += '<div class="form-group param-field">';
                         html += labelHtml;
                         html += `<input type="number" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
                         html += '</div>';
                         break;
                     case 'FLOAT':
-                        html += '<div class="form-group">';
+                        html += '<div class="form-group param-field">';
                         html += labelHtml;
                         html += `<input type="number" step="0.01" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
                         html += '</div>';
                         break;
                     case 'BOOLEAN':
-                        html += '<div class="form-group">';
+                        html += '<div class="form-group param-field">';
                         html += labelHtml;
                         html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
                         html += `<option value="0" ${defaultValue === '0' || defaultValue === 'false' ? 'selected' : ''}>false</option>`;
@@ -891,7 +901,7 @@
                         html += '</div>';
                         break;
                     case 'LOGIC':
-                        html += '<div class="form-group">';
+                        html += '<div class="form-group param-field">';
                         html += labelHtml;
                         html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
                         html += `<option value="0" ${defaultValue === '0' || defaultValue === 'false' ? 'selected' : ''}>false</option>`;
@@ -901,7 +911,7 @@
                         break;
                     case 'STRING':
                     default:
-                        html += '<div class="form-group">';
+                        html += '<div class="form-group param-field">';
                         html += labelHtml;
                         html += `<input type="text" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
                         html += '</div>';

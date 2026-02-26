@@ -134,6 +134,14 @@ function fieldNameFromParamConfig(p) {
     return 'unnamed_' + (base || 'param') + (sortRaw ? '_' + sortRaw : '');
 }
 
+function isLoadModelParamEnabled(modal, fieldName) {
+    const key = fieldName === null || fieldName === undefined ? '' : String(fieldName).trim();
+    if (!key) return true;
+    const el = findById(modal, 'param_enable_' + key);
+    if (!el || !('checked' in el)) return true;
+    return !!el.checked;
+}
+
 function isTruthyLogicValue(value) {
     if (value === null || value === undefined) return false;
     const v = String(value).trim().toLowerCase();
@@ -249,6 +257,23 @@ function applyCmdToDynamicFields(modal, cmd) {
     const tokens = splitCmdArgs(cmd);
     const consumed = new Array(tokens.length).fill(false);
     const valuesByField = Object.create(null);
+    const enabledFields = new Set();
+
+    function setParamEnabled(fieldName, enabled) {
+        const key = fieldName === null || fieldName === undefined ? '' : String(fieldName).trim();
+        if (!key) return;
+        const el = findById(modal, 'param_enable_' + key);
+        if (!el || !('checked' in el)) return;
+        el.checked = !!enabled;
+    }
+
+    for (let i = 0; i < cfgList.length; i++) {
+        const p = cfgList[i];
+        if (!p) continue;
+        const fieldName = fieldNameFromParamConfig(p);
+        if (!fieldName) continue;
+        setParamEnabled(fieldName, false);
+    }
 
     function isKnownOption(token) {
         if (!token) return false;
@@ -279,6 +304,7 @@ function applyCmdToDynamicFields(modal, cmd) {
 
         if (type === 'LOGIC') {
             valuesByField[fieldName] = '1';
+            enabledFields.add(fieldName);
             continue;
         }
 
@@ -292,6 +318,7 @@ function applyCmdToDynamicFields(modal, cmd) {
             }
         }
         if (v !== null && v !== undefined) valuesByField[fieldName] = String(v);
+        enabledFields.add(fieldName);
     }
 
     for (let i = 0; i < cfgList.length; i++) {
@@ -308,6 +335,7 @@ function applyCmdToDynamicFields(modal, cmd) {
         const candidates = values.filter(v => v !== defaultValue);
 
         let picked = defaultValue;
+        let hasExplicitValue = false;
         if (candidates.length) {
             for (let ti = 0; ti < tokens.length; ti++) {
                 if (consumed[ti]) continue;
@@ -316,13 +344,17 @@ function applyCmdToDynamicFields(modal, cmd) {
                 if (candidates.includes(t)) {
                     picked = t;
                     consumed[ti] = true;
+                    hasExplicitValue = true;
                     break;
                 }
             }
         }
 
         const fieldName = fieldNameFromParamConfig(p);
-        if (fieldName) valuesByField[fieldName] = picked;
+        if (fieldName) {
+            valuesByField[fieldName] = picked;
+            if (hasExplicitValue) enabledFields.add(fieldName);
+        }
     }
 
     for (let i = 0; i < cfgList.length; i++) {
@@ -340,6 +372,14 @@ function applyCmdToDynamicFields(modal, cmd) {
     for (let i = 0; i < entries.length; i++) {
         const k = entries[i];
         setFieldValue(modal, [k, 'param_' + k], valuesByField[k]);
+    }
+
+    for (let i = 0; i < cfgList.length; i++) {
+        const p = cfgList[i];
+        if (!p) continue;
+        const fieldName = fieldNameFromParamConfig(p);
+        if (!fieldName) continue;
+        setParamEnabled(fieldName, enabledFields.has(fieldName));
     }
 
     const extras = [];
@@ -597,31 +637,31 @@ function loadModel(modelId, modelName, mode = 'load') {
             }
             const config = extractLaunchConfigFromGetResponse(data, modelId);
             if (config && typeof config === 'object') {
-                if (config.cmd !== undefined && config.cmd !== null && String(config.cmd).trim()) {
-                    const cmdStr = String(config.cmd);
-                    let applied = false;
-                    let attempts = 0;
-                    const maxAttempts = 60;
-                    const tryApply = () => {
-                        if (applied) return;
-                        attempts++;
-                        const cfgList = getParamConfigListSafe();
-                        const ready = cfgList && cfgList.length && findInModal(modal, '[name]') && findById(modal, 'extraParams');
-                        if (ready) {
-                            applied = true;
-                            applyCmdToDynamicFields(modal, cmdStr);
-                            if (config.extraParams !== undefined && config.extraParams !== null && String(config.extraParams).trim()) {
-                                setFieldValue(modal, ['extraParams'], String(config.extraParams));
-                            }
-                            return;
+                const cmdStr = config.cmd === null || config.cmd === undefined ? '' : String(config.cmd);
+                let applied = false;
+                let attempts = 0;
+                const maxAttempts = 60;
+                const tryApply = () => {
+                    if (applied) return;
+                    attempts++;
+                    const cfgList = getParamConfigListSafe();
+                    const dyn = findById(modal, 'dynamicParamsContainer');
+                    const hasToggle = !!(dyn && dyn.querySelector && dyn.querySelector('input[type="checkbox"][id^="param_enable_"]'));
+                    const ready = cfgList && cfgList.length && hasToggle && findById(modal, 'extraParams');
+                    if (ready) {
+                        applied = true;
+                        applyCmdToDynamicFields(modal, cmdStr);
+                        if (config.extraParams !== undefined && config.extraParams !== null && String(config.extraParams).trim()) {
+                            setFieldValue(modal, ['extraParams'], String(config.extraParams));
+                        } else if (config.extraParams !== undefined) {
+                            setFieldValue(modal, ['extraParams'], config.extraParams || '');
                         }
-                        if (attempts >= maxAttempts) return;
-                        setTimeout(tryApply, 60);
-                    };
-                    tryApply();
-                } else if (config.extraParams !== undefined) {
-                    setFieldValue(modal, ['extraParams'], config.extraParams || '');
-                }
+                        return;
+                    }
+                    if (attempts >= maxAttempts) return;
+                    setTimeout(tryApply, 60);
+                };
+                tryApply();
 
                 const enableVisionEl = findField(modal, 'enableVision');
                 if (enableVisionEl && 'checked' in enableVisionEl) {
@@ -694,6 +734,7 @@ function buildLoadModelPayload(modal) {
             const defaultValue = p.defaultValue === null || p.defaultValue === undefined ? (values.length ? String(values[0]) : '') : String(p.defaultValue);
             const fieldName = fieldNameFromParamConfig(p);
             if (!fieldName) continue;
+            if (!isLoadModelParamEnabled(modal, fieldName)) continue;
             const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
             if (!el || !('value' in el)) continue;
             const selected = String(el.value || '').trim();
@@ -709,6 +750,7 @@ function buildLoadModelPayload(modal) {
         if (!fullNameTrimmed) continue;
         const fieldName = fieldNameFromFullName(fullNameTrimmed);
         if (!fieldName) continue;
+        if (!isLoadModelParamEnabled(modal, fieldName)) continue;
 
         const el = findFieldByName(modal, fieldName);
         if (!el || !('value' in el)) continue;

@@ -521,6 +521,9 @@
         .form-check { display: flex; align-items: center; margin-bottom: 0.75rem; }
         .form-check-input { margin-right: 0.5rem; width: 1rem; height: 1rem; }
         .form-check-label { font-size: 0.875rem; color: var(--text-primary); }
+        .param-label-row { margin-bottom: 8px; }
+        .param-enable-toggle { opacity: 0; pointer-events: none; transition: opacity 0.12s ease-in-out; }
+        .param-field:hover .param-enable-toggle, .param-field:focus-within .param-enable-toggle { opacity: 1; pointer-events: auto; }
 
         .btn {
             display: inline-flex;
