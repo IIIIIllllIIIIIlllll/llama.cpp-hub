@@ -1238,6 +1238,8 @@ public class LlamaServerManager {
 		sb.append(" --alias ").append(targetModel.getModelId());
 		
 		sb.append(" --timeout 36000");
+		// 允许任意IP地址访问
+		sb.append(" --host 0.0.0.0");
 		
 		return sb.toString().trim();
 	}

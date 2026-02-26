@@ -6,10 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -304,24 +301,6 @@ public class LlamaCppProcess {
 	private static boolean isWindows() {
 		String os = System.getProperty("os.name");
 		return os != null && os.toLowerCase(Locale.ROOT).contains("win");
-	}
-
-	private static boolean containsPathEntry(String pathList, String entry, boolean windows) {
-		if (pathList == null || pathList.isEmpty() || entry == null || entry.isEmpty()) {
-			return false;
-		}
-		String[] parts = pathList.split(windows ? ";" : ":");
-		for (String p : parts) {
-			String v = p == null ? "" : p.trim();
-			if (windows) {
-				if (v.equalsIgnoreCase(entry)) {
-					return true;
-				}
-			} else if (v.equals(entry)) {
-				return true;
-			}
-		}
-		return false;
 	}
 	
 	/**
