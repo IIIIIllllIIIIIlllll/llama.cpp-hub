@@ -1222,9 +1222,9 @@ public class LlamaServerManager {
 			sb.append(ParamTool.quoteIfNeeded(chatTemplateFilePath.trim()));
 		}
 
-		if (!cmdHasFlag(allArgs, "--no-webui") && !cmdHasFlag(allArgs, "--webui")) {
-			sb.append(" --no-webui");
-		}
+//		if (!cmdHasFlag(allArgs, "--no-webui") && !cmdHasFlag(allArgs, "--webui")) {
+//			sb.append(" --no-webui");
+//		}
 		if (!cmdHasFlag(allArgs, "--metrics")) {
 			sb.append(" --metrics");
 		}

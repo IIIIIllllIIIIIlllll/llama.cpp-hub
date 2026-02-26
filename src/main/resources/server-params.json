@@ -265,5 +265,14 @@
     "defaultValue": "0", 
     "description":"param.server.context_shift.desc", 
     "sort": 25
-  }
+  },
+  {
+      "name": "param.server.no_webui.name", 
+      "fullName": "--no-webui",
+      "abbreviation": "--no-webui", 
+      "type": "LOGIC",
+      "defaultValue": "0", 
+      "description":"param.server.no_webui.desc", 
+      "sort": 26
+    }
 ]

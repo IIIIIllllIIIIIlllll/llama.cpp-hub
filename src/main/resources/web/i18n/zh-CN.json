@@ -630,6 +630,8 @@
   "param.server.chat_template.desc": "一般情况下不要使用，除非你使用的GGUF模型没有内置的聊天模板。如果要使用，请将‘禁用Jinja’设置为1，否则目前的llamacpp，是不会让内置聊天模板生效的。默认为空值，即使用模型的内置聊天模板，如果模型的内置模板不准确，则再尝试修改模板。",
   "param.server.context_shift.name": "上下文移位（Context Shift）",
   "param.server.context_shift.desc": "该功能 默认禁用。启用 KV Cache 的滑动窗口机制（也叫“上下文移位”或“上下文压缩”）。当上下文超出 --ctx-size 时，系统会自动丢弃最旧的 tokens（从左侧），保留最近的 tokens，而不是直接报错。",
+  "param.server.no_webui.name": "禁用webui",
+  "param.server.no_webui.desc": "即llamacpp自带的webui，一般来说不需要启用",
   "param.benchmark.repetitions.name": "重复次数",
   "param.benchmark.repetitions.desc": "测试重复次数，用于获得更稳定的性能数据。值越大，结果越稳定但测试耗时越长。",
   "param.benchmark.output.name": "输出格式",

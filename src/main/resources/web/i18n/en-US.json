@@ -674,6 +674,8 @@
   "param.benchmark.tensor_split.desc": "Tensor split ratio across multiple GPUs. Example: 0 means auto; 0.5/0.5 splits evenly across two GPUs.",
   "param.benchmark.direct_io.name": "Direct I/O",
   "param.benchmark.direct_io.desc": "Enable Direct I/O, which affects model loading speed. Enabled by default. llama.cpp's implementation may be problematic; if you encounter loading issues, disable it.",
+  "param.server.no_webui.name": "Disable webui",
+  "param.server.no_webui.desc": "Since it's the web UI that comes with llama.cpp, it generally doesn't need to be enabled.",
   "page.benchmark_v2.page_title": "Benchmark V2",
   "page.benchmark_v2.title": "Benchmark V2",
   "page.benchmark_v2.label.loaded_models": "Loaded models",
