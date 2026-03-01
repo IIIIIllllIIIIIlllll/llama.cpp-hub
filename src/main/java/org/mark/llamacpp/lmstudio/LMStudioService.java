@@ -416,9 +416,9 @@ public class LMStudioService {
 
 				connection = openAndTrack(ctx, targetUrl);
 				configureAndSend(connection, method, headers, requestBody);
-
+				long t = System.currentTimeMillis();
 				int responseCode = connection.getResponseCode();
-				logger.info("llama.cpp进程响应码: {}", responseCode);
+				logger.info("llama.cpp进程响应码: {}，等待时间：{}", responseCode, System.currentTimeMillis() - t);
 				this.handleEmbeddingsNonStreamResponse(ctx, connection, responseCode, requestedModelName, loadedModelName);
 			} catch (Exception e) {
 				logger.info("转发嵌入请求到llama.cpp进程时发生错误", e);
@@ -529,8 +529,9 @@ public class LMStudioService {
 				configureAndSend(connection, method, headers, requestBody);
 				
 				// 获取响应码
+				long t = System.currentTimeMillis();
 				int responseCode = connection.getResponseCode();
-				logger.info("llama.cpp进程响应码: {}", responseCode);
+				logger.info("llama.cpp进程响应码: {}，等待时间：{}", responseCode, System.currentTimeMillis() - t);
 				
 				if (isStream) {
 					// 处理流式响应
@@ -577,9 +578,9 @@ public class LMStudioService {
 				logger.info("连接到llama.cpp进程: {}", targetUrl);
 				connection = openAndTrack(ctx, targetUrl);
 				configureAndSend(connection, method, headers, requestBody);
-				
+				long t = System.currentTimeMillis();
 				int responseCode = connection.getResponseCode();
-				logger.info("llama.cpp进程响应码: {}", responseCode);
+				logger.info("llama.cpp进程响应码: {}，等待时间：{}", responseCode, System.currentTimeMillis() - t);
 				
 				if (isStream) {
 					this.handleTextCompletionStreamResponse(ctx, connection, responseCode, modelName);

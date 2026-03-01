@@ -495,10 +495,10 @@ public class OpenAIService {
 						logger.info("已发送请求体到llama.cpp进程，大小: {} 字节", input.length);
 					}
 				}
-				
+				long t = System.currentTimeMillis();
 				// 获取响应码
 				int responseCode = connection.getResponseCode();
-				logger.info("llama.cpp进程响应码: {}", responseCode);
+				logger.info("llama.cpp进程响应码: {}，等待时间：{}", responseCode, System.currentTimeMillis() - t);
 				
 				if (isStream) {
 					// 处理流式响应
