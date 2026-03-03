@@ -238,14 +238,49 @@ public class OpenAIService {
 			if (requestJson.has("stream")) {
 				isStream = requestJson.get("stream").getAsBoolean();
 			}
+//			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
+//			if (requestJson.has("enable_thinking") && !requestJson.has("chat_template_kwargs")) {
+//				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking": false},
+//				JsonObject chatTemplateKwargs = new JsonObject();
+//				chatTemplateKwargs.addProperty("enable_thinking", requestJson.get("enable_thinking").getAsBoolean());
+//				// 添加到主 JsonObject
+//				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
+//			}
+			
+			// 定义一个辅助函数逻辑，判断是否需要注入 chat_template_kwargs
 			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
+			// 额外的判断："thinking":{"type":"disabled"}
+			boolean needInjection = false;
+			boolean enableValueStr = true;
+			// 1. 检查传统字段 "enable_thinking"
 			if (requestJson.has("enable_thinking") && !requestJson.has("chat_template_kwargs")) {
-				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking": false},
+				needInjection = true;
+				enableValueStr = requestJson.get("enable_thinking").getAsBoolean();
+			}
+			// 2. 检查额外的"thinking":{"type":"disabled"}
+			if (!needInjection) {
+				if (requestJson.has("thinking") && !requestJson.has("chat_template_kwargs")) {
+					JsonElement thinkingEl = requestJson.get("thinking");
+					JsonObject thinkingObj = thinkingEl.getAsJsonObject();
+					String typeVal = "";
+					if (thinkingObj.has("type")) {
+						typeVal = thinkingObj.get("type").getAsString().toLowerCase().trim();
+					}
+					// 核心判断：如果 type 是 "disabled"，视为需要处理（通常映射为 enable_thinking: false）
+					if ("disabled".equals(typeVal.toLowerCase())) {
+						needInjection = true;
+						enableValueStr = false;
+					}
+				}
+			}
+			if (needInjection) {
+				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking":
+				// false},
 				JsonObject chatTemplateKwargs = new JsonObject();
-				chatTemplateKwargs.addProperty("enable_thinking", requestJson.get("enable_thinking").getAsBoolean());
-				// 添加到主 JsonObject
+				chatTemplateKwargs.addProperty("enable_thinking", enableValueStr);
 				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
 			}
+			
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			
