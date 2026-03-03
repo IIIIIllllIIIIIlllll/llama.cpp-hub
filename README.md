@@ -132,7 +132,7 @@ javac-linux.sh
 启动成功后，在浏览器中访问：
 
 - 主界面：`http://localhost:8080`
-- 对话界面：`http://localhost:8080/chat/completion.html`
+- 对话界面：`http://localhost:8080/chat/easy-chat.html`
 
 ### 配置模型目录和 llama.cpp 路径
 
