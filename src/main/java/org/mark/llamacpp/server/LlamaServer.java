@@ -1067,7 +1067,10 @@ public class LlamaServer {
 				}
 			});
 			tray.addSeparator();
-			tray.addButton("退出程序", () -> LlamaServerManager.getInstance().shutdownAll() );
+			tray.addButton("退出程序", () -> {
+				LlamaServerManager.getInstance().shutdownAll();
+				System.exit(0);
+			});
 
 			tray.setDefaultAction(() -> {
 				// 双击托盘图标触发，暂时没东西
