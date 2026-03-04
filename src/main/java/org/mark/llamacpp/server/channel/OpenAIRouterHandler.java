@@ -98,6 +98,10 @@ public class OpenAIRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 				this.openAIServerHandler.handleOpenAIResponsesRequest(ctx, request);
 				return;
 			}
+			if (uri.startsWith("/v1/rerank") || uri.startsWith("/v1/reranking") || uri.startsWith("/rerank") || uri.startsWith("/reranking")) {
+				this.openAIServerHandler.handleOpenAIRerankRequest(ctx, request);
+				return;
+			}
 			this.sendJsonResponse(ctx, ApiResponse.error("404 Not Found"));
 		} catch (Exception e) {
 			logger.info("处理API请求时发生错误", e);

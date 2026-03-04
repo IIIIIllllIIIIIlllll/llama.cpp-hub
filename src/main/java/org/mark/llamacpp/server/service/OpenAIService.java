@@ -417,6 +417,53 @@ public class OpenAIService {
 		}
 	}
 
+	public void handleOpenAIRerankRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+		try {
+			if (request.method() != HttpMethod.POST) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
+				return;
+			}
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "query");
+				return;
+			}
+			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			String modelName;
+			if (!requestJson.has("model")) {
+				modelName = manager.getFirstModelName();
+				if (modelName == null) {
+					this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "No models are currently loaded", null);
+					return;
+				}
+			} else {
+				modelName = requestJson.get("model").getAsString();
+			}
+			if (!manager.getLoadedProcesses().containsKey(modelName)) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "Model not found: " + modelName, "model");
+				return;
+			}
+			Integer modelPort = manager.getModelPort(modelName);
+			if (modelPort == null) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, "Model port not found: " + modelName, null);
+				return;
+			}
+
+			String endpoint = request.uri();
+			if (endpoint != null && endpoint.startsWith("/rerank")) {
+				endpoint = "/v1" + endpoint;
+			}
+			if (endpoint == null || endpoint.isBlank()) {
+				endpoint = "/v1/rerank";
+			}
+			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, endpoint, false, content);
+		} catch (Exception e) {
+			logger.info("处理OpenAI rerank 请求时发生错误", e);
+			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
+		}
+	}
+
 	public void handleOpenAIResponsesRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
 			if (request.method() != HttpMethod.POST) {

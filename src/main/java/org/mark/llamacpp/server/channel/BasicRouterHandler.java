@@ -223,9 +223,11 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		if (uri.startsWith("/models") || 
 				uri.startsWith("/chat/completion") || 
 				uri.startsWith("/completions") || 
-				uri.startsWith("/embeddings") || 
+				uri.startsWith("/embeddings") ||
+				uri.startsWith("/rerank") || 
 				uri.startsWith("/responses")) {
-			return true;
+			if(!uri.endsWith(".html"))
+				return true;
 		}
 		return false;
 	}
