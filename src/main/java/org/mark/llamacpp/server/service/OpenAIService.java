@@ -224,19 +224,33 @@ public class OpenAIService {
 
 			// 解析JSON请求体
 			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
-			
-			// 获取模型名称
-			if (!requestJson.has("model")) {
-				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Missing required parameter: model", "model");
+			if (requestJson == null) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is not a valid JSON object", null);
 				return;
 			}
 			
-			String modelName = requestJson.get("model").getAsString();
+			// 获取模型名称
+			if (!requestJson.has("model") || requestJson.get("model") == null || requestJson.get("model").isJsonNull()) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Missing required parameter: model", "model");
+				return;
+			}
+			String modelName = null;
+			try {
+				modelName = requestJson.get("model").getAsString();
+			} catch (Exception ignore) {
+			}
+			if (modelName == null || modelName.isBlank()) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Invalid parameter: model", "model");
+				return;
+			}
 			
 			// 检查是否为流式请求
 			boolean isStream = false;
 			if (requestJson.has("stream")) {
-				isStream = requestJson.get("stream").getAsBoolean();
+				try {
+					isStream = requestJson.get("stream").getAsBoolean();
+				} catch (Exception ignore) {
+				}
 			}
 //			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
 //			if (requestJson.has("enable_thinking") && !requestJson.has("chat_template_kwargs")) {
@@ -247,40 +261,78 @@ public class OpenAIService {
 //				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
 //			}
 			
+			//==============================================================================================
 			// 定义一个辅助函数逻辑，判断是否需要注入 chat_template_kwargs
 			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
 			// 额外的判断："thinking":{"type":"disabled"}
 			boolean needInjection = false;
 			boolean enableValueStr = true;
 			// 1. 检查传统字段 "enable_thinking"
-			if (requestJson.has("enable_thinking") && !requestJson.has("chat_template_kwargs")) {
-				needInjection = true;
-				enableValueStr = requestJson.get("enable_thinking").getAsBoolean();
+			if (requestJson.has("enable_thinking")) {
+				try {
+					JsonElement et = requestJson.get("enable_thinking");
+					if (et != null && !et.isJsonNull() && et.isJsonPrimitive()) {
+						if (et.getAsJsonPrimitive().isBoolean()) {
+							needInjection = true;
+							enableValueStr = et.getAsBoolean();
+						} else if (et.getAsJsonPrimitive().isString()) {
+							needInjection = true;
+							enableValueStr = Boolean.parseBoolean(et.getAsString().trim());
+						}
+					}
+				} catch (Exception ignore) {
+				}
 			}
 			// 2. 检查额外的"thinking":{"type":"disabled"}
 			if (!needInjection) {
-				if (requestJson.has("thinking") && !requestJson.has("chat_template_kwargs")) {
-					JsonElement thinkingEl = requestJson.get("thinking");
-					JsonObject thinkingObj = thinkingEl.getAsJsonObject();
-					String typeVal = "";
-					if (thinkingObj.has("type")) {
-						typeVal = thinkingObj.get("type").getAsString().toLowerCase().trim();
-					}
-					// 核心判断：如果 type 是 "disabled"，视为需要处理（通常映射为 enable_thinking: false）
-					if ("disabled".equals(typeVal.toLowerCase())) {
-						needInjection = true;
-						enableValueStr = false;
+				if (requestJson.has("thinking")) {
+					try {
+						JsonElement thinkingEl = requestJson.get("thinking");
+						if (thinkingEl != null && !thinkingEl.isJsonNull() && thinkingEl.isJsonObject()) {
+							JsonObject thinkingObj = thinkingEl.getAsJsonObject();
+							String typeVal = "";
+							if (thinkingObj.has("type")) {
+								JsonElement typeEl = thinkingObj.get("type");
+								if (typeEl != null && !typeEl.isJsonNull() && typeEl.isJsonPrimitive()
+										&& typeEl.getAsJsonPrimitive().isString()) {
+									typeVal = typeEl.getAsString().toLowerCase().trim();
+								}
+							}
+							// 核心判断：如果 type 是 "disabled"，视为需要处理（通常映射为 enable_thinking: false）
+							if ("disabled".equals(typeVal.toLowerCase())) {
+								needInjection = true;
+								enableValueStr = false;
+							}
+						}
+					} catch (Exception ignore) {
 					}
 				}
 			}
 			if (needInjection) {
-				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking":
-				// false},
-				JsonObject chatTemplateKwargs = new JsonObject();
+				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking": false},
+				// 分两种情况
+				// 没有这个模板注入，那就直接新建一个丢进去
+				JsonObject chatTemplateKwargs = null;
+				if (requestJson.has("chat_template_kwargs")) {
+					try {
+						JsonElement kwargsEl = requestJson.get("chat_template_kwargs");
+						if (kwargsEl != null && !kwargsEl.isJsonNull()) {
+							if (kwargsEl.isJsonObject()) {
+								chatTemplateKwargs = kwargsEl.getAsJsonObject();
+							} else if (kwargsEl.isJsonPrimitive() && kwargsEl.getAsJsonPrimitive().isString()) {
+								chatTemplateKwargs = JsonUtil.tryParseObject(kwargsEl.getAsString());
+							}
+						}
+					} catch (Exception ignore) {
+					}
+				}
+				if (chatTemplateKwargs == null) {
+					chatTemplateKwargs = new JsonObject();
+				}
 				chatTemplateKwargs.addProperty("enable_thinking", enableValueStr);
 				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
 			}
-			
+			//==============================================================================================
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			
