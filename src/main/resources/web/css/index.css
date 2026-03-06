@@ -775,6 +775,10 @@
             flex: 1;
             min-height: 0;
         }
+        #main-settings .settings-panel[data-tab-panel="general"] .model-list-container {
+            flex: none;
+            min-height: auto;
+        }
         .settings-panel-body {
             padding: 1.25rem 1.5rem;
             flex: 1;

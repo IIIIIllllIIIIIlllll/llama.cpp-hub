@@ -405,6 +405,55 @@
 
                         <div class="model-list-container" style="margin-top: 1rem;">
                             <div class="model-list-header">
+                                <h2 data-i18n="page.settings.general.request_log.title">page.settings.general.request_log.title</h2>
+                            </div>
+                            <div class="settings-panel-body">
+                                <div class="form-group" style="margin: 0;">
+                                    <small class="form-text" data-i18n="page.settings.general.request_log.desc">page.settings.general.request_log.desc</small>
+                                </div>
+                                <div class="settings-toggle-list">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-link"></i>
+                                            <span data-i18n="page.settings.general.request_log.url">page.settings.general.request_log.url</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleLogRequestUrl">
+                                                <label class="form-check-label" for="toggleLogRequestUrl" data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-heading"></i>
+                                            <span data-i18n="page.settings.general.request_log.header">page.settings.general.request_log.header</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleLogRequestHeader">
+                                                <label class="form-check-label" for="toggleLogRequestHeader" data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-file-alt"></i>
+                                            <span data-i18n="page.settings.general.request_log.body">page.settings.general.request_log.body</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleLogRequestBody">
+                                                <label class="form-check-label" for="toggleLogRequestBody" data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="model-list-container" style="margin-top: 1rem;">
+                            <div class="model-list-header">
                                 <h2 data-i18n="page.settings.search.title">page.settings.search.title</h2>
                             </div>
                             <div class="settings-panel-body">
@@ -1610,9 +1659,25 @@
             if (savePortsBtn) {
                 savePortsBtn.addEventListener('click', saveCompatPorts);
             }
+            initRequestLogToggles();
             const saveZhipuBtn = document.getElementById('saveZhipuSearchApiKeyBtn');
             if (saveZhipuBtn) {
                 saveZhipuBtn.addEventListener('click', saveZhipuSearchApiKey);
+            }
+        }
+
+        function initRequestLogToggles() {
+            const url = document.getElementById('toggleLogRequestUrl');
+            if (url) {
+                url.addEventListener('change', () => setRequestLogEnabled('LlamaServer.logRequestUrl', url.checked, url));
+            }
+            const header = document.getElementById('toggleLogRequestHeader');
+            if (header) {
+                header.addEventListener('change', () => setRequestLogEnabled('LlamaServer.logRequestHeader', header.checked, header));
+            }
+            const body = document.getElementById('toggleLogRequestBody');
+            if (body) {
+                body.addEventListener('change', () => setRequestLogEnabled('LlamaServer.logRequestBody', body.checked, body));
             }
         }
         
@@ -1652,6 +1717,19 @@
                     if (typeof p === 'number' && p > 0) {
                         lmstudioPort.value = String(p);
                     }
+                }
+
+                const logRequestUrl = document.getElementById('toggleLogRequestUrl');
+                if (logRequestUrl && data.data.requestLog && typeof data.data.requestLog.logRequestUrl === 'boolean') {
+                    logRequestUrl.checked = !!data.data.requestLog.logRequestUrl;
+                }
+                const logRequestHeader = document.getElementById('toggleLogRequestHeader');
+                if (logRequestHeader && data.data.requestLog && typeof data.data.requestLog.logRequestHeader === 'boolean') {
+                    logRequestHeader.checked = !!data.data.requestLog.logRequestHeader;
+                }
+                const logRequestBody = document.getElementById('toggleLogRequestBody');
+                if (logRequestBody && data.data.requestLog && typeof data.data.requestLog.logRequestBody === 'boolean') {
+                    logRequestBody.checked = !!data.data.requestLog.logRequestBody;
                 }
             } catch (e) {
             }
@@ -1694,6 +1772,32 @@
                 loadCompatServiceStatus();
             } catch (e) {
                 showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+            }
+        }
+
+        async function setRequestLogEnabled(key, enable, toggleEl) {
+            const prev = !enable;
+            if (toggleEl) toggleEl.disabled = true;
+            try {
+                const payload = {};
+                payload[key] = !!enable;
+                const response = await fetch('/api/sys/setting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data || !data.success) {
+                    if (toggleEl) toggleEl.checked = prev;
+                    showToast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
+                    return;
+                }
+                showToast(t('toast.success', '成功'), t('toast.saved', '已保存'), 'success');
+            } catch (e) {
+                if (toggleEl) toggleEl.checked = prev;
+                showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+            } finally {
+                if (toggleEl) toggleEl.disabled = false;
             }
         }
 

@@ -284,6 +284,12 @@ public class SystemController implements BaseController {
 			lmstudioData.put("running", lmstudio.isRunning());
 			lmstudioData.put("port", lmstudio.getPort());
 			data.put("lmstudio", lmstudioData);
+
+			Map<String, Object> requestLogData = new HashMap<>();
+			requestLogData.put("logRequestUrl", LlamaServer.isLogRequestUrlEnabled());
+			requestLogData.put("logRequestHeader", LlamaServer.isLogRequestHeaderEnabled());
+			requestLogData.put("logRequestBody", LlamaServer.isLogRequestBodyEnabled());
+			data.put("requestLog", requestLogData);
 			
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
@@ -412,9 +418,12 @@ public class SystemController implements BaseController {
 
 			Integer ollamaPort = firstPort(obj, "ollamaPort", "ollama_port", "ollamaCompatPort", "ollama_compat_port");
 			Integer lmstudioPort = firstPort(obj, "lmstudioPort", "lmstudio_port", "lmstudioCompatPort", "lmstudio_compat_port");
+			Boolean logRequestUrl = firstBoolean(obj, "LlamaServer.logRequestUrl", "logRequestUrl", "log_request_url");
+			Boolean logRequestHeader = firstBoolean(obj, "LlamaServer.logRequestHeader", "logRequestHeader", "log_request_header");
+			Boolean logRequestBody = firstBoolean(obj, "LlamaServer.logRequestBody", "logRequestBody", "log_request_body");
 
-			if (ollamaPort == null && lmstudioPort == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少端口参数"));
+			if (ollamaPort == null && lmstudioPort == null && logRequestUrl == null && logRequestHeader == null && logRequestBody == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少可保存参数"));
 				return;
 			}
 
@@ -434,6 +443,10 @@ public class SystemController implements BaseController {
 				LlamaServer.updateLmstudioCompatConfig(LlamaServer.isLmstudioCompatEnabled(), lmstudioPort.intValue());
 			}
 
+			if (logRequestUrl != null || logRequestHeader != null || logRequestBody != null) {
+				LlamaServer.updateRequestLogConfig(logRequestUrl, logRequestHeader, logRequestBody);
+			}
+
 			Map<String, Object> data = new HashMap<>();
 			Map<String, Object> ollama = new HashMap<>();
 			ollama.put("enabled", LlamaServer.isOllamaCompatEnabled());
@@ -444,6 +457,12 @@ public class SystemController implements BaseController {
 			lmstudio.put("enabled", LlamaServer.isLmstudioCompatEnabled());
 			lmstudio.put("port", LlamaServer.getLmstudioCompatPort());
 			data.put("lmstudio", lmstudio);
+
+			Map<String, Object> requestLog = new HashMap<>();
+			requestLog.put("logRequestUrl", LlamaServer.isLogRequestUrlEnabled());
+			requestLog.put("logRequestHeader", LlamaServer.isLogRequestHeaderEnabled());
+			requestLog.put("logRequestBody", LlamaServer.isLogRequestBodyEnabled());
+			data.put("requestLog", requestLog);
 
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
@@ -504,6 +523,45 @@ public class SystemController implements BaseController {
 			Integer v = JsonUtil.getJsonInt(obj, k, null);
 			if (v != null) {
 				return v;
+			}
+		}
+		return null;
+	}
+
+	private static Boolean firstBoolean(JsonObject obj, String... keys) {
+		if (obj == null || keys == null) {
+			return null;
+		}
+		for (String k : keys) {
+			if (k == null || k.isEmpty() || !obj.has(k)) {
+				continue;
+			}
+			JsonElement v = obj.get(k);
+			if (v == null || v.isJsonNull()) {
+				continue;
+			}
+			if (v.isJsonPrimitive()) {
+				try {
+					if (v.getAsJsonPrimitive().isBoolean()) {
+						return v.getAsBoolean();
+					}
+					if (v.getAsJsonPrimitive().isString()) {
+						String raw = v.getAsString();
+						if (raw != null) {
+							String s = raw.trim().toLowerCase();
+							if ("true".equals(s) || "1".equals(s) || "yes".equals(s) || "on".equals(s)) {
+								return true;
+							}
+							if ("false".equals(s) || "0".equals(s) || "no".equals(s) || "off".equals(s)) {
+								return false;
+							}
+						}
+					}
+					if (v.getAsJsonPrimitive().isNumber()) {
+						return v.getAsInt() != 0;
+					}
+				} catch (Exception e) {
+				}
 			}
 		}
 		return null;
