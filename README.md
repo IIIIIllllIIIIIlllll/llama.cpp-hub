@@ -11,7 +11,7 @@
 ---
 > **提醒**：目前支持英语版本，会根据浏览器的语言设置自动切换，也可以在url中通过lang参数手动指定英语（如：http:127.0.0.1:8080/?lang=en）。
 ---
-> **提醒**：我在使用RTX 4080S + GTX 1080时发现，基于CUDA的llamacpp会非常非常卡顿（如--list-devices），似乎是异构的问题，换vulkan没有这个情况，因此多GPU的兄弟请注意，如果本软件卡顿（因为要调用llamacpp），可能是CUDA版llamacpp的问题。
+> **提醒**：我在使用RTX 4080S + GTX 1080时发现，基于CUDA的llamacpp会非常非常卡顿（如--list-devices），似乎是异构的问题，换vulkan没有这个情况，因此多GPU的兄弟请注意，如果本软件卡顿（因为要调用llamacpp），可能是CUDA版llamacpp的问题。自2026年3月7日更新：在我的RTX 4080S + V100上工作良好，这个问题应该不存在了，但是不排除特定版本的驱动或llamacpp上依然有这个问题的情况，所以保留该提醒。
 ---
 
 ## API兼容情况（llamacpp自身支持OpenAI Compatible和Anthropic API）
