@@ -59,6 +59,9 @@ function bindEvents() {
       topP: els.topP ? String(els.topP.value || '') : '',
       minP: els.minP ? String(els.minP.value || '') : '',
       repeatPenalty: els.repeatPenalty ? String(els.repeatPenalty.value || '') : '',
+      topK: els.topK ? String(els.topK.value || '') : '',
+      presencePenalty: els.presencePenalty ? String(els.presencePenalty.value || '') : '',
+      frequencyPenalty: els.frequencyPenalty ? String(els.frequencyPenalty.value || '') : '',
       stopSequences: els.stopSequences ? String(els.stopSequences.value || '') : ''
     };
   }
@@ -80,6 +83,9 @@ function bindEvents() {
     if (els.topP) els.topP.value = snap.topP;
     if (els.minP) els.minP.value = snap.minP;
     if (els.repeatPenalty) els.repeatPenalty.value = snap.repeatPenalty;
+    if (els.topK) els.topK.value = snap.topK;
+    if (els.presencePenalty) els.presencePenalty.value = snap.presencePenalty;
+    if (els.frequencyPenalty) els.frequencyPenalty.value = snap.frequencyPenalty;
     if (els.stopSequences) els.stopSequences.value = snap.stopSequences;
   }
 

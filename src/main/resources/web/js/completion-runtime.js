@@ -414,23 +414,34 @@ async function consumeSseStream(res, assistantMsgId) {
 }
 
 function currentParams() {
+  const rawTopP = String(els.topP.value || '').trim();
   const rawMinP = String(els.minP.value || '').trim();
   const rawRepeatPenalty = String(els.repeatPenalty.value || '').trim();
+  const rawTopK = String(els.topK.value || '').trim();
+  const rawPresencePenalty = String(els.presencePenalty.value || '').trim();
+  const rawFrequencyPenalty = String(els.frequencyPenalty.value || '').trim();
   const stopLines = String(els.stopSequences.value || '')
     .split(/\r?\n/)
     .map(s => s.trim())
     .filter(Boolean);
 
+  const top_p = rawTopP ? Number(rawTopP) : undefined;
   const min_p = rawMinP ? Number(rawMinP) : undefined;
   const repeat_penalty = rawRepeatPenalty ? Number(rawRepeatPenalty) : undefined;
+  const top_k = rawTopK ? Number(rawTopK) : undefined;
+  const presence_penalty = rawPresencePenalty ? Number(rawPresencePenalty) : undefined;
+  const frequency_penalty = rawFrequencyPenalty ? Number(rawFrequencyPenalty) : undefined;
   const stop = stopLines.length ? stopLines : undefined;
 
   return {
     max_tokens: Number(els.maxTokens.value || 1024),
     temperature: Number(els.temperature.value || 0.7),
-    top_p: Number(els.topP.value || 1),
+    top_p: (Number.isFinite(top_p) ? top_p : undefined),
     min_p: (Number.isFinite(min_p) ? min_p : undefined),
     repeat_penalty: (Number.isFinite(repeat_penalty) ? repeat_penalty : undefined),
+    top_k: (Number.isFinite(top_k) ? top_k : undefined),
+    presence_penalty: (Number.isFinite(presence_penalty) ? presence_penalty : undefined),
+    frequency_penalty: (Number.isFinite(frequency_penalty) ? frequency_penalty : undefined),
     stop
   };
 }
@@ -803,6 +814,9 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
             top_p: params.top_p,
             min_p: params.min_p,
             repeat_penalty: params.repeat_penalty,
+            top_k: params.top_k,
+            presence_penalty: params.presence_penalty,
+            frequency_penalty: params.frequency_penalty,
             enable_thinking: !!els.thinkingToggle.checked,
             stream: useStream,
             stop
@@ -822,6 +836,9 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
           top_p: params.top_p,
           min_p: params.min_p,
           repeat_penalty: params.repeat_penalty,
+          top_k: params.top_k,
+          presence_penalty: params.presence_penalty,
+          frequency_penalty: params.frequency_penalty,
           enable_thinking: !!els.thinkingToggle.checked,
           stream: useStream,
           stop
@@ -1421,12 +1438,19 @@ function applyCompletionData(s) {
   els.assistantSuffix.value = (ext?.assistantSuffix == null ? '' : String(ext.assistantSuffix));
   if (ext?.params?.max_tokens != null) els.maxTokens.value = String(ext.params.max_tokens);
   if (ext?.params?.temperature != null) els.temperature.value = String(ext.params.temperature);
-  if (ext?.params?.top_p != null) els.topP.value = String(ext.params.top_p);
-  els.minP.value = '';
-  els.repeatPenalty.value = '';
+  els.topP.value = '0.95';
+  els.topK.value = '40';
+  els.minP.value = '0.05';
+  els.presencePenalty.value = '0';
+  els.repeatPenalty.value = '1';
+  els.frequencyPenalty.value = '0';
   els.stopSequences.value = '';
+  if (ext?.params?.top_p != null) els.topP.value = String(ext.params.top_p);
   if (ext?.params?.min_p != null) els.minP.value = String(ext.params.min_p);
   if (ext?.params?.repeat_penalty != null) els.repeatPenalty.value = String(ext.params.repeat_penalty);
+  if (ext?.params?.top_k != null) els.topK.value = String(ext.params.top_k);
+  if (ext?.params?.presence_penalty != null) els.presencePenalty.value = String(ext.params.presence_penalty);
+  if (ext?.params?.frequency_penalty != null) els.frequencyPenalty.value = String(ext.params.frequency_penalty);
   const stopVal = ext?.params?.stop;
   if (Array.isArray(stopVal)) els.stopSequences.value = stopVal.map(s => String(s)).join('\n');
   else if (typeof stopVal === 'string') els.stopSequences.value = stopVal;

@@ -94,15 +94,27 @@
           </div>
           <div class="setting">
             <label for="topP">top_p</label>
-            <input id="topP" type="number" value="1" step="0.05" min="0" max="1" />
+            <input id="topP" type="number" value="0.95" step="0.05" min="0" max="1" />
+          </div>
+          <div class="setting">
+            <label for="topK">top_k</label>
+            <input id="topK" type="number" step="1" min="0" max="2048" value="40" />
           </div>
           <div class="setting">
             <label for="minP">min_p</label>
             <input id="minP" type="number" step="0.01" min="0" max="1" value="0.05" />
           </div>
           <div class="setting">
+            <label for="presencePenalty">presence_penalty</label>
+            <input id="presencePenalty" type="number" step="0.1" min="-2" max="2" value="0" />
+          </div>
+          <div class="setting">
             <label for="repeatPenalty">repeat_penalty</label>
-            <input id="repeatPenalty" type="number" step="0.05" min="0" max="10" value="1.0" />
+            <input id="repeatPenalty" type="number" step="0.05" min="0" max="10" value="1" />
+          </div>
+          <div class="setting">
+            <label for="frequencyPenalty">frequency_penalty</label>
+            <input id="frequencyPenalty" type="number" step="0.1" min="-2" max="2" value="0" />
           </div>
           <div class="setting">
             <label for="stopSequences">stop</label>
