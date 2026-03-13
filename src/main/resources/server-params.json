@@ -296,10 +296,6 @@
 	  "abbreviation": "--reasoning-budget", 
 	  "type": "STRING",
 	  "defaultValue": "-1", 
-	  "values": [
-		"-1",
-		"0"
-	  ],
 	  "description":"param.server.reasoning_budget.desc", 
 	  "sort": 28
   }

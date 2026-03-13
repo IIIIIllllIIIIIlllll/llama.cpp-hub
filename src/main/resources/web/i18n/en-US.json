@@ -639,7 +639,7 @@
   "param.server.reasoning_format.name": "Reasoning Format",
   "param.server.reasoning_format.desc": "controls whether thought tags are allowed and/or extracted from the response, and in which format they're returned; one of: - none: leaves thoughts unparsed in message.content; - deepseek: puts thoughts in message.reasoning_content; - deepseek-legacy: keeps <think> tags in message.content while also populating message.reasoning_content(default: auto)",
   "param.server.reasoning_budget.name": "Reasoning Budget",
-  "param.server.reasoning_budget.desc": "controls the amount of thinking allowed; currently only one of: -1 for unrestricted thinking budget, or 0 to disable thinking (default: -1)",
+  "param.server.reasoning_budget.desc": "Controls the allowed amount of reasoning; -1 indicates an unlimited reasoning budget, or 0 indicates disabling thinking. Any other value specifies the maximum length of the reasoning chain, though this may not always be fully effective (default: -1).",
   "param.benchmark.repetitions.name": "Repetitions",
   "param.benchmark.repetitions.desc": "Number of repetitions to obtain more stable performance data. Higher values are more stable but take longer.",
   "param.benchmark.output.name": "Output format",
