@@ -589,7 +589,7 @@ function addModelConfigOption() {
     if (!modal) return;
     const modelId = getFieldString(modal, ['modelId']);
     if (!modelId) return;
-    const inputName = window.prompt('请输入新配置名称');
+    const inputName = window.prompt(t('modal.model_action.config.prompt_new_name', '请输入新配置名称'));
     const name = inputName === null || inputName === undefined ? '' : String(inputName).trim();
     if (!name) return;
     const bundle = normalizeLaunchConfigBundle(window.__modelConfigBundle);
@@ -623,10 +623,9 @@ function deleteModelConfigOption() {
     if (!modal) return;
     const modelId = getFieldString(modal, ['modelId']);
     if (!modelId) return;
-    const bundle = normalizeLaunchConfigBundle(window.__modelConfigBundle);
     const name = getSelectedModelConfigName(modal);
     if (!name) return;
-    const ok = window.confirm(`确认删除配置「${name}」吗？`);
+    const ok = window.confirm(t('modal.model_action.config.delete_confirm', '确认删除配置「{name}」吗？').replace('{name}', name));
     if (!ok) return;
     const payload = buildConfigDeletePayload(modelId, name);
     setModelConfigControlsDisabled(modal, true);
@@ -636,7 +635,7 @@ function deleteModelConfigOption() {
         body: JSON.stringify(payload)
     }).then(r => r.json()).then(res => {
         if (!(res && res.success)) {
-            showToast(t('toast.error', '错误'), (res && res.error) ? res.error : '删除配置失败', 'error');
+            showToast(t('toast.error', '错误'), (res && res.error) ? res.error : t('modal.model_action.config.delete_failed', '删除配置失败'), 'error');
             return;
         }
         const nextBundle = extractLaunchConfigBundleFromGetResponse(res, modelId);
@@ -644,7 +643,7 @@ function deleteModelConfigOption() {
         const selected = nextBundle.selectedConfig;
         const nextConfig = nextBundle.configs[selected] || {};
         applyLaunchConfigToModal(modal, nextConfig);
-        showToast(t('toast.success', '成功'), '配置已删除', 'success');
+        showToast(t('toast.success', '成功'), t('modal.model_action.config.deleted', '配置已删除'), 'success');
     }).catch(() => {
         showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
     }).finally(() => {
