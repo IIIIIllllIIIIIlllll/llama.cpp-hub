@@ -322,20 +322,24 @@ function loadModelSamplingSettings() {
     const details = document.getElementById(modalId + 'SamplingDetails');
     if (!modelId || !select || !details) return;
     details.innerHTML = `<div style="grid-column:1 / -1; padding:12px; border:1px solid #e5e7eb; border-radius:0.75rem; color:#6b7280;">${escapeAttrCompat(t('common.loading', '加载中...'))}</div>`;
-    fetch(`/api/models/config/get?modelId=${encodeURIComponent(modelId)}`)
-        .then(r => r.json())
-        .then(res => {
-            if (!(res && res.success)) {
+    const configReq = fetch(`/api/models/config/get?modelId=${encodeURIComponent(modelId)}`).then(r => r.json());
+    const selectedReq = fetch(`/api/sys/model/sampling/setting/get?modelId=${encodeURIComponent(modelId)}`).then(r => r.json());
+    Promise.all([configReq, selectedReq])
+        .then(([configRes, selectedRes]) => {
+            if (!(configRes && configRes.success)) {
                 details.innerHTML = `<div style="grid-column:1 / -1; padding:12px; border:1px solid #fecaca; border-radius:0.75rem; color:#b91c1c;">${escapeAttrCompat(t('common.request_failed', '请求失败'))}</div>`;
                 return;
             }
-            const bundle = extractModelConfigBundleFromGetResponse(res, modelId);
+            const bundle = extractModelConfigBundleFromGetResponse(configRes, modelId);
             window.__modelDetailSamplingBundle = bundle;
             const names = Object.keys(bundle.configs || {});
             const offOption = `<option value="">${escapeAttrCompat(t('modal.model_detail.sampling.off', '关闭功能'))}</option>`;
             const dynamicOptions = names.map((name) => `<option value="${escapeAttrCompat(name)}">${escapeAttrCompat(name)}</option>`).join('');
             select.innerHTML = offOption + dynamicOptions;
-            select.value = '';
+            const selectedName = selectedRes && selectedRes.success && selectedRes.data && selectedRes.data.samplingConfigName
+                ? String(selectedRes.data.samplingConfigName).trim()
+                : '';
+            select.value = (selectedName && bundle.configs[selectedName]) ? selectedName : '';
             renderSelectedModelSamplingSettings();
         })
         .catch(() => {

@@ -97,6 +97,10 @@ public class SystemController implements BaseController {
 			this.handleSearchSettingRequest(ctx, request);
 			return true;
 		}
+		if (uri.startsWith("/api/sys/model/sampling/setting/get")) {
+			this.handleModelSamplingSettingGetRequest(ctx, request);
+			return true;
+		}
 		if (uri.startsWith("/api/sys/model/sampling/setting")) {
 			this.handleModelSamplingSettingRequest(ctx, request);
 			return true;
@@ -619,6 +623,42 @@ public class SystemController implements BaseController {
 		} catch (Exception e) {
 			logger.info("处理模型采样设定请求时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型采样设定失败: " + e.getMessage()));
+		}
+	}
+
+	private void handleModelSamplingSettingGetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		try {
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String modelId = params.get("modelId");
+			modelId = modelId == null ? "" : modelId.trim();
+			if (modelId.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
+				return;
+			}
+			Path configPath = Paths.get("config", "model-sampling-settings.json");
+			String samplingConfigName = "";
+			if (Files.exists(configPath)) {
+				String text = Files.readString(configPath, StandardCharsets.UTF_8);
+				JsonObject obj = JsonUtil.fromJson(text, JsonObject.class);
+				if (obj != null && obj.has(modelId) && obj.get(modelId) != null && !obj.get(modelId).isJsonNull()) {
+					samplingConfigName = obj.get(modelId).getAsString();
+				}
+			}
+			samplingConfigName = samplingConfigName == null ? "" : samplingConfigName.trim();
+			Map<String, Object> data = new HashMap<>();
+			data.put("modelId", modelId);
+			data.put("samplingConfigName", samplingConfigName);
+			data.put("configName", samplingConfigName);
+			data.put("enabled", !samplingConfigName.isEmpty());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("查询模型采样设定请求时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("查询模型采样设定失败: " + e.getMessage()));
 		}
 	}
 	
