@@ -650,6 +650,8 @@
   "param.server.reasoning_format.desc": "控制是否允许及/或从响应中提取思考标签，以及它们的返回格式；可选值：none: 在 message.content 中保留未解析的思考内容； deepseek：将思考内容放入 message.reasoning_content； deepseek-legacy：在 message.content 中保留<think>标签，同时填充 message.reasoning_content（默认：auto）",
   "param.server.reasoning_budget.name": "强制推理",
   "param.server.reasoning_budget.desc": "控制允许的思考量；-1 表示无限制思考预算，或 0 表示禁用思考，其它任意参数：思维链的最大长度，但是未必一定有效（默认：-1）。",
+  "param.server.no_mmproj_offload.name": "禁用mmproj卸载",
+  "param.server.no_mmproj_offload.desc": "卸载mmproj投影到CPU，当GPU显存不足时，可以开启该选项，但是CPU处理图片的性能往往不如GPU。",
   "param.benchmark.repetitions.name": "重复次数",
   "param.benchmark.repetitions.desc": "测试重复次数，用于获得更稳定的性能数据。值越大，结果越稳定但测试耗时越长。",
   "param.benchmark.output.name": "输出格式",

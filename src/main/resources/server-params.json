@@ -298,5 +298,14 @@
 	  "defaultValue": "-1", 
 	  "description":"param.server.reasoning_budget.desc", 
 	  "sort": 28
+  },
+  {
+	"name": "param.server.no_mmproj_offload.name",
+	"fullName": "--no-mmproj-offload",
+	"abbreviation": "--no-mmproj-offload",
+	"type": "LOGIC",
+	"defaultValue": "0",
+	"description": "卸载mmproj投影到CPU，当GPU显存不足时，可以开启该选项，但是CPU处理图片的性能往往不如GPU。",
+	"sort": 29
   }
 ]
