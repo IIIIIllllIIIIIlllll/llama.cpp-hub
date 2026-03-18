@@ -39,14 +39,17 @@ function showModelDetailModal(model) {
                     `${(() => { let s=''; if (model.metadata) { for (const [k,v] of Object.entries(model.metadata)) { s += `<div><strong>${k}:</strong></div><div style="word-break:break-all;">${v}</div>`; } } return s; })()}` +
                     `</div>` +
                     `</div>`;
-    let samplingPanel = `<div id="${modalId}SamplingPanel" style="display:none; height:100%; overflow:auto;">` +
+    let samplingPanel = `<div id="${modalId}SamplingPanel" style="display:none; height:100%; overflow:auto; font-size: 12px; ">` +
                         `<div style="padding:10px 12px; border-radius:0.75rem; background:#f3f4f6; color:#111827; line-height:1.7; margin-bottom:12px;">` +
                         `${t('modal.model_detail.sampling.desc', '开启该功能后，将强制使用指定的采样配置，而忽略其它客户端中的采样。比如你在这里强制设置温度为1.0，而在openwebui中设置温度为0.7，此时llamacpp将忽略0.7，使用1.0。这个功能的意义是为了快速切换采样来变更模型的工作模式，比如Qwen3.5，它对采样的敏感度非常高，而且有多种采样搭配，为了避免反复修改采样配置，在这里设置并切换更加方便。')}` +
                         `</div>` +
                         `<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">` +
-                        `<label for="${modalId}SamplingConfigSelect" style="white-space:nowrap;">${t('modal.model_detail.sampling.config', '启动配置')}</label>` +
+                        `<label for="${modalId}SamplingConfigSelect" style="white-space:nowrap;">${t('modal.model_detail.sampling.config', '采样配置')}</label>` +
                         `<select class="form-control" id="${modalId}SamplingConfigSelect" style="max-width:320px;"></select>` +
-                        `<button class="btn btn-primary" id="${modalId}SamplingSaveBtn">${t('modal.model_detail.sampling.save', '保存设定')}</button>` +
+                        `<button class="btn btn-secondary" id="${modalId}SamplingSaveBtn">${t('modal.model_detail.sampling.save', '保存设定')}</button>` +
+                        `<button class="btn btn-secondary" id="${modalId}SamplingAddBtn">${t('modal.model_detail.sampling.add', '新增配置')}</button>` +
+                        `<button class="btn btn-secondary" id="${modalId}SamplingUpdateBtn">${t('modal.model_detail.sampling.update', '更新采样')}</button>` +
+                        `<button class="btn btn-danger" id="${modalId}SamplingDeleteBtn">${t('modal.model_detail.sampling.delete', '删除配置')}</button>` +
                         `</div>` +
                         `<div id="${modalId}SamplingDetails" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>` +
                         `</div>`;
@@ -90,6 +93,9 @@ function showModelDetailModal(model) {
     const tabToken = document.getElementById(modalId + 'TabToken');
     const samplingConfigSelect = document.getElementById(modalId + 'SamplingConfigSelect');
     const samplingSaveBtn = document.getElementById(modalId + 'SamplingSaveBtn');
+    const samplingAddBtn = document.getElementById(modalId + 'SamplingAddBtn');
+    const samplingUpdateBtn = document.getElementById(modalId + 'SamplingUpdateBtn');
+    const samplingDeleteBtn = document.getElementById(modalId + 'SamplingDeleteBtn');
     const fetchPropsBtn = document.getElementById(modalId + 'PropsFetchBtn');
     const tplReloadBtn = document.getElementById(modalId + 'ChatTemplateReloadBtn');
     const tplDefaultBtn = document.getElementById(modalId + 'ChatTemplateDefaultBtn');
@@ -104,6 +110,9 @@ function showModelDetailModal(model) {
     if (tabToken) tabToken.onclick = () => openModelDetailTab('token');
     if (samplingConfigSelect) samplingConfigSelect.onchange = () => renderSelectedModelSamplingSettings();
     if (samplingSaveBtn) samplingSaveBtn.onclick = () => saveModelSamplingSelection();
+    if (samplingAddBtn) samplingAddBtn.onclick = () => addModelSamplingConfig();
+    if (samplingUpdateBtn) samplingUpdateBtn.onclick = () => updateModelSamplingConfig();
+    if (samplingDeleteBtn) samplingDeleteBtn.onclick = () => deleteModelSamplingConfig();
     if (fetchPropsBtn) fetchPropsBtn.onclick = () => loadModelProps();
     if (tplReloadBtn) tplReloadBtn.onclick = () => loadModelChatTemplate(true);
     if (tplDefaultBtn) tplDefaultBtn.onclick = () => loadModelDefaultChatTemplate();
@@ -302,17 +311,61 @@ function renderSelectedModelSamplingSettings() {
     details.style.display = 'grid';
     const cfg = bundle.configs[name] || {};
     const s = extractSamplingSettingsFromConfig(cfg);
-    const fmt = (v) => (v === null || v === undefined || String(v).trim() === '') ? '-' : String(v);
     const safe = (v) => escapeAttrCompat(v === null || v === undefined ? '' : String(v));
-    details.innerHTML = [
-        ['温度', '--temp', s.temp],
-        ['Top-P', '--top-p', s.topP],
-        ['Top-K', '--top-k', s.topK],
-        ['Min-P', '--min-p', s.minP],
-        ['Presence Penalty', '--presence-penalty', s.presencePenalty],
-        ['Repeat Penalty', '--repeat-penalty', s.repeatPenalty],
-        ['Frequency Penalty', '--frequency-penalty', s.frequencyPenalty]
-    ].map((item) => `<div style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:0.75rem;"><div style="font-size:12px; color:#6b7280;">${safe(item[0])} ${safe(item[1])}</div><div style="font-weight:600; color:#111827; margin-top:4px;">${safe(fmt(item[2]))}</div></div>`).join('');
+    const fields = [
+        ['Temp', '--temp', 'SamplingFieldTemp', s.temp],
+        ['Top-P', '--top-p', 'SamplingFieldTopP', s.topP],
+        ['Top-K', '--top-k', 'SamplingFieldTopK', s.topK],
+        ['Min-P', '--min-p', 'SamplingFieldMinP', s.minP],
+        ['Presence Penalty', '--presence-penalty', 'SamplingFieldPresencePenalty', s.presencePenalty],
+        ['Repeat Penalty', '--repeat-penalty', 'SamplingFieldRepeatPenalty', s.repeatPenalty],
+        ['Frequency Penalty', '--frequency-penalty', 'SamplingFieldFrequencyPenalty', s.frequencyPenalty]
+    ];
+    details.innerHTML = fields.map((item) => {
+        const id = modalId + item[2];
+        const value = item[3] === null || item[3] === undefined ? '' : String(item[3]);
+        return `<div style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:0.75rem;"><div style="font-size:12px; color:#6b7280; margin-bottom:6px;">${safe(item[0])} ${safe(item[1])}</div><input class="form-control" id="${safe(id)}" value="${safe(value)}" /></div>`;
+    }).join('');
+    const inputs = details.querySelectorAll('input');
+    for (let i = 0; i < inputs.length; i++) {
+        inputs[i].oninput = () => updateSamplingBundleFromForm();
+    }
+    updateSamplingBundleFromForm();
+}
+
+function getSamplingDraftFromForm() {
+    const modalId = 'modelDetailModal';
+    const read = (suffix) => {
+        const el = document.getElementById(modalId + suffix);
+        if (!el) return '';
+        return el.value === null || el.value === undefined ? '' : String(el.value).trim();
+    };
+    const out = {};
+    const setNumber = (key, raw, intOnly) => {
+        if (!raw) return;
+        const n = intOnly ? parseInt(raw, 10) : parseFloat(raw);
+        if (!Number.isNaN(n) && Number.isFinite(n)) {
+            out[key] = n;
+        }
+    };
+    setNumber('temperature', read('SamplingFieldTemp'), false);
+    setNumber('top_p', read('SamplingFieldTopP'), false);
+    setNumber('top_k', read('SamplingFieldTopK'), true);
+    setNumber('min_p', read('SamplingFieldMinP'), false);
+    setNumber('presence_penalty', read('SamplingFieldPresencePenalty'), false);
+    setNumber('repeat_penalty', read('SamplingFieldRepeatPenalty'), false);
+    setNumber('frequency_penalty', read('SamplingFieldFrequencyPenalty'), false);
+    return out;
+}
+
+function updateSamplingBundleFromForm() {
+    const modalId = 'modelDetailModal';
+    const select = document.getElementById(modalId + 'SamplingConfigSelect');
+    const bundle = window.__modelDetailSamplingBundle;
+    if (!select || !bundle || !bundle.configs) return;
+    const name = select.value || '';
+    if (!name || !bundle.configs[name]) return;
+    bundle.configs[name] = getSamplingDraftFromForm();
 }
 
 function loadModelSamplingSettings() {
@@ -322,7 +375,7 @@ function loadModelSamplingSettings() {
     const details = document.getElementById(modalId + 'SamplingDetails');
     if (!modelId || !select || !details) return;
     details.innerHTML = `<div style="grid-column:1 / -1; padding:12px; border:1px solid #e5e7eb; border-radius:0.75rem; color:#6b7280;">${escapeAttrCompat(t('common.loading', '加载中...'))}</div>`;
-    const configReq = fetch(`/api/models/config/get?modelId=${encodeURIComponent(modelId)}`).then(r => r.json());
+    const configReq = fetch('/api/sys/model/sampling/setting/list').then(r => r.json());
     const selectedReq = fetch(`/api/sys/model/sampling/setting/get?modelId=${encodeURIComponent(modelId)}`).then(r => r.json());
     Promise.all([configReq, selectedReq])
         .then(([configRes, selectedRes]) => {
@@ -330,7 +383,10 @@ function loadModelSamplingSettings() {
                 details.innerHTML = `<div style="grid-column:1 / -1; padding:12px; border:1px solid #fecaca; border-radius:0.75rem; color:#b91c1c;">${escapeAttrCompat(t('common.request_failed', '请求失败'))}</div>`;
                 return;
             }
-            const bundle = extractModelConfigBundleFromGetResponse(configRes, modelId);
+            const samplingConfigs = configRes.data && typeof configRes.data === 'object' && configRes.data.configs && typeof configRes.data.configs === 'object'
+                ? configRes.data.configs
+                : {};
+            const bundle = normalizeModelConfigBundle({ configs: samplingConfigs, selectedConfig: '' });
             window.__modelDetailSamplingBundle = bundle;
             const names = Object.keys(bundle.configs || {});
             const offOption = `<option value="">${escapeAttrCompat(t('modal.model_detail.sampling.off', '关闭功能'))}</option>`;
@@ -353,7 +409,7 @@ function saveModelSamplingSelection() {
     const select = document.getElementById(modalId + 'SamplingConfigSelect');
     if (!modelId || !select) return;
     const samplingConfigName = select.value == null ? '' : String(select.value).trim();
-    fetch('/api/sys/model/sampling/setting', {
+    fetch('/api/sys/model/sampling/setting/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modelId, samplingConfigName })
@@ -364,6 +420,123 @@ function saveModelSamplingSelection() {
                 showToast(t('toast.success', '成功'), t('modal.model_detail.sampling.saved', '采样设定已保存'), 'success');
             } else {
                 showToast(t('toast.error', '错误'), (res && res.error) ? res.error : t('common.save_failed', '保存失败'), 'error');
+            }
+        })
+        .catch(() => {
+            showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        });
+}
+
+function addModelSamplingConfig() {
+    const modelId = window.__modelDetailModelId;
+    const modalId = 'modelDetailModal';
+    const select = document.getElementById(modalId + 'SamplingConfigSelect');
+    if (!modelId || !select) return;
+    const configName = prompt(t('modal.model_detail.sampling.new_name_prompt', '请输入新的采样配置名称'));
+    const samplingConfigName = configName === null || configName === undefined ? '' : String(configName).trim();
+    if (!samplingConfigName) return;
+    const bundle = window.__modelDetailSamplingBundle;
+    const sampling = bundle && bundle.configs && bundle.configs[select.value] ? bundle.configs[select.value] : {};
+    fetch('/api/sys/model/sampling/setting/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId, samplingConfigName, sampling })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res && res.success) {
+                if (!window.__modelDetailSamplingBundle) window.__modelDetailSamplingBundle = { configs: {} };
+                if (!window.__modelDetailSamplingBundle.configs) window.__modelDetailSamplingBundle.configs = {};
+                const savedSampling = res.data && res.data.sampling && typeof res.data.sampling === 'object' ? res.data.sampling : sampling;
+                window.__modelDetailSamplingBundle.configs[samplingConfigName] = savedSampling;
+                let option = null;
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === samplingConfigName) {
+                        option = select.options[i];
+                        break;
+                    }
+                }
+                if (!option) {
+                    option = document.createElement('option');
+                    option.value = samplingConfigName;
+                    option.textContent = samplingConfigName;
+                    select.appendChild(option);
+                }
+                select.value = samplingConfigName;
+                renderSelectedModelSamplingSettings();
+                showToast(t('toast.success', '成功'), t('modal.model_detail.sampling.added', '采样配置已新增'), 'success');
+            } else {
+                showToast(t('toast.error', '错误'), (res && res.error) ? res.error : t('common.save_failed', '保存失败'), 'error');
+            }
+        })
+        .catch(() => {
+            showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        });
+}
+
+function updateModelSamplingConfig() {
+    const modelId = window.__modelDetailModelId;
+    const modalId = 'modelDetailModal';
+    const select = document.getElementById(modalId + 'SamplingConfigSelect');
+    if (!modelId || !select) return;
+    const samplingConfigName = select.value == null ? '' : String(select.value).trim();
+    if (!samplingConfigName) {
+        showToast(t('toast.info', '提示'), t('modal.model_detail.sampling.select_first', '请先选择一个采样配置'), 'info');
+        return;
+    }
+    const sampling = getSamplingDraftFromForm();
+    fetch('/api/sys/model/sampling/setting/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId, samplingConfigName, sampling })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res && res.success) {
+                if (!window.__modelDetailSamplingBundle) window.__modelDetailSamplingBundle = { configs: {} };
+                if (!window.__modelDetailSamplingBundle.configs) window.__modelDetailSamplingBundle.configs = {};
+                window.__modelDetailSamplingBundle.configs[samplingConfigName] = sampling;
+                showToast(t('toast.success', '成功'), t('modal.model_detail.sampling.updated', '采样配置已更新'), 'success');
+            } else {
+                showToast(t('toast.error', '错误'), (res && res.error) ? res.error : t('common.save_failed', '保存失败'), 'error');
+            }
+        })
+        .catch(() => {
+            showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        });
+}
+
+function deleteModelSamplingConfig() {
+    const modalId = 'modelDetailModal';
+    const select = document.getElementById(modalId + 'SamplingConfigSelect');
+    if (!select) return;
+    const samplingConfigName = select.value == null ? '' : String(select.value).trim();
+    if (!samplingConfigName) {
+        showToast(t('toast.info', '提示'), t('modal.model_detail.sampling.select_first', '请先选择一个采样配置'), 'info');
+        return;
+    }
+    if (!confirm(t('confirm.delete', '确定要删除吗？') + `\n${samplingConfigName}`)) return;
+    fetch('/api/sys/model/sampling/setting/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ samplingConfigName })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res && res.success) {
+                if (window.__modelDetailSamplingBundle && window.__modelDetailSamplingBundle.configs) {
+                    delete window.__modelDetailSamplingBundle.configs[samplingConfigName];
+                }
+                for (let i = select.options.length - 1; i >= 0; i--) {
+                    if (select.options[i].value === samplingConfigName) {
+                        select.remove(i);
+                    }
+                }
+                select.value = '';
+                renderSelectedModelSamplingSettings();
+                showToast(t('toast.success', '成功'), t('common.delete_success', '删除成功'), 'success');
+            } else {
+                showToast(t('toast.error', '错误'), (res && res.error) ? res.error : t('common.delete_failed', '删除失败'), 'error');
             }
         })
         .catch(() => {

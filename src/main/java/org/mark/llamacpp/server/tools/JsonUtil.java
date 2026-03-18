@@ -12,6 +12,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import org.mark.llamacpp.server.LlamaServer;
+import org.mark.llamacpp.server.struct.ApiResponse;
+
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.util.CharsetUtil;
+
 public class JsonUtil {
 	
 	
@@ -68,6 +75,44 @@ public class JsonUtil {
 			return o.get(key).getAsString();
 		} catch (Exception e) {
 			return fallback;
+		}
+	}
+	
+	public static String getJsonStringAny(JsonObject o, String fallback, String... keys) {
+		if (o == null || keys == null) {
+			return fallback;
+		}
+		for (String key : keys) {
+			if (key == null || key.isBlank()) {
+				continue;
+			}
+			String value = getJsonString(o, key, null);
+			if (value != null) {
+				String s = value.trim();
+				if (!s.isEmpty()) {
+					return s;
+				}
+			}
+		}
+		return fallback;
+	}
+	
+	public static JsonObject parseFullHttpRequestToJsonObject(FullHttpRequest request, ChannelHandlerContext ctx) {
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				return null;
+			}
+			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			if (obj == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return null;
+			}
+			return obj;
+		} catch (Exception e) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解析请求体失败: " + e.getMessage()));
+			return null;
 		}
 	}
 

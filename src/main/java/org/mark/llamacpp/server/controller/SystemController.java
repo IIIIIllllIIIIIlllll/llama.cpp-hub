@@ -97,11 +97,28 @@ public class SystemController implements BaseController {
 			this.handleSearchSettingRequest(ctx, request);
 			return true;
 		}
+		// 获取指定模型的采样配置
 		if (uri.startsWith("/api/sys/model/sampling/setting/get")) {
 			this.handleModelSamplingSettingGetRequest(ctx, request);
 			return true;
 		}
-		if (uri.startsWith("/api/sys/model/sampling/setting")) {
+		
+		if (uri.startsWith("/api/sys/model/sampling/setting/add")) {
+			this.handleModelSamplingSettingAddRequest(ctx, request);
+			return true;
+		}
+		// 获取的采样配置
+		if (uri.startsWith("/api/sys/model/sampling/setting/list")) {
+			this.handleModelSamplingSettingListRequest(ctx, request);
+			return true;
+		}
+		// 删除指定的采样
+		if (uri.startsWith("/api/sys/model/sampling/setting/delete")) {
+			this.handleModelSamplingSettingDeleteRequest(ctx, request);
+			return true;
+		}
+		// 设置指定模型的采样配置
+		if (uri.startsWith("/api/sys/model/sampling/setting/set")) {
 			this.handleModelSamplingSettingRequest(ctx, request);
 			return true;
 		}
@@ -334,14 +351,8 @@ public class SystemController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
-				return;
-			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = parseJsonBody(ctx, request);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
 			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
@@ -390,14 +401,8 @@ public class SystemController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
-				return;
-			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = parseJsonBody(ctx, request);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
 			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
@@ -446,14 +451,8 @@ public class SystemController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
-				return;
-			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = parseJsonBody(ctx, request);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
 
@@ -562,6 +561,7 @@ public class SystemController implements BaseController {
 		}
 	}
 	
+	
 	private void handleModelSamplingSettingRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		if (request.method() == HttpMethod.OPTIONS) {
 			LlamaServer.sendCorsResponse(ctx);
@@ -569,14 +569,8 @@ public class SystemController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
-				return;
-			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = parseJsonBody(ctx, request);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
 
@@ -586,11 +580,7 @@ public class SystemController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
 				return;
 			}
-			String samplingConfigName = JsonUtil.getJsonString(obj, "samplingConfigName", null);
-			if (samplingConfigName == null) {
-				samplingConfigName = JsonUtil.getJsonString(obj, "configName", null);
-			}
-			samplingConfigName = samplingConfigName == null ? "" : samplingConfigName.trim();
+			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
 
 			Path configPath = Paths.get("config", "model-sampling-settings.json");
 			JsonObject out = new JsonObject();
@@ -660,6 +650,95 @@ public class SystemController implements BaseController {
 			logger.info("查询模型采样设定请求时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("查询模型采样设定失败: " + e.getMessage()));
 		}
+	}
+	
+	private void handleModelSamplingSettingListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		try {
+			Map<String, Object> data = ModelSamplingService.getInstance().listSamplingSettings();
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("获取采样配置列表请求时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取采样配置列表失败: " + e.getMessage()));
+		}
+	}
+	
+	private void handleModelSamplingSettingAddRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		try {
+			JsonObject obj = parseJsonBody(ctx, request);
+			if (obj == null) {
+				return;
+			}
+			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
+			modelId = modelId == null ? "" : modelId.trim();
+			if (modelId.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
+				return;
+			}
+			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
+			if (samplingConfigName.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少samplingConfigName参数"));
+				return;
+			}
+			JsonObject sampling = new JsonObject();
+			if (obj.has("sampling") && obj.get("sampling") != null && obj.get("sampling").isJsonObject()) {
+				sampling = obj.getAsJsonObject("sampling");
+			} else {
+				for (String k : new String[] {"temperature", "temp", "top_p", "topP", "top_k", "topK", "min_p", "minP", "presence_penalty", "presencePenalty", "repeat_penalty", "repeatPenalty", "frequency_penalty", "frequencyPenalty", "cmd"}) {
+					if (obj.has(k) && obj.get(k) != null && !obj.get(k).isJsonNull()) {
+						sampling.add(k, obj.get(k));
+					}
+				}
+			}
+			JsonObject savedSampling = ModelSamplingService.getInstance().upsertSamplingConfig(modelId, samplingConfigName, sampling);
+			Map<String, Object> data = new HashMap<>();
+			data.put("saved", true);
+			data.put("modelId", modelId);
+			data.put("samplingConfigName", samplingConfigName);
+			data.put("sampling", savedSampling);
+			data.put("file", Paths.get("config", "model-sampling.json").toString());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("新增或更新采样配置请求时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("新增或更新采样配置失败: " + e.getMessage()));
+		}
+	}
+	
+	private void handleModelSamplingSettingDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		try {
+			JsonObject obj = parseJsonBody(ctx, request);
+			if (obj == null) {
+				return;
+			}
+			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
+			if (samplingConfigName.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少samplingConfigName参数"));
+				return;
+			}
+			Map<String, Object> data = ModelSamplingService.getInstance().deleteSamplingConfig(samplingConfigName);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("删除采样配置请求时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除采样配置失败: " + e.getMessage()));
+		}
+	}
+	
+	private JsonObject parseJsonBody(ChannelHandlerContext ctx, FullHttpRequest request) {
+		return JsonUtil.parseFullHttpRequestToJsonObject(request, ctx);
 	}
 	
 	/**

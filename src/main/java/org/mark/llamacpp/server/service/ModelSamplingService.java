@@ -4,7 +4,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,12 +24,12 @@ public class ModelSamplingService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ModelSamplingService.class);
 	private static final Path SAMPLING_SETTING_FILE = Paths.get("config", "model-sampling-settings.json");
-	private static final Path LAUNCH_CONFIG_FILE = Paths.get("config", "launch_config.json");
+	private static final Path MODEL_SAMPLING_FILE = Paths.get("config", "model-sampling.json");
 	
 	private static final ModelSamplingService INSTANCE = new ModelSamplingService();
 	private final Object reloadLock = new Object();
 	private volatile long samplingSettingLastModified = -1L;
-	private volatile long launchConfigLastModified = -1L;
+	private volatile long modelSamplingLastModified = -1L;
 	private final Map<String, String> selectedSamplingByModel = new ConcurrentHashMap<>();
 	private final Map<String, JsonObject> samplingConfigByModel = new ConcurrentHashMap<>();
 	
@@ -79,11 +82,115 @@ public class ModelSamplingService {
 		injectSampling(requestJson, sampling);
 	}
 	
+	public Map<String, Object> listSamplingSettings() {
+		Map<String, Object> data = new HashMap<>();
+		Map<String, JsonObject> configs = loadAllSamplingConfigs();
+		List<String> names = new ArrayList<>(configs.keySet());
+		Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
+		Map<String, JsonObject> ordered = new LinkedHashMap<>();
+		for (String name : names) {
+			JsonObject cfg = configs.get(name);
+			ordered.put(name, cfg == null ? new JsonObject() : cfg);
+		}
+		data.put("configs", ordered);
+		data.put("names", names);
+		data.put("count", names.size());
+		return data;
+	}
+	
+	public JsonObject upsertSamplingConfig(String modelId, String configName, JsonObject samplingConfig) {
+		String safeModelId = modelId == null ? "" : modelId.trim();
+		String safeConfigName = configName == null ? "" : configName.trim();
+		if (safeModelId.isEmpty()) {
+			throw new IllegalArgumentException("缺少modelId参数");
+		}
+		if (safeConfigName.isEmpty()) {
+			throw new IllegalArgumentException("缺少samplingConfigName参数");
+		}
+		JsonObject in = samplingConfig == null ? new JsonObject() : samplingConfig;
+		JsonObject normalizedSampling = extractOpenAISampling(in);
+		synchronized (reloadLock) {
+			JsonObject root = readSamplingRoot();
+			JsonObject modelEntry = root.has(safeModelId) && root.get(safeModelId).isJsonObject()
+					? root.getAsJsonObject(safeModelId)
+					: new JsonObject();
+			JsonObject configs = modelEntry.has("configs") && modelEntry.get("configs").isJsonObject()
+					? modelEntry.getAsJsonObject("configs")
+					: new JsonObject();
+			configs.add(safeConfigName, normalizedSampling);
+			modelEntry.add("configs", configs);
+			root.add(safeModelId, modelEntry);
+			writeSamplingRoot(root);
+		}
+		reloadCaches(true);
+		return normalizedSampling;
+	}
+	
+	public Map<String, Object> deleteSamplingConfig(String configName) {
+		String safeConfigName = configName == null ? "" : configName.trim();
+		if (safeConfigName.isEmpty()) {
+			throw new IllegalArgumentException("缺少samplingConfigName参数");
+		}
+		int removedConfigCount = 0;
+		int removedBindingCount = 0;
+		synchronized (reloadLock) {
+			JsonObject root = readSamplingRoot();
+			List<String> removeModelIds = new ArrayList<>();
+			for (Map.Entry<String, JsonElement> modelItem : root.entrySet()) {
+				String modelId = modelItem.getKey();
+				JsonElement modelEl = modelItem.getValue();
+				if (modelEl == null || !modelEl.isJsonObject()) {
+					continue;
+				}
+				JsonObject modelEntry = modelEl.getAsJsonObject();
+				if (!modelEntry.has("configs") || !modelEntry.get("configs").isJsonObject()) {
+					continue;
+				}
+				JsonObject configs = modelEntry.getAsJsonObject("configs");
+				if (!configs.has(safeConfigName)) {
+					continue;
+				}
+				configs.remove(safeConfigName);
+				removedConfigCount++;
+				if (configs.size() == 0) {
+					modelEntry.remove("configs");
+				}
+				if (modelEntry.size() == 0) {
+					removeModelIds.add(modelId);
+				}
+			}
+			for (String modelId : removeModelIds) {
+				root.remove(modelId);
+			}
+			writeSamplingRoot(root);
+			Map<String, String> selectedMap = loadSelectedSamplingMap();
+			List<String> removeSelectedModelIds = new ArrayList<>();
+			for (Map.Entry<String, String> item : selectedMap.entrySet()) {
+				String selectedName = item.getValue();
+				if (selectedName != null && safeConfigName.equals(selectedName.trim())) {
+					removeSelectedModelIds.add(item.getKey());
+				}
+			}
+			for (String modelId : removeSelectedModelIds) {
+				selectedMap.remove(modelId);
+				removedBindingCount++;
+			}
+			writeSelectedSamplingMap(selectedMap);
+		}
+		reloadCaches(true);
+		Map<String, Object> out = new HashMap<>();
+		out.put("deleted", removedConfigCount > 0 || removedBindingCount > 0);
+		out.put("samplingConfigName", safeConfigName);
+		out.put("removedConfigCount", removedConfigCount);
+		out.put("removedBindingCount", removedBindingCount);
+		return out;
+	}
+	
 	private void reloadCaches(boolean force) {
 		synchronized (reloadLock) {
 			long samplingMtime = getLastModifiedSafe(SAMPLING_SETTING_FILE);
-			long launchMtime = getLastModifiedSafe(LAUNCH_CONFIG_FILE);
-			if (!force && samplingMtime == samplingSettingLastModified && launchMtime == launchConfigLastModified) {
+			long modelSamplingMtime = getLastModifiedSafe(MODEL_SAMPLING_FILE);
+			if (!force && samplingMtime == samplingSettingLastModified && modelSamplingMtime == modelSamplingLastModified) {
 				return;
 			}
 			Map<String, String> selectedMap = loadSelectedSamplingMap();
@@ -93,7 +200,96 @@ public class ModelSamplingService {
 			samplingConfigByModel.clear();
 			samplingConfigByModel.putAll(samplingMap);
 			samplingSettingLastModified = samplingMtime;
-			launchConfigLastModified = launchMtime;
+			modelSamplingLastModified = modelSamplingMtime;
+		}
+	}
+	
+	private Map<String, JsonObject> loadAllSamplingConfigs() {
+		Map<String, JsonObject> out = new LinkedHashMap<>();
+		try {
+			JsonObject launchRoot = readSamplingRoot();
+			if (launchRoot == null || launchRoot.size() == 0) {
+				return out;
+			}
+			for (Map.Entry<String, JsonElement> modelItem : launchRoot.entrySet()) {
+				JsonElement modelEl = modelItem.getValue();
+				if (modelEl == null || !modelEl.isJsonObject()) {
+					continue;
+				}
+				JsonObject modelEntry = modelEl.getAsJsonObject();
+				JsonElement configsEl = modelEntry.get("configs");
+				if (configsEl == null || !configsEl.isJsonObject()) {
+					continue;
+				}
+				JsonObject configs = configsEl.getAsJsonObject();
+				for (Map.Entry<String, JsonElement> cfgItem : configs.entrySet()) {
+					String configName = cfgItem.getKey() == null ? "" : cfgItem.getKey().trim();
+					if (configName.isEmpty()) {
+						continue;
+					}
+					JsonElement cfgEl = cfgItem.getValue();
+					if (cfgEl == null || !cfgEl.isJsonObject()) {
+						continue;
+					}
+					JsonObject sampling = extractOpenAISampling(cfgEl.getAsJsonObject());
+					JsonObject exists = out.get(configName);
+					if (exists == null || exists.size() == 0 || sampling.size() > 0) {
+						out.put(configName, sampling);
+					}
+				}
+			}
+		} catch (Exception e) {
+			logger.info("读取全部采样配置失败: {}", e.getMessage());
+		}
+		return out;
+	}
+	
+	private JsonObject readSamplingRoot() {
+		try {
+			if (!Files.exists(MODEL_SAMPLING_FILE)) {
+				return new JsonObject();
+			}
+			String text = Files.readString(MODEL_SAMPLING_FILE, StandardCharsets.UTF_8);
+			JsonObject root = JsonUtil.fromJson(text, JsonObject.class);
+			return root == null ? new JsonObject() : root;
+		} catch (Exception e) {
+			logger.info("读取采样配置文件失败: {}", e.getMessage());
+			return new JsonObject();
+		}
+	}
+	
+	private void writeSamplingRoot(JsonObject root) {
+		try {
+			Path parent = MODEL_SAMPLING_FILE.getParent();
+			if (parent != null && !Files.exists(parent)) {
+				Files.createDirectories(parent);
+			}
+			Files.write(MODEL_SAMPLING_FILE, JsonUtil.toJson(root).getBytes(StandardCharsets.UTF_8));
+		} catch (Exception e) {
+			throw new RuntimeException("写入采样配置失败: " + e.getMessage(), e);
+		}
+	}
+	
+	private void writeSelectedSamplingMap(Map<String, String> map) {
+		try {
+			JsonObject root = new JsonObject();
+			if (map != null) {
+				for (Map.Entry<String, String> item : map.entrySet()) {
+					String modelId = item.getKey() == null ? "" : item.getKey().trim();
+					String configName = item.getValue() == null ? "" : item.getValue().trim();
+					if (modelId.isEmpty() || configName.isEmpty()) {
+						continue;
+					}
+					root.addProperty(modelId, configName);
+				}
+			}
+			Path parent = SAMPLING_SETTING_FILE.getParent();
+			if (parent != null && !Files.exists(parent)) {
+				Files.createDirectories(parent);
+			}
+			Files.write(SAMPLING_SETTING_FILE, JsonUtil.toJson(root).getBytes(StandardCharsets.UTF_8));
+		} catch (Exception e) {
+			throw new RuntimeException("写入模型采样设定失败: " + e.getMessage(), e);
 		}
 	}
 	
@@ -151,12 +347,8 @@ public class ModelSamplingService {
 			return out;
 		}
 		try {
-			if (!Files.exists(LAUNCH_CONFIG_FILE)) {
-				return out;
-			}
-			String text = Files.readString(LAUNCH_CONFIG_FILE, StandardCharsets.UTF_8);
-			JsonObject launchRoot = JsonUtil.fromJson(text, JsonObject.class);
-			if (launchRoot == null) {
+			JsonObject launchRoot = readSamplingRoot();
+			if (launchRoot == null || launchRoot.size() == 0) {
 				return out;
 			}
 			for (Map.Entry<String, String> item : selectedMap.entrySet()) {
@@ -176,10 +368,7 @@ public class ModelSamplingService {
 					continue;
 				}
 				JsonObject configObj = configs.getAsJsonObject(configName);
-				JsonObject sampling = extractOpenAISampling(configObj);
-				if (sampling.size() > 0) {
-					out.put(modelId, sampling);
-				}
+				out.put(modelId, extractOpenAISampling(configObj));
 			}
 		} catch (Exception e) {
 			logger.info("构建模型采样配置缓存失败: {}", e.getMessage());
