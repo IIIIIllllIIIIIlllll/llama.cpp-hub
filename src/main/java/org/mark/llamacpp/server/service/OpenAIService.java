@@ -343,8 +343,6 @@ public class OpenAIService {
 			ModelSamplingService service = ModelSamplingService.getInstance();
 			service.handleOpenAI(requestJson);
 			
-			
-			
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			
@@ -355,8 +353,6 @@ public class OpenAIService {
 			}
 
 			String body = JsonUtil.toJson(requestJson);
-			
-			//logger.info("请求内容：" + body);
 			
 			// 获取模型端口
 			Integer modelPort = manager.getModelPort(modelName);

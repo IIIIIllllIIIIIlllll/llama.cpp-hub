@@ -23,6 +23,7 @@ import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
+import org.mark.llamacpp.server.service.ModelSamplingService;
 import org.mark.llamacpp.server.service.OpenAIService;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
@@ -212,6 +213,10 @@ public class LMStudioService {
 				isStream = requestJson.get("stream").getAsBoolean();
 			}
 			
+			// 这里做采样代理，针对llamacpp中的请求，注入采样参数。
+			ModelSamplingService service = ModelSamplingService.getInstance();
+			service.handleOpenAI(requestJson);
+			
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			
@@ -221,7 +226,8 @@ public class LMStudioService {
 				return;
 			}
 
-			String body = content;
+			String body = JsonUtil.toJson(requestJson);
+			
 			// 获取模型端口
 			Integer modelPort = manager.getModelPort(modelName);
 			if (modelPort == null) {
