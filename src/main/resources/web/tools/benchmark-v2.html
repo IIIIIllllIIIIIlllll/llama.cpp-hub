@@ -654,9 +654,11 @@
       const group = createRecordRows(record, fallbackModelId);
       const first = els.resultBody.firstChild;
       if (first) {
-        for (let i = group.rows.length - 1; i >= 0; i--) {
-          els.resultBody.insertBefore(group.rows[i], first);
+        const fragment = document.createDocumentFragment();
+        for (const row of group.rows) {
+          fragment.appendChild(row);
         }
+        els.resultBody.insertBefore(fragment, first);
       } else {
         for (const row of group.rows) {
           els.resultBody.appendChild(row);

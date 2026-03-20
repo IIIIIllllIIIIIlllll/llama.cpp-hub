@@ -54,7 +54,7 @@ public class ComputerService {
 			int idx = l.indexOf(':');
 			if (idx <= 0) continue;
 			String key = l.substring(0, idx).trim().toLowerCase();
-			if ("model name".equals(key) || "hardware".equals(key) || "cpu model".equals(key) || "processor".equals(key)) {
+			if ("model name".equals(key)) {
 				String value = l.substring(idx + 1).trim();
 				if (!value.isEmpty()) return value;
 			}
