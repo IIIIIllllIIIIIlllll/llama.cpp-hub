@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.service.ModelSamplingService;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -133,8 +134,9 @@ public class OllamaChatService {
 		// 是否开启thinking
 		boolean enableThinking = false;
 		try {
-			JsonElement thkning = ollamaReq.get("think");
-			enableThinking = thkning != null && !thkning.isJsonNull() && thkning.isJsonArray() && thkning.getAsJsonArray().size() > 0;
+			JsonElement thinking = ollamaReq.get("think");
+			if(thinking != null)
+				enableThinking = thinking.getAsBoolean();
 		} catch (Exception ignore) {
 		}
 		if (hasTools) {
@@ -151,13 +153,21 @@ public class OllamaChatService {
 		openAiReq.add("messages", OllamaApiTool.normalizeOllamaMessagesForOpenAI(messages.getAsJsonArray()));
 		openAiReq.addProperty("stream", isStream);
 		openAiReq.addProperty("enable_thinking", enableThinking);
+		// 映射enable_thinking
+		JsonObject chatTemplateKwargs = new JsonObject();
+		chatTemplateKwargs.addProperty("enable_thinking", enableThinking);
+		openAiReq.add("chat_template_kwargs", chatTemplateKwargs);
 		
 		this.applyOllamaOptionsToOpenAI(openAiReq, ollamaReq.get("options"));
 		// 复制options中的其它参数
 		OllamaApiTool.applyOllamaToolsToOpenAI(openAiReq, ollamaReq);
 
+		// 强制转换采样设置
+		ModelSamplingService service = ModelSamplingService.getInstance();
+		service.handleOpenAI(openAiReq);
+		
 		String requestBody = JsonUtil.toJson(openAiReq);
-
+		
 		int requestBodyLength = requestBody == null ? 0 : requestBody.length();
 		logger.info("转发请求到llama.cpp进程: {} {} 端口: {} 请求体长度: {}", request.method().name(), "/v1/chat/completions", port, requestBodyLength);
 		

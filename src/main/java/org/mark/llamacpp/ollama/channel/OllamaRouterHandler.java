@@ -26,6 +26,7 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 
 
@@ -90,7 +91,20 @@ public class OllamaRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 			return;
 		}
 		String uri = request.uri();
-		logger.info("ollama - 收到请求: {} {}", request.method().name(), uri);
+		// 这里是日志专区
+		// 1.
+		if(LlamaServer.logRequestUrl) {
+			logger.info("DEBUG - Ollama - 收到请求：{}", uri);	
+		}
+		// 2.
+		if(LlamaServer.logRequestHeader) {
+			logger.info("DEBUG - Ollama - 请求头：{}", request.headers());
+		}
+		// 3.
+		if(LlamaServer.logRequestBody) {
+			logger.info("DEBUG - Ollama - 请求体：{}", request.content().toString(CharsetUtil.UTF_8));
+		}
+		
 		// 傻逼浏览器不知道为什么一直在他妈的访问/.well-known/appspecific/com.chrome.devtools.json
 		if ("/.well-known/appspecific/com.chrome.devtools.json".equals(uri)) {
 			ctx.close();
