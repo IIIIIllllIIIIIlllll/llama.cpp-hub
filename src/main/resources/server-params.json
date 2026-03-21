@@ -162,7 +162,7 @@
     "fullName": "--kv-unified",
     "abbreviation": "-kvu",
     "type": "LOGIC",
-    "defaultValue": "0",
+    "defaultValue": "1",
     "description": "param.server.kv_unified.desc",
     "sort": 17
   },
