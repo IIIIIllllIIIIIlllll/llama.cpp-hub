@@ -1,6 +1,7 @@
 package org.mark.llamacpp.server.channel;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.LinkedList;
@@ -146,7 +147,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			}
 			// 对于非API请求，只允许访问静态文件，不允许目录浏览
 			// 首先尝试从resources目录获取文件
-			File file = new File(url.getFile().replace("%20", " "));
+			File file = Paths.get(url.toURI()).toFile();
 			if (!file.exists()) {
 				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
 				return;
