@@ -8,6 +8,7 @@ import java.io.PushbackInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import org.mark.llamacpp.server.tools.ParamTool;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,18 +18,34 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
+
+
+/**
+ * 	OH天哪，是无敌的流式解析。
+ */
 public class ChatRequestStreamingTransformer {
 
 	private static final Logger logger = LoggerFactory.getLogger(ChatRequestStreamingTransformer.class);
 
 	private final int maxFieldBytes;
 	private final int maxBufferedBytes;
-
+	
+	
+	
 	public ChatRequestStreamingTransformer(int maxFieldBytes, int maxBufferedBytes) {
 		this.maxFieldBytes = maxFieldBytes;
 		this.maxBufferedBytes = maxBufferedBytes;
 	}
-
+	
+	
+	/**
+	 * 	变形金刚。错误的，其实是解析输入流。
+	 * @param input
+	 * @param output
+	 * @param callback
+	 * @return
+	 * @throws IOException
+	 */
 	public TransformResult transform(InputStream input, OutputStream output, ModelResolvedCallback callback) throws IOException {
 		JsonObject bufferedFields = new JsonObject();
 		int totalBufferedBytes = 0;
@@ -40,7 +57,7 @@ public class ChatRequestStreamingTransformer {
 		// 1. messages 直接按字节流透传，避免超大 base64 进入 Java String
 		// 2. 其它顶层小字段缓冲到 bufferedFields，后续在这里做 thinking / sampling 覆盖
 		PushbackInputStream stream = new PushbackInputStream(input, 1);
-		int firstToken = nextNonWhitespace(stream);
+		int firstToken = this.nextNonWhitespace(stream);
 		if (firstToken != '{') {
 			throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 		}
@@ -50,7 +67,7 @@ public class ChatRequestStreamingTransformer {
 		boolean firstOutputField = true;
 
 		while (true) {
-			int token = nextNonWhitespace(stream);
+			int token = this.nextNonWhitespace(stream);
 			if (token == '}') {
 				break;
 			}
@@ -58,20 +75,20 @@ public class ChatRequestStreamingTransformer {
 				if (token != ',') {
 					throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 				}
-				token = nextNonWhitespace(stream);
+				token = this.nextNonWhitespace(stream);
 			}
 			firstParsedField = false;
 			if (token != '"') {
 				throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 			}
 
-			String fieldName = readJsonString(stream);
-			int colon = nextNonWhitespace(stream);
+			String fieldName = this.readJsonString(stream);
+			int colon = this.nextNonWhitespace(stream);
 			if (colon != ':') {
 				throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 			}
 
-			int valueStart = nextNonWhitespace(stream);
+			int valueStart = this.nextNonWhitespace(stream);
 			if (valueStart < 0) {
 				throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 			}
@@ -82,18 +99,18 @@ public class ChatRequestStreamingTransformer {
 					output.write(',');
 				}
 				output.write(MESSAGES_FIELD_PREFIX);
-				copyValue(stream, valueStart, output);
+				this.copyValue(stream, valueStart, output);
 				output.flush();
 				firstOutputField = false;
 				continue;
 			}
-
-			byte[] rawBytes = readCurrentValue(stream, valueStart, fieldName);
+			
+			byte[] rawBytes = this.readCurrentValue(stream, valueStart, fieldName);
 			totalBufferedBytes += rawBytes.length;
 			if (totalBufferedBytes > maxBufferedBytes) {
 				throw new StreamingRequestException(400, "Request contains oversized top-level fields", null);
 			}
-
+			
 			JsonElement element;
 			try {
 				element = JsonParser.parseString(new String(rawBytes, StandardCharsets.UTF_8));
@@ -106,7 +123,7 @@ public class ChatRequestStreamingTransformer {
 			bufferedFields.add(fieldName, element);
 
 			if ("model".equals(fieldName) && !modelResolved) {
-				String candidate = readModelName(element);
+				String candidate = this.readModelName(element);
 				if (candidate != null && !candidate.isBlank()) {
 					modelName = candidate;
 					modelResolved = true;
@@ -122,10 +139,10 @@ public class ChatRequestStreamingTransformer {
 				}
 			}
 		}
+		
+		this.applyThinkingInjection(bufferedFields);
 
-		applyThinkingInjection(bufferedFields);
-
-		modelName = readModelName(bufferedFields.get("model"));
+		modelName = this.readModelName(bufferedFields.get("model"));
 		if (modelName == null) {
 			throw new StreamingRequestException(400, "Missing required parameter: model", "model");
 		}
@@ -133,10 +150,10 @@ public class ChatRequestStreamingTransformer {
 			throw new StreamingRequestException(400, "Invalid parameter: model", "model");
 		}
 
-		// 这里对缓冲下来的顶层小字段做采样覆盖，语义对齐旧链路的“顶层参数注入”。
-		applySamplingInjection(bufferedFields, modelName);
+		// 这里做采样覆盖操作。
+		this.applySamplingInjection(bufferedFields, modelName);
 
-		Boolean streamValue = readBooleanLenient(bufferedFields.get("stream"));
+		Boolean streamValue = this.readBooleanLenient(bufferedFields.get("stream"));
 		if (streamValue != null) {
 			isStream = streamValue.booleanValue();
 		}
@@ -145,33 +162,48 @@ public class ChatRequestStreamingTransformer {
 			if (!firstOutputField) {
 				output.write(',');
 			}
-			writeBufferedField(output, entry.getKey(), entry.getValue());
+			this.writeBufferedField(output, entry.getKey(), entry.getValue());
 			firstOutputField = false;
 		}
 		output.write('}');
 		output.flush();
 		return new TransformResult(modelName, isStream);
 	}
-
+	
 	private static final byte[] MESSAGES_FIELD_PREFIX = "\"messages\":".getBytes(StandardCharsets.UTF_8);
-
+	
+	/**
+	 * 	
+	 * @param input
+	 * @param firstByte
+	 * @param fieldName
+	 * @return
+	 * @throws IOException
+	 */
 	private byte[] readCurrentValue(PushbackInputStream input, int firstByte, String fieldName) throws IOException {
 		LimitedByteArrayOutputStream out = new LimitedByteArrayOutputStream(maxFieldBytes, fieldName);
 		try {
-			copyValue(input, firstByte, out);
+			this.copyValue(input, firstByte, out);
 		} catch (IllegalStateException e) {
 			throw new StreamingRequestException(400, e.getMessage(), fieldName);
 		}
 		return out.toByteArray();
 	}
-
+	
+	/**
+	 * 	
+	 * @param input
+	 * @param firstByte
+	 * @param output
+	 * @throws IOException
+	 */
 	private void copyValue(PushbackInputStream input, int firstByte, OutputStream output) throws IOException {
 		if (firstByte == '"') {
-			copyString(input, output);
+			this.copyString(input, output);
 			return;
 		}
 		if (firstByte == '{' || firstByte == '[') {
-			copyComposite(input, firstByte, output);
+			this.copyComposite(input, firstByte, output);
 			return;
 		}
 		if (isPrimitiveStart(firstByte)) {
@@ -180,7 +212,13 @@ public class ChatRequestStreamingTransformer {
 		}
 		throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 	}
-
+	
+	/**
+	 * 	
+	 * @param input
+	 * @param output
+	 * @throws IOException
+	 */
 	private void copyString(PushbackInputStream input, OutputStream output) throws IOException {
 		output.write('"');
 		boolean escaped = false;
@@ -203,7 +241,14 @@ public class ChatRequestStreamingTransformer {
 			}
 		}
 	}
-
+	
+	/**
+	 * 	这是拷贝啥来着，忘了。
+	 * @param input
+	 * @param firstByte
+	 * @param output
+	 * @throws IOException
+	 */
 	private void copyComposite(PushbackInputStream input, int firstByte, OutputStream output) throws IOException {
 		int objectDepth = firstByte == '{' ? 1 : 0;
 		int arrayDepth = firstByte == '[' ? 1 : 0;
@@ -239,7 +284,14 @@ public class ChatRequestStreamingTransformer {
 			}
 		}
 	}
-
+	
+	/**
+	 * 	
+	 * @param input
+	 * @param firstByte
+	 * @param output
+	 * @throws IOException
+	 */
 	private void copyPrimitive(PushbackInputStream input, int firstByte, OutputStream output) throws IOException {
 		output.write(firstByte);
 		while (true) {
@@ -254,15 +306,15 @@ public class ChatRequestStreamingTransformer {
 			output.write(b);
 		}
 	}
-
+	
 	private boolean isPrimitiveStart(int value) {
 		return value == 't' || value == 'f' || value == 'n' || value == '-' || (value >= '0' && value <= '9');
 	}
-
+	
 	private boolean isValueTerminator(int value) {
 		return value == ',' || value == '}' || value == ']' || value == ' ' || value == '\t' || value == '\r' || value == '\n';
 	}
-
+	
 	private int nextNonWhitespace(PushbackInputStream input) throws IOException {
 		while (true) {
 			int b = input.read();
@@ -274,7 +326,7 @@ public class ChatRequestStreamingTransformer {
 			}
 		}
 	}
-
+	
 	private String readJsonString(PushbackInputStream input) throws IOException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		out.write('"');
@@ -303,28 +355,31 @@ public class ChatRequestStreamingTransformer {
 			throw new StreamingRequestException(400, "Request body is not a valid JSON object", null);
 		}
 	}
-
+	
 	private void writeBufferedField(OutputStream output, String fieldName, JsonElement value) throws IOException {
 		output.write(JsonUtil.toJson(fieldName).getBytes(StandardCharsets.UTF_8));
 		output.write(':');
 		output.write(JsonUtil.toJson(value).getBytes(StandardCharsets.UTF_8));
 	}
-
+	
+	/**
+	 * 	这里是采样覆盖专用。
+	 * @param requestJson
+	 * @param modelName
+	 */
 	private void applySamplingInjection(JsonObject requestJson, String modelName) {
 		if (requestJson == null || modelName == null || modelName.isBlank()) {
 			logger.info("跳过采样覆盖：请求或模型名为空");
 			return;
 		}
-		String beforeSampling = buildSamplingLogSnapshot(requestJson);
+		String beforeSampling = this.buildSamplingLogSnapshot(requestJson);
 		JsonObject sampling = ModelSamplingService.getInstance().getOpenAISampling(modelName);
-		if (sampling == null || sampling.size() == 0) {
-			logger.info("未命中模型采样配置，model={}, requestSampling={}", modelName, beforeSampling);
-			return;
-		}
+		
 		logger.info("命中模型采样配置，model={}, requestSampling={}, configSampling={}",
 				modelName,
 				beforeSampling,
-				buildSamplingLogSnapshot(sampling));
+				this.buildSamplingLogSnapshot(sampling));
+		
 		for (Map.Entry<String, JsonElement> item : sampling.entrySet()) {
 			String key = item.getKey();
 			JsonElement value = item.getValue();
@@ -334,24 +389,35 @@ public class ChatRequestStreamingTransformer {
 			requestJson.add(key, value.deepCopy());
 			logger.info("聊天流式请求采样覆盖，model={}, field={}, value={}", modelName, key, JsonUtil.toJson(value));
 		}
-		logger.info("聊天流式请求采样覆盖完成，model={}, finalSampling={}", modelName, buildSamplingLogSnapshot(requestJson));
+		logger.info("聊天流式请求采样覆盖完成，model={}, finalSampling={}", modelName, this.buildSamplingLogSnapshot(requestJson));
 	}
-
+	
+	/**
+	 * 	这里是采样覆盖。
+	 * @param jsonObject
+	 * @return
+	 */
 	private String buildSamplingLogSnapshot(JsonObject jsonObject) {
 		if (jsonObject == null) {
 			return "{}";
 		}
 		JsonObject snapshot = new JsonObject();
-		copySamplingField(snapshot, jsonObject, "temperature");
-		copySamplingField(snapshot, jsonObject, "top_p");
-		copySamplingField(snapshot, jsonObject, "min_p");
-		copySamplingField(snapshot, jsonObject, "repeat_penalty");
-		copySamplingField(snapshot, jsonObject, "top_k");
-		copySamplingField(snapshot, jsonObject, "presence_penalty");
-		copySamplingField(snapshot, jsonObject, "frequency_penalty");
+		this.copySamplingField(snapshot, jsonObject, "temperature");
+		this.copySamplingField(snapshot, jsonObject, "top_p");
+		this.copySamplingField(snapshot, jsonObject, "min_p");
+		this.copySamplingField(snapshot, jsonObject, "repeat_penalty");
+		this.copySamplingField(snapshot, jsonObject, "top_k");
+		this.copySamplingField(snapshot, jsonObject, "presence_penalty");
+		this.copySamplingField(snapshot, jsonObject, "frequency_penalty");
 		return JsonUtil.toJson(snapshot);
 	}
-
+	
+	/**
+	 * 	拷贝采样的字段。
+	 * @param target
+	 * @param source
+	 * @param fieldName
+	 */
 	private void copySamplingField(JsonObject target, JsonObject source, String fieldName) {
 		if (target == null || source == null || fieldName == null || !source.has(fieldName)) {
 			return;
@@ -362,7 +428,12 @@ public class ChatRequestStreamingTransformer {
 		}
 		target.add(fieldName, value.deepCopy());
 	}
-
+	
+	/**
+	 * 	
+	 * @param modelElement
+	 * @return
+	 */
 	private String readModelName(JsonElement modelElement) {
 		if (modelElement == null || modelElement.isJsonNull() || !modelElement.isJsonPrimitive()) {
 			return null;
@@ -373,7 +444,12 @@ public class ChatRequestStreamingTransformer {
 			return null;
 		}
 	}
-
+	
+	/**
+	 * 	
+	 * @param element
+	 * @return
+	 */
 	private Boolean readBooleanLenient(JsonElement element) {
 		if (element == null || element.isJsonNull() || !element.isJsonPrimitive()) {
 			return null;
@@ -391,72 +467,26 @@ public class ChatRequestStreamingTransformer {
 		}
 		return null;
 	}
-
+	
+	/**
+	 * 	
+	 * @param requestJson
+	 */
 	private void applyThinkingInjection(JsonObject requestJson) {
-		if (requestJson == null) {
-			return;
-		}
-
-		boolean needInjection = false;
-		boolean enableThinking = true;
-		JsonElement enableThinkingElement = requestJson.get("enable_thinking");
-		Boolean enableThinkingValue = readBooleanLenient(enableThinkingElement);
-		if (enableThinkingValue != null) {
-			needInjection = true;
-			enableThinking = enableThinkingValue.booleanValue();
-		}
-
-		if (!needInjection) {
-			JsonElement thinkingElement = requestJson.get("thinking");
-			if (thinkingElement != null && thinkingElement.isJsonObject()) {
-				JsonObject thinkingObject = thinkingElement.getAsJsonObject();
-				JsonElement typeElement = thinkingObject.get("type");
-				if (typeElement != null && typeElement.isJsonPrimitive()) {
-					try {
-						String typeValue = typeElement.getAsString();
-						if (typeValue != null && "disabled".equals(typeValue.trim().toLowerCase())) {
-							needInjection = true;
-							enableThinking = false;
-						}
-					} catch (Exception e) {
-					}
-				}
-			}
-		}
-
-		if (!needInjection) {
-			return;
-		}
-
-		JsonObject chatTemplateKwargs = parseChatTemplateKwargs(requestJson.get("chat_template_kwargs"));
-		if (chatTemplateKwargs == null) {
-			chatTemplateKwargs = new JsonObject();
-		}
-		chatTemplateKwargs.addProperty("enable_thinking", enableThinking);
-		requestJson.add("chat_template_kwargs", chatTemplateKwargs);
+		// 流式链路和普通链路共用同一套 thinking 注入逻辑，确保行为保持一致。
+		ParamTool.handleOpenAIThinking(requestJson);
 	}
-
-	private JsonObject parseChatTemplateKwargs(JsonElement element) {
-		if (element == null || element.isJsonNull()) {
-			return null;
-		}
-		try {
-			if (element.isJsonObject()) {
-				return element.getAsJsonObject().deepCopy();
-			}
-			if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
-				return JsonUtil.tryParseObject(element.getAsString());
-			}
-		} catch (Exception e) {
-			return null;
-		}
-		return null;
-	}
-
+	
+	/**
+	 * 	
+	 */
 	public interface ModelResolvedCallback {
 		void onModelResolved(String modelName) throws IOException;
 	}
-
+	
+	/**
+	 * 	
+	 */
 	public static class TransformResult {
 
 		private final String modelName;
@@ -468,14 +498,18 @@ public class ChatRequestStreamingTransformer {
 		}
 
 		public String getModelName() {
-			return modelName;
+			return this.modelName;
 		}
 
 		public boolean isStream() {
-			return stream;
+			return this.stream;
 		}
 	}
-
+	
+	
+	/**
+	 * 	
+	 */
 	public static class StreamingRequestException extends IOException {
 
 		private static final long serialVersionUID = 1L;
@@ -490,14 +524,17 @@ public class ChatRequestStreamingTransformer {
 		}
 
 		public int getHttpStatus() {
-			return httpStatus;
+			return this.httpStatus;
 		}
 
 		public String getParam() {
-			return param;
+			return this.param;
 		}
 	}
-
+	
+	/**
+	 * 	
+	 */
 	private static class LimitedByteArrayOutputStream extends ByteArrayOutputStream {
 
 		private final int limit;
@@ -510,18 +547,18 @@ public class ChatRequestStreamingTransformer {
 
 		@Override
 		public synchronized void write(int b) {
-			ensureCapacity(1);
+			this.ensureCapacity(1);
 			super.write(b);
 		}
 
 		@Override
 		public synchronized void write(byte[] b, int off, int len) {
-			ensureCapacity(len);
+			this.ensureCapacity(len);
 			super.write(b, off, len);
 		}
 
 		private void ensureCapacity(int delta) {
-			if (count + delta > limit) {
+			if (this.count + delta > this.limit) {
 				throw new IllegalStateException("Top-level field too large: " + fieldName);
 			}
 		}

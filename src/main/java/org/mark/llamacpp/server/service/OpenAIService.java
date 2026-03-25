@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.tools.JsonUtil;
+import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,42 +86,6 @@ public class OpenAIService {
 	 * @param request
 	 */
 	public void handleOpenAIModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
-//		try {
-//			// 只支持GET请求
-//			if (request.method() != HttpMethod.GET) {
-//				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only GET method is supported", "method");
-//				return;
-//			}
-//
-//			// 获取LlamaServerManager实例
-//			LlamaServerManager manager = LlamaServerManager.getInstance();
-//			
-//			// 获取已加载的进程信息
-//			Map<String, LlamaCppProcess> loadedProcesses = manager.getLoadedProcesses();
-//			
-//			// 构建OpenAI格式的模型列表
-//			List<Map<String, Object>> openAIModels = new ArrayList<>();
-//			
-//			for (Map.Entry<String, LlamaCppProcess> entry : loadedProcesses.entrySet()) {
-//				String modelId = entry.getKey();
-//				// 构建OpenAI格式的模型信息
-//				Map<String, Object> modelData = new HashMap<>();
-//				modelData.put("id", modelId);
-//				modelData.put("object", "model");
-//				modelData.put("owned_by", "organization_owner");
-//				
-//				openAIModels.add(modelData);
-//			}
-//			
-//			// 构建OpenAI格式的响应
-//			Map<String, Object> response = new HashMap<>();
-//			response.put("object", "list");
-//			response.put("data", openAIModels);
-//			sendOpenAIJsonResponse(ctx, response);
-//		} catch (Exception e) {
-//			logger.info("处理OpenAI模型列表请求时发生错误", e);
-//			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
-//		}
 		try {
 			// 只支持GET请求
 			if (request.method() != HttpMethod.GET) {
@@ -258,87 +223,9 @@ public class OpenAIService {
 				} catch (Exception ignore) {
 				}
 			}
-//			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
-//			if (requestJson.has("enable_thinking") && !requestJson.has("chat_template_kwargs")) {
-//				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking": false},
-//				JsonObject chatTemplateKwargs = new JsonObject();
-//				chatTemplateKwargs.addProperty("enable_thinking", requestJson.get("enable_thinking").getAsBoolean());
-//				// 添加到主 JsonObject
-//				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
-//			}
 			
-			//==============================================================================================
-			// 定义一个辅助函数逻辑，判断是否需要注入 chat_template_kwargs
-			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
-			// 额外的判断："thinking":{"type":"disabled"}
-			boolean needInjection = false;
-			boolean enableValueStr = true;
-			// 1. 检查传统字段 "enable_thinking"
-			if (requestJson.has("enable_thinking")) {
-				try {
-					JsonElement et = requestJson.get("enable_thinking");
-					if (et != null && !et.isJsonNull() && et.isJsonPrimitive()) {
-						if (et.getAsJsonPrimitive().isBoolean()) {
-							needInjection = true;
-							enableValueStr = et.getAsBoolean();
-						} else if (et.getAsJsonPrimitive().isString()) {
-							needInjection = true;
-							enableValueStr = Boolean.parseBoolean(et.getAsString().trim());
-						}
-					}
-				} catch (Exception ignore) {
-				}
-			}
-			// 2. 检查额外的"thinking":{"type":"disabled"}
-			if (!needInjection) {
-				if (requestJson.has("thinking")) {
-					try {
-						JsonElement thinkingEl = requestJson.get("thinking");
-						if (thinkingEl != null && !thinkingEl.isJsonNull() && thinkingEl.isJsonObject()) {
-							JsonObject thinkingObj = thinkingEl.getAsJsonObject();
-							String typeVal = "";
-							if (thinkingObj.has("type")) {
-								JsonElement typeEl = thinkingObj.get("type");
-								if (typeEl != null && !typeEl.isJsonNull() && typeEl.isJsonPrimitive()
-										&& typeEl.getAsJsonPrimitive().isString()) {
-									typeVal = typeEl.getAsString().toLowerCase().trim();
-								}
-							}
-							// 核心判断：如果 type 是 "disabled"，视为需要处理（通常映射为 enable_thinking: false）
-							if ("disabled".equals(typeVal.toLowerCase())) {
-								needInjection = true;
-								enableValueStr = false;
-							}
-						}
-					} catch (Exception ignore) {
-					}
-				}
-			}
-			if (needInjection) {
-				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking": false},
-				// 分两种情况
-				// 没有这个模板注入，那就直接新建一个丢进去
-				JsonObject chatTemplateKwargs = null;
-				if (requestJson.has("chat_template_kwargs")) {
-					try {
-						JsonElement kwargsEl = requestJson.get("chat_template_kwargs");
-						if (kwargsEl != null && !kwargsEl.isJsonNull()) {
-							if (kwargsEl.isJsonObject()) {
-								chatTemplateKwargs = kwargsEl.getAsJsonObject();
-							} else if (kwargsEl.isJsonPrimitive() && kwargsEl.getAsJsonPrimitive().isString()) {
-								chatTemplateKwargs = JsonUtil.tryParseObject(kwargsEl.getAsString());
-							}
-						}
-					} catch (Exception ignore) {
-					}
-				}
-				if (chatTemplateKwargs == null) {
-					chatTemplateKwargs = new JsonObject();
-				}
-				chatTemplateKwargs.addProperty("enable_thinking", enableValueStr);
-				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
-			}
-			//==============================================================================================
+			// 统一处理 think / enable_thinking 兼容字段，避免普通链路和流式链路出现行为分叉。
+			ParamTool.handleOpenAIThinking(requestJson);
 			// 这里做采样代理，针对llamacpp中的请求，注入采样参数。
 			ModelSamplingService service = ModelSamplingService.getInstance();
 			service.handleOpenAI(requestJson);

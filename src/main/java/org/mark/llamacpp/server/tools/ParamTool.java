@@ -251,6 +251,59 @@ public class ParamTool {
 		}
 	}
 	
+	/**
+	 * 	处理 OpenAI 聊天补全请求中的 thinking 开关兼容逻辑。
+	 * 	该方法只处理 OpenAI 链路当前已经支持的两种输入：
+	 * 	1. enable_thinking
+	 * 	2. thinking.type = disabled
+	 * 	并把结果统一映射到 chat_template_kwargs.enable_thinking 上。
+	 * @param requestJson
+	 */
+	public static void handleOpenAIThinking(JsonObject requestJson) {
+		if (requestJson == null) {
+			return;
+		}
+		boolean needInjection = false;
+		boolean enableThinking = true;
+		
+		JsonElement enableThinkingElement = requestJson.get("enable_thinking");
+		Boolean enableThinkingValue = readBooleanLenient(enableThinkingElement);
+		if (enableThinkingValue != null) {
+			needInjection = true;
+			enableThinking = enableThinkingValue.booleanValue();
+		}
+		
+		if (!needInjection) {
+			JsonElement thinkingElement = requestJson.get("thinking");
+			if (thinkingElement != null && !thinkingElement.isJsonNull() && thinkingElement.isJsonObject()) {
+				try {
+					JsonObject thinkingObject = thinkingElement.getAsJsonObject();
+					JsonElement typeElement = thinkingObject.get("type");
+					if (typeElement != null && !typeElement.isJsonNull() && typeElement.isJsonPrimitive()
+							&& typeElement.getAsJsonPrimitive().isString()) {
+						String typeValue = typeElement.getAsString();
+						if (typeValue != null && "disabled".equals(typeValue.trim().toLowerCase())) {
+							needInjection = true;
+							enableThinking = false;
+						}
+					}
+				} catch (Exception ignore) {
+				}
+			}
+		}
+		
+		if (!needInjection) {
+			return;
+		}
+		
+		JsonObject chatTemplateKwargs = parseChatTemplateKwargs(requestJson.get("chat_template_kwargs"));
+		if (chatTemplateKwargs == null) {
+			chatTemplateKwargs = new JsonObject();
+		}
+		chatTemplateKwargs.addProperty("enable_thinking", enableThinking);
+		requestJson.add("chat_template_kwargs", chatTemplateKwargs);
+	}
+	
 	
 	public static void handleThinking(JsonObject requestJson) {
 		boolean needInjection = false;
@@ -344,6 +397,48 @@ public class ParamTool {
 			chatTemplateKwargs.addProperty("enable_thinking", enableValueStr);
 			requestJson.add("chat_template_kwargs", chatTemplateKwargs);
 		}
+	}
+	
+	/**
+	 * 	宽松解析布尔值，兼容布尔字面量和字符串形式。
+	 * @param element
+	 * @return
+	 */
+	private static Boolean readBooleanLenient(JsonElement element) {
+		if (element == null || element.isJsonNull() || !element.isJsonPrimitive()) {
+			return null;
+		}
+		try {
+			if (element.getAsJsonPrimitive().isBoolean()) {
+				return element.getAsBoolean();
+			}
+			if (element.getAsJsonPrimitive().isString()) {
+				return Boolean.parseBoolean(element.getAsString().trim());
+			}
+		} catch (Exception ignore) {
+		}
+		return null;
+	}
+	
+	/**
+	 * 	解析 chat_template_kwargs，兼容对象和 JSON 字符串两种输入。
+	 * @param element
+	 * @return
+	 */
+	private static JsonObject parseChatTemplateKwargs(JsonElement element) {
+		if (element == null || element.isJsonNull()) {
+			return null;
+		}
+		try {
+			if (element.isJsonObject()) {
+				return element.getAsJsonObject().deepCopy();
+			}
+			if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+				return JsonUtil.tryParseObject(element.getAsString());
+			}
+		} catch (Exception ignore) {
+		}
+		return null;
 	}
 	
 	

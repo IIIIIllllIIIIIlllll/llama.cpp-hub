@@ -26,62 +26,95 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.util.ReferenceCountUtil;
 
+/**
+ * 负责在 Netty 管线里拦截 OpenAI 聊天接口的分块请求体。
+ * 这个 Handler 自己不直接解析完整 JSON，而是把每个 HttpContent 片段转交给 ChatStreamSession，
+ * 让后者一边接收请求体、一边解析 model / stream 等关键字段，并尽早建立到 llama.cpp 的转发连接。
+ */
 public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 
 	private static final Logger logger = LoggerFactory.getLogger(OpenAIChatStreamingHandler.class);
 
 	private final OpenAIService openAIService = new OpenAIService();
+	
+	/**
+	 * 	当前连接正在处理的聊天流式会话；当本次请求符合聊天补全+超大长度时才会创建。
+	 */
 	private ChatStreamSession currentSession;
+	
+	/**
+	 * 	标记当前请求是否已经被本 Handler 接管，避免后续 HttpContent 再落到普通路由逻辑。
+	 */
 	private boolean intercepting;
+	
+	
+	public OpenAIChatStreamingHandler() {
+		
+	}
 
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+		// 非HTTP请求直接跳过。
 		if (!(msg instanceof HttpObject)) {
 			ctx.fireChannelRead(msg);
 			return;
 		}
-
+		
 		HttpObject httpObject = (HttpObject) msg;
-		if (!intercepting && httpObject instanceof HttpRequest request) {
-			if (!LlamaServer.isChatStreamingEnabled() || !isChatUri(request.uri())) {
+		// 1、没有启用接管
+		if (!this.intercepting && httpObject instanceof HttpRequest request) {
+			// 只有开启聊天流式能力，且命中 chat completion 路径时，才进入“边收边转发”模式。
+			if (!LlamaServer.isChatStreamingEnabled() || !this.isChatUri(request.uri())) {
 				ctx.fireChannelRead(msg);
 				return;
 			}
-			intercepting = true;
+			
+			// 命中后立刻切换到拦截模式，后续同一请求的 HttpContent 都由当前 Handler 消费。
+			this.intercepting = true;
 			if (request.method() == HttpMethod.OPTIONS) {
-				sendCorsPreflight(ctx);
+				// 浏览器预检请求不需要进入模型转发流程，直接返回 CORS 响应。
+				this.sendCorsPreflight(ctx);
 				ReferenceCountUtil.release(msg);
-				resetSession();
+				this.resetSession();
 				return;
 			}
-			if (request.uri().startsWith("/v1") && !validateApiKey(request)) {
+			// 判断是不是v1的API，再判断有无密钥，实际上密钥压根没用过。
+			if (request.uri().startsWith("/v1") && !this.validateApiKey(request)) {
+				// OpenAI 兼容前缀下先做鉴权，失败时立即终止当前会话。
 				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.UNAUTHORIZED, "invalid api key");
 				ReferenceCountUtil.release(msg);
-				resetSession();
+				this.resetSession();
 				return;
 			}
-			currentSession = new ChatStreamSession(ctx, openAIService, request.method(), copyHeaders(request));
-			currentSession.start();
-		}
 
-		if (!intercepting || currentSession == null) {
+			// 会话启动后会在独立线程中读取 requestBodyStream，并在识别出 model 后连接目标 llama.cpp 进程。
+			this.currentSession = new ChatStreamSession(ctx, this.openAIService, request.method(), this.copyHeaders(request));
+			this.currentSession.start();
+		}
+		// 2. 没有启用接管，也没有相应的会话，直接跳过。
+		if (!this.intercepting || this.currentSession == null) {
 			ctx.fireChannelRead(msg);
 			return;
 		}
-
+		
+		
 		try {
 			if (httpObject instanceof HttpContent content) {
-				currentSession.offer(content.content());
+				// Netty 可能把请求体拆成多个 chunk，这里逐块喂给 ChatStreamSession。
+				this.currentSession.offer(content.content());
+				// 请求结束的处理。
 				if (httpObject instanceof LastHttpContent) {
-					currentSession.complete();
-					resetSession();
+					// 收到最后一个分块后通知会话“输入结束”，让后台线程继续完成转发和响应回写。
+					this.currentSession.complete();
+					// 这里重置的是 Handler 的拦截状态，不影响已经启动的后台会话继续执行。
+					this.resetSession();
 				}
 			}
 		} catch (IOException e) {
 			logger.info("接收聊天流式请求体失败", e);
-			currentSession.cancel();
-			resetSession();
-			openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
+			this.currentSession.cancel();
+			this.resetSession();
+			this.openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
 		} finally {
 			ReferenceCountUtil.release(msg);
 		}
@@ -89,24 +122,31 @@ public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-		if (currentSession != null) {
-			currentSession.cancel();
+		if (this.currentSession != null) {
+			// 客户端断开时主动取消后台转发，避免继续占用 llama.cpp 连接。
+			this.currentSession.cancel();
 		}
-		openAIService.channelInactive(ctx);
-		resetSession();
+		this.openAIService.channelInactive(ctx);
+		this.resetSession();
 		super.channelInactive(ctx);
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		logger.info("处理聊天流式请求时发生异常", cause);
-		if (currentSession != null) {
-			currentSession.cancel();
+		if (this.currentSession != null) {
+			// 异常场景同样要取消会话，确保输入流、输出流、代理连接都能尽快释放。
+			this.currentSession.cancel();
 		}
-		resetSession();
+		this.resetSession();
 		ctx.close();
 	}
-
+	
+	/**
+	 * 	是否为聊天补全的端点。
+	 * @param uri
+	 * @return
+	 */
 	private boolean isChatUri(String uri) {
 		if (uri == null) {
 			return false;
@@ -115,7 +155,12 @@ public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 				|| uri.startsWith("/v1/chat/completion")
 				|| uri.startsWith("/chat/completion");
 	}
-
+	
+	/**
+	 * 	复制请求头。
+	 * @param request
+	 * @return
+	 */
 	private Map<String, String> copyHeaders(HttpRequest request) {
 		Map<String, String> headers = new LinkedHashMap<>();
 		for (Map.Entry<String, String> entry : request.headers()) {
@@ -123,7 +168,12 @@ public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 		}
 		return headers;
 	}
-
+	
+	/**
+	 * 	验证API的密钥，但是实际没啥用。
+	 * @param request
+	 * @return
+	 */
 	private boolean validateApiKey(HttpRequest request) {
 		if (!LlamaServer.isApiKeyValidationEnabled()) {
 			return true;
@@ -150,13 +200,15 @@ public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 		ctx.writeAndFlush(response).addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) {
+				// 预检响应发完即可关闭连接，避免保留一个空闲 HTTP 通道。
 				ctx.close();
 			}
 		});
 	}
 
 	private void resetSession() {
-		intercepting = false;
-		currentSession = null;
+		// 仅清理 Handler 持有的当前请求状态，不会中断已经交给 ChatStreamSession 的后台执行逻辑。
+		this.intercepting = false;
+		this.currentSession = null;
 	}
 }

@@ -20,10 +20,18 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpMethod;
 
+
+
+/**
+ * 	这东西挺重要的，用于把聊天补全的JSON流式处理给llamacpp进程。
+ */
 public class ChatStreamSession {
 
 	private static final Logger logger = LoggerFactory.getLogger(ChatStreamSession.class);
-
+	
+	/**
+	 * 	依然是虚拟线程。
+	 */
 	private static final ExecutorService worker = Executors.newVirtualThreadPerTaskExecutor();
 
 	private static final int INPUT_QUEUE_CAPACITY = 32;
@@ -36,8 +44,15 @@ public class ChatStreamSession {
 	private final HttpMethod method;
 	private final Map<String, String> headers;
 	private final BoundedQueueInputStream requestBodyStream = new BoundedQueueInputStream(INPUT_QUEUE_CAPACITY);
+	
+	
+	/**
+	 * 	流式解析请求体
+	 */
 	private final ChatRequestStreamingTransformer transformer =
 			new ChatRequestStreamingTransformer(MAX_SMALL_FIELD_BYTES, MAX_BUFFERED_FIELD_BYTES);
+	
+	
 	private final DeferredConnectionOutputStream deferredOutput = new DeferredConnectionOutputStream(DEFERRED_MEMORY_LIMIT);
 	private final AtomicBoolean started = new AtomicBoolean(false);
 	private final AtomicBoolean completed = new AtomicBoolean(false);
@@ -45,106 +60,140 @@ public class ChatStreamSession {
 
 	private volatile HttpURLConnection connection;
 	private volatile boolean receivedBody;
-
+	
+	
+	
+	/**
+	 * 	初始化一个流式会话。
+	 * @param ctx
+	 * @param openAIService
+	 * @param method
+	 * @param headers
+	 */
 	public ChatStreamSession(ChannelHandlerContext ctx, OpenAIService openAIService, HttpMethod method, Map<String, String> headers) {
 		this.ctx = ctx;
 		this.openAIService = openAIService;
 		this.method = method;
 		this.headers = headers;
 	}
-
+	
+	
+	/**
+	 * 	哎，启动！
+	 */
 	public void start() {
-		if (started.compareAndSet(false, true)) {
+		if (this.started.compareAndSet(false, true)) {
 			worker.execute(this::run);
 		}
 	}
-
+	
+	/**
+	 * 	传入数据块。
+	 * @param content
+	 * @throws IOException
+	 */
 	public void offer(ByteBuf content) throws IOException {
 		if (content == null || !content.isReadable()) {
 			return;
 		}
+		// 这一步涉及到数据拷贝，无可避免需要吃一些内容。
 		byte[] bytes = new byte[content.readableBytes()];
 		content.getBytes(content.readerIndex(), bytes);
-		receivedBody = true;
-		requestBodyStream.offer(bytes);
+		this.receivedBody = true;
+		this.requestBodyStream.offer(bytes);
 	}
-
+	
+	/**
+	 * 	完成了，需要显式地调用这个表明任务正常结束了。
+	 */
 	public void complete() {
-		if (completed.compareAndSet(false, true)) {
-			requestBodyStream.complete();
+		if (this.completed.compareAndSet(false, true)) {
+			this.requestBodyStream.complete();
 		}
 	}
-
+	
+	/**
+	 * 	取消，取他妈的消。
+	 */
 	public void cancel() {
-		if (cancelled.compareAndSet(false, true)) {
-			requestBodyStream.fail(new IOException("client disconnected"));
-			if (connection != null) {
-				connection.disconnect();
+		if (this.cancelled.compareAndSet(false, true)) {
+			this.requestBodyStream.fail(new IOException("client disconnected"));
+			if (this.connection != null) {
+				this.connection.disconnect();
 			}
 			try {
-				deferredOutput.close();
+				this.deferredOutput.close();
 			} catch (IOException e) {
 			}
 		}
 	}
-
+	
+	/**
+	 * 	run run run
+	 */
 	private void run() {
 		try {
-			if (method != HttpMethod.POST) {
-				openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
+			if (this.method != HttpMethod.POST) {
+				this.openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
 				return;
 			}
-			ChatRequestStreamingTransformer.TransformResult result = transformer.transform(
-					requestBodyStream,
-					deferredOutput,
+			// 这里等待解析出model的名称，一旦拿到了名称，就去建立和llamacpp的连接。
+			ChatRequestStreamingTransformer.TransformResult result = this.transformer.transform(
+					this.requestBodyStream,
+					this.deferredOutput,
 					this::openConnectionForModel);
 
-			if (!receivedBody) {
-				openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "messages");
+			if (!this.receivedBody) {
+				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 400, null, "Request body is empty", "messages");
 				return;
 			}
 
-			openConnectionForModel(result.getModelName());
-			deferredOutput.close();
-			if (connection == null) {
+			this.openConnectionForModel(result.getModelName());
+			this.deferredOutput.close();
+			if (this.connection == null) {
 				throw new IOException("llama.cpp connection was not created");
 			}
 
-			int responseCode = connection.getResponseCode();
-			openAIService.handleProxyResponse(ctx, connection, responseCode, result.isStream(), result.getModelName());
+			int responseCode = this.connection.getResponseCode();
+			this.openAIService.handleProxyResponse(this.ctx, this.connection, responseCode, result.isStream(), result.getModelName());
 		} catch (ChatRequestStreamingTransformer.StreamingRequestException e) {
-			if (!cancelled.get()) {
-				openAIService.sendOpenAIErrorResponseWithCleanup(ctx, e.getHttpStatus(), null, e.getMessage(), e.getParam());
+			if (!this.cancelled.get()) {
+				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, e.getHttpStatus(), null, e.getMessage(), e.getParam());
 			}
 		} catch (IOException e) {
-			if (cancelled.get()) {
+			if (this.cancelled.get()) {
 				logger.info("聊天流式会话已取消: {}", e.getMessage());
 				return;
 			}
-			if (!receivedBody) {
-				openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "messages");
+			if (!this.receivedBody) {
+				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 400, null, "Request body is empty", "messages");
 				return;
 			}
 			logger.info("处理聊天流式请求时发生错误", e);
-			openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
+			this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 500, null, e.getMessage(), null);
 		} catch (Exception e) {
-			if (cancelled.get()) {
+			if (this.cancelled.get()) {
 				logger.info("聊天流式会话已取消: {}", e.getMessage());
 				return;
 			}
 			logger.info("处理聊天流式请求时发生错误", e);
-			openAIService.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
+			this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 500, null, e.getMessage(), null);
 		} finally {
 			try {
-				deferredOutput.close();
+				this.deferredOutput.close();
 			} catch (IOException e) {
 			}
-			openAIService.cleanupTrackedConnection(ctx, connection);
+			this.openAIService.cleanupTrackedConnection(this.ctx, this.connection);
 		}
 	}
-
+	
+	/**
+	 * 	连接到指定的llamacpp进程。
+	 * @param modelName
+	 * @throws IOException
+	 */
 	private synchronized void openConnectionForModel(String modelName) throws IOException {
-		if (connection != null) {
+		if (this.connection != null) {
 			return;
 		}
 		if (modelName == null) {
@@ -162,8 +211,8 @@ public class ChatStreamSession {
 		}
 
 		String targetUrl = String.format("http://localhost:%d/v1/chat/completions", modelPort.intValue());
-		connection = openAIService.openTrackedConnection(ctx, targetUrl, method, headers, true);
-		deferredOutput.attach(connection.getOutputStream());
+		this.connection = this.openAIService.openTrackedConnection(this.ctx, targetUrl, this.method, this.headers, true);
+		this.deferredOutput.attach(this.connection.getOutputStream());
 		logger.info("聊天流式请求已连接到 llama.cpp: {}", targetUrl);
 	}
 
@@ -181,25 +230,25 @@ public class ChatStreamSession {
 		}
 
 		public synchronized void attach(OutputStream outputStream) throws IOException {
-			if (closed) {
+			if (this.closed) {
 				throw new IOException("stream already closed");
 			}
-			if (target != null) {
+			if (this.target != null) {
 				return;
 			}
-			target = outputStream;
-			if (spoolOutput != null) {
-				spoolOutput.flush();
-				spoolOutput.close();
-				spoolOutput = null;
-				Files.copy(spoolFile, target);
-				Files.deleteIfExists(spoolFile);
-				spoolFile = null;
-			} else if (memoryBuffer.size() > 0) {
-				memoryBuffer.writeTo(target);
-				memoryBuffer.reset();
+			this.target = outputStream;
+			if (this.spoolOutput != null) {
+				this.spoolOutput.flush();
+				this.spoolOutput.close();
+				this.spoolOutput = null;
+				Files.copy(this.spoolFile, this.target);
+				Files.deleteIfExists(this.spoolFile);
+				this.spoolFile = null;
+			} else if (this.memoryBuffer.size() > 0) {
+				this.memoryBuffer.writeTo(this.target);
+				this.memoryBuffer.reset();
 			}
-			target.flush();
+			this.target.flush();
 		}
 
 		@Override
@@ -209,65 +258,65 @@ public class ChatStreamSession {
 
 		@Override
 		public synchronized void write(byte[] b, int off, int len) throws IOException {
-			if (closed) {
+			if (this.closed) {
 				throw new IOException("stream already closed");
 			}
 			if (len <= 0) {
 				return;
 			}
-			if (target != null) {
-				target.write(b, off, len);
+			if (this.target != null) {
+				this.target.write(b, off, len);
 				return;
 			}
-			if (spoolOutput != null) {
-				spoolOutput.write(b, off, len);
+			if (this.spoolOutput != null) {
+				this.spoolOutput.write(b, off, len);
 				return;
 			}
-			if (memoryBuffer.size() + len <= memoryLimit) {
-				memoryBuffer.write(b, off, len);
+			if (this.memoryBuffer.size() + len <= this.memoryLimit) {
+				this.memoryBuffer.write(b, off, len);
 				return;
 			}
 			spoolToFile();
-			spoolOutput.write(b, off, len);
+			this.spoolOutput.write(b, off, len);
 		}
 
 		@Override
 		public synchronized void flush() throws IOException {
-			if (target != null) {
-				target.flush();
+			if (this.target != null) {
+				this.target.flush();
 				return;
 			}
-			if (spoolOutput != null) {
-				spoolOutput.flush();
+			if (this.spoolOutput != null) {
+				this.spoolOutput.flush();
 			}
 		}
 
 		@Override
 		public synchronized void close() throws IOException {
-			if (closed) {
+			if (this.closed) {
 				return;
 			}
-			closed = true;
+			this.closed = true;
 			IOException failure = null;
 			try {
-				if (spoolOutput != null) {
-					spoolOutput.close();
+				if (this.spoolOutput != null) {
+					this.spoolOutput.close();
 				}
 			} catch (IOException e) {
 				failure = e;
 			}
 			try {
-				if (target != null) {
-					target.flush();
-					target.close();
+				if (this.target != null) {
+					this.target.flush();
+					this.target.close();
 				}
 			} catch (IOException e) {
 				if (failure == null) {
 					failure = e;
 				}
 			} finally {
-				if (spoolFile != null) {
-					Files.deleteIfExists(spoolFile);
+				if (this.spoolFile != null) {
+					Files.deleteIfExists(this.spoolFile);
 				}
 			}
 			if (failure != null) {
@@ -276,10 +325,10 @@ public class ChatStreamSession {
 		}
 
 		private void spoolToFile() throws IOException {
-			spoolFile = Files.createTempFile("llama-chat-stream-", ".json");
-			spoolOutput = Files.newOutputStream(spoolFile);
-			memoryBuffer.writeTo(spoolOutput);
-			memoryBuffer.reset();
+			this.spoolFile = Files.createTempFile("llama-chat-stream-", ".json");
+			this.spoolOutput = Files.newOutputStream(this.spoolFile);
+			this.memoryBuffer.writeTo(this.spoolOutput);
+			this.memoryBuffer.reset();
 		}
 	}
 }
