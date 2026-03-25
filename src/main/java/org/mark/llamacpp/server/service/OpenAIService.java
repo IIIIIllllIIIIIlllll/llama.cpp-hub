@@ -223,9 +223,17 @@ public class OpenAIService {
 				} catch (Exception ignore) {
 				}
 			}
+//			// 这个东西暂时用于控制enable_thinking，实际上是不完善的，临时解决吧。
+//			if (requestJson.has("enable_thinking") && !requestJson.has("chat_template_kwargs")) {
+//				// 拼接一个chat_template_kwargs进去： "chat_template_kwargs" : {"enable_thinking": false},
+//				JsonObject chatTemplateKwargs = new JsonObject();
+//				chatTemplateKwargs.addProperty("enable_thinking", requestJson.get("enable_thinking").getAsBoolean());
+//				// 添加到主 JsonObject
+//				requestJson.add("chat_template_kwargs", chatTemplateKwargs);
+//			}
 			
-			// 统一处理 think / enable_thinking 兼容字段，避免普通链路和流式链路出现行为分叉。
-			ParamTool.handleOpenAIThinking(requestJson);
+			// 统一处理 enable_thinking / thinking.type 等兼容字段，保持与流式链路一致。
+			this.applyThinkingInjection(requestJson);
 			// 这里做采样代理，针对llamacpp中的请求，注入采样参数。
 			ModelSamplingService service = ModelSamplingService.getInstance();
 			service.handleOpenAI(requestJson);
@@ -253,6 +261,14 @@ public class OpenAIService {
 			logger.info("处理OpenAI聊天补全请求时发生错误", e);
 			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
 		}
+	}
+	
+	/**
+	 * 统一委托公共工具处理 thinking 兼容字段，避免普通链路与流式链路出现行为漂移。
+	 * @param requestJson
+	 */
+	private void applyThinkingInjection(JsonObject requestJson) {
+		ParamTool.handleOpenAIChatThinking(requestJson);
 	}
 	
 	/**

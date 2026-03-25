@@ -8,8 +8,8 @@ import java.io.PushbackInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-import org.mark.llamacpp.server.tools.ParamTool;
 import org.mark.llamacpp.server.tools.JsonUtil;
+import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -374,6 +374,10 @@ public class ChatRequestStreamingTransformer {
 		}
 		String beforeSampling = this.buildSamplingLogSnapshot(requestJson);
 		JsonObject sampling = ModelSamplingService.getInstance().getOpenAISampling(modelName);
+		if (sampling == null || sampling.entrySet().isEmpty()) {
+			logger.info("跳过采样覆盖：模型未配置采样参数，model={}, requestSampling={}", modelName, beforeSampling);
+			return;
+		}
 		
 		logger.info("命中模型采样配置，model={}, requestSampling={}, configSampling={}",
 				modelName,
@@ -469,12 +473,11 @@ public class ChatRequestStreamingTransformer {
 	}
 	
 	/**
-	 * 	
+	 * 统一委托公共工具处理 thinking 兼容字段，避免与普通聊天链路分叉。
 	 * @param requestJson
 	 */
 	private void applyThinkingInjection(JsonObject requestJson) {
-		// 流式链路和普通链路共用同一套 thinking 注入逻辑，确保行为保持一致。
-		ParamTool.handleOpenAIThinking(requestJson);
+		ParamTool.handleOpenAIChatThinking(requestJson);
 	}
 	
 	/**
