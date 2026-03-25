@@ -369,20 +369,13 @@ public class ChatRequestStreamingTransformer {
 	 */
 	private void applySamplingInjection(JsonObject requestJson, String modelName) {
 		if (requestJson == null || modelName == null || modelName.isBlank()) {
-			logger.info("跳过采样覆盖：请求或模型名为空");
 			return;
 		}
 		String beforeSampling = this.buildSamplingLogSnapshot(requestJson);
 		JsonObject sampling = ModelSamplingService.getInstance().getOpenAISampling(modelName);
 		if (sampling == null || sampling.entrySet().isEmpty()) {
-			logger.info("跳过采样覆盖：模型未配置采样参数，model={}, requestSampling={}", modelName, beforeSampling);
 			return;
 		}
-		
-		logger.info("命中模型采样配置，model={}, requestSampling={}, configSampling={}",
-				modelName,
-				beforeSampling,
-				this.buildSamplingLogSnapshot(sampling));
 		
 		for (Map.Entry<String, JsonElement> item : sampling.entrySet()) {
 			String key = item.getKey();
@@ -391,9 +384,7 @@ public class ChatRequestStreamingTransformer {
 				continue;
 			}
 			requestJson.add(key, value.deepCopy());
-			logger.info("聊天流式请求采样覆盖，model={}, field={}, value={}", modelName, key, JsonUtil.toJson(value));
 		}
-		logger.info("聊天流式请求采样覆盖完成，model={}, finalSampling={}", modelName, this.buildSamplingLogSnapshot(requestJson));
 	}
 	
 	/**

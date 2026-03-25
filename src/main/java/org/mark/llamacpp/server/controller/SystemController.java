@@ -1007,8 +1007,6 @@ public class SystemController implements BaseController {
 			// 预留返回值
 			Map<String, Object> data = new HashMap<>();
 			
-			logger.info("这是是测试：" + combinedCmd);
-			
 			// 只保留部分参数：--ctx-size --flash-attn --batch-size --ubatch-size --parallel --kv-unified --cache-type-k --cache-type-v -mg -dev
 			List<String> cmdlist = ParamTool.splitCmdArgs(combinedCmd);
 			// 运行fit-param
