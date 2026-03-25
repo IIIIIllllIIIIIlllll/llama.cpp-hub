@@ -2,6 +2,7 @@ package org.mark.llamacpp.lmstudio;
 
 import org.mark.llamacpp.lmstudio.channel.LMStudioRouterHandler;
 import org.mark.llamacpp.lmstudio.websocket.LMStudioWsPathSelectHandler;
+import org.mark.llamacpp.server.channel.OpenAIChatStreamingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,6 +124,7 @@ public class LMStudio {
 						protected void initChannel(SocketChannel ch) throws Exception {
 							ch.pipeline()
 									.addLast(new HttpServerCodec())
+									.addLast(new OpenAIChatStreamingHandler())
 									.addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
 									.addLast(new ChunkedWriteHandler())
 									.addLast(new LMStudioWsPathSelectHandler())

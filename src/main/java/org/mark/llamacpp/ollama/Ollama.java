@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.mark.llamacpp.ollama.channel.OllamaRouterHandler;
+import org.mark.llamacpp.server.channel.OpenAIChatStreamingHandler;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -138,6 +139,7 @@ public class Ollama {
 						protected void initChannel(SocketChannel ch) throws Exception {
 							ch.pipeline()
 									.addLast(new HttpServerCodec())
+									.addLast(new OpenAIChatStreamingHandler())
 									.addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
 									.addLast(new ChunkedWriteHandler())
 									.addLast(new OllamaRouterHandler());
