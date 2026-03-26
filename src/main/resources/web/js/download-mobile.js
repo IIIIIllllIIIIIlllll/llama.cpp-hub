@@ -28,6 +28,12 @@
         return out;
     }
 
+    function isTaskDeletedError(errorMessage) {
+        const msg = errorMessage == null ? '' : String(errorMessage).trim();
+        if (!msg) return false;
+        return msg === '任务已删除' || msg.toLowerCase() === 'task deleted';
+    }
+
     function byId(id) {
         return document.getElementById(id);
     }
@@ -224,11 +230,16 @@
                         );
                     }
                     if (st === 'FAILED') {
-                        showToast(
-                            t('download.toast.failed.title', '下载失败'),
-                            tf('download.toast.failed.message', { name: data.fileName || data.taskId, error: data.errorMessage || t('common.unknown_error', '未知错误') }, '下载任务 {name} 失败: {error}'),
-                            'error'
-                        );
+                        const errorMessage = data.errorMessage || t('common.unknown_error', '未知错误');
+                        if (isTaskDeletedError(errorMessage)) {
+                            state.downloads = (state.downloads || []).filter(item => item && String(item.taskId) !== String(data.taskId));
+                        } else {
+                            showToast(
+                                t('download.toast.failed.title', '下载失败'),
+                                tf('download.toast.failed.message', { name: data.fileName || data.taskId, error: errorMessage }, '下载任务 {name} 失败: {error}'),
+                                'error'
+                            );
+                        }
                     }
                 }
                 renderList();
