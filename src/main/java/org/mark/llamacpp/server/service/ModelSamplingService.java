@@ -80,6 +80,7 @@ public class ModelSamplingService {
 			return;
 		}
 		injectSampling(requestJson, sampling);
+		applyThinkingBySampling(requestJson, sampling);
 	}
 
 	public JsonObject getOpenAISampling(String modelId) {
@@ -377,6 +378,7 @@ public class ModelSamplingService {
 		setIntFromKeys(out, "top_k", configObj, "top_k", "topK", "top-k");
 		setDoubleFromKeys(out, "presence_penalty", configObj, "presence_penalty", "presencePenalty", "presence-penalty");
 		setDoubleFromKeys(out, "frequency_penalty", configObj, "frequency_penalty", "frequencyPenalty", "frequency-penalty");
+		setBooleanFromKeys(out, "enable_thinking", configObj, "enable_thinking");
 		applySamplingFromCmd(out, JsonUtil.getJsonString(configObj, "cmd", null));
 		return out;
 	}
@@ -403,30 +405,59 @@ public class ModelSamplingService {
 					value = next;
 				}
 			}
-			if (value == null || value.isBlank()) {
-				continue;
-			}
 			switch (flag) {
 				case "--temp":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setDoubleIfAbsent(out, "temperature", value);
 					break;
 				case "--top-p":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setDoubleIfAbsent(out, "top_p", value);
 					break;
 				case "--min-p":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setDoubleIfAbsent(out, "min_p", value);
 					break;
 				case "--repeat-penalty":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setDoubleIfAbsent(out, "repeat_penalty", value);
 					break;
 				case "--top-k":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setIntIfAbsent(out, "top_k", value);
 					break;
 				case "--presence-penalty":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setDoubleIfAbsent(out, "presence_penalty", value);
 					break;
 				case "--frequency-penalty":
+					if (value == null || value.isBlank()) {
+						continue;
+					}
 					setDoubleIfAbsent(out, "frequency_penalty", value);
+					break;
+				case "--enable-thinking":
+					if (eq > 0) {
+						setBooleanIfAbsent(out, "enable_thinking", value);
+						break;
+					}
+					if (value == null || value.isBlank()) {
+						out.addProperty("enable_thinking", true);
+						break;
+					}
+					setBooleanIfAbsent(out, "enable_thinking", value);
 					break;
 				default:
 					break;
@@ -441,8 +472,44 @@ public class ModelSamplingService {
 			if (key == null || value == null || value.isJsonNull()) {
 				continue;
 			}
+			if (isThinkingToggleKey(key)) {
+				continue;
+			}
 			requestJson.add(key, value.deepCopy());
 		}
+	}
+
+	private void applyThinkingBySampling(JsonObject requestJson, JsonObject sampling) {
+		if (requestJson == null || sampling == null) {
+			return;
+		}
+		Boolean enabled = readThinkingToggle(sampling);
+		if (enabled == null) {
+			return;
+		}
+		requestJson.addProperty("enable_thinking", enabled);
+		ParamTool.handleOpenAIChatThinking(requestJson);
+		requestJson.remove("enable_thinking");
+	}
+
+	private Boolean readThinkingToggle(JsonObject sampling) {
+		if (sampling == null) {
+			return null;
+		}
+		for (String key : new String[] {"enable_thinking"}) {
+			Boolean value = readBoolean(sampling, key);
+			if (value != null) {
+				return value;
+			}
+		}
+		return null;
+	}
+
+	private boolean isThinkingToggleKey(String key) {
+		if (key == null) {
+			return false;
+		}
+		return "enable_thinking".equals(key);
 	}
 	
 	private void setDoubleFromKeys(JsonObject out, String targetKey, JsonObject src, String... keys) {
@@ -470,6 +537,19 @@ public class ModelSamplingService {
 			}
 		}
 	}
+
+	private void setBooleanFromKeys(JsonObject out, String targetKey, JsonObject src, String... keys) {
+		if (out.has(targetKey) || src == null || keys == null) {
+			return;
+		}
+		for (String k : keys) {
+			Boolean v = readBoolean(src, k);
+			if (v != null) {
+				out.addProperty(targetKey, v);
+				return;
+			}
+		}
+	}
 	
 	private void setDoubleIfAbsent(JsonObject out, String key, String raw) {
 		if (out.has(key)) {
@@ -486,6 +566,16 @@ public class ModelSamplingService {
 			return;
 		}
 		Integer v = parseInt(raw);
+		if (v != null) {
+			out.addProperty(key, v);
+		}
+	}
+
+	private void setBooleanIfAbsent(JsonObject out, String key, String raw) {
+		if (out.has(key)) {
+			return;
+		}
+		Boolean v = parseBoolean(raw);
 		if (v != null) {
 			out.addProperty(key, v);
 		}
@@ -532,6 +622,30 @@ public class ModelSamplingService {
 		}
 		return null;
 	}
+
+	private Boolean readBoolean(JsonObject obj, String key) {
+		if (obj == null || key == null || !obj.has(key)) {
+			return null;
+		}
+		JsonElement el = obj.get(key);
+		if (el == null || el.isJsonNull()) {
+			return null;
+		}
+		try {
+			if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isBoolean()) {
+				return el.getAsBoolean();
+			}
+			if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) {
+				return el.getAsInt() != 0;
+			}
+			if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isString()) {
+				return parseBoolean(el.getAsString());
+			}
+		} catch (Exception e) {
+			return null;
+		}
+		return null;
+	}
 	
 	private Double parseDouble(String raw) {
 		if (raw == null) {
@@ -561,5 +675,22 @@ public class ModelSamplingService {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	private Boolean parseBoolean(String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String s = raw.trim().toLowerCase();
+		if (s.isEmpty()) {
+			return null;
+		}
+		if ("true".equals(s) || "1".equals(s) || "yes".equals(s) || "on".equals(s)) {
+			return true;
+		}
+		if ("false".equals(s) || "0".equals(s) || "no".equals(s) || "off".equals(s)) {
+			return false;
+		}
+		return null;
 	}
 }

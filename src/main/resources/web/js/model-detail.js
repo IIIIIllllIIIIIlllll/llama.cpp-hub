@@ -46,9 +46,8 @@ function showModelDetailModal(model) {
                         `<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">` +
                         `<label for="${modalId}SamplingConfigSelect" style="white-space:nowrap;">${t('modal.model_detail.sampling.config', '采样配置')}</label>` +
                         `<select class="form-control" id="${modalId}SamplingConfigSelect" style="max-width:320px;"></select>` +
-                        `<button class="btn btn-secondary" id="${modalId}SamplingSaveBtn">${t('modal.model_detail.sampling.save', '保存设定')}</button>` +
                         `<button class="btn btn-secondary" id="${modalId}SamplingAddBtn">${t('modal.model_detail.sampling.add', '新增配置')}</button>` +
-                        `<button class="btn btn-secondary" id="${modalId}SamplingUpdateBtn">${t('modal.model_detail.sampling.update', '更新采样')}</button>` +
+                        `<button class="btn btn-secondary" id="${modalId}SamplingSaveBtn">${t('modal.model_detail.sampling.save', '保存设定')}</button>` +
                         `<button class="btn btn-danger" id="${modalId}SamplingDeleteBtn">${t('modal.model_detail.sampling.delete', '删除配置')}</button>` +
                         `</div>` +
                         `<div id="${modalId}SamplingDetails" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>` +
@@ -94,7 +93,6 @@ function showModelDetailModal(model) {
     const samplingConfigSelect = document.getElementById(modalId + 'SamplingConfigSelect');
     const samplingSaveBtn = document.getElementById(modalId + 'SamplingSaveBtn');
     const samplingAddBtn = document.getElementById(modalId + 'SamplingAddBtn');
-    const samplingUpdateBtn = document.getElementById(modalId + 'SamplingUpdateBtn');
     const samplingDeleteBtn = document.getElementById(modalId + 'SamplingDeleteBtn');
     const fetchPropsBtn = document.getElementById(modalId + 'PropsFetchBtn');
     const tplReloadBtn = document.getElementById(modalId + 'ChatTemplateReloadBtn');
@@ -111,7 +109,6 @@ function showModelDetailModal(model) {
     if (samplingConfigSelect) samplingConfigSelect.onchange = () => renderSelectedModelSamplingSettings();
     if (samplingSaveBtn) samplingSaveBtn.onclick = () => saveModelSamplingSelection();
     if (samplingAddBtn) samplingAddBtn.onclick = () => addModelSamplingConfig();
-    if (samplingUpdateBtn) samplingUpdateBtn.onclick = () => updateModelSamplingConfig();
     if (samplingDeleteBtn) samplingDeleteBtn.onclick = () => deleteModelSamplingConfig();
     if (fetchPropsBtn) fetchPropsBtn.onclick = () => loadModelProps();
     if (tplReloadBtn) tplReloadBtn.onclick = () => loadModelChatTemplate(true);
@@ -247,7 +244,8 @@ function extractSamplingSettingsFromConfig(cfg) {
         minP: null,
         presencePenalty: null,
         repeatPenalty: null,
-        frequencyPenalty: null
+        frequencyPenalty: null,
+        enableThinking: null
     };
     const readValue = (keys) => {
         for (let i = 0; i < keys.length; i++) {
@@ -265,6 +263,20 @@ function extractSamplingSettingsFromConfig(cfg) {
     out.presencePenalty = readValue(['presencePenalty', 'presence_penalty', 'presence-penalty']);
     out.repeatPenalty = readValue(['repeatPenalty', 'repeat_penalty', 'repeat-penalty']);
     out.frequencyPenalty = readValue(['frequencyPenalty', 'frequency_penalty', 'frequency-penalty']);
+    const readBooleanValue = (keys) => {
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            if (!Object.prototype.hasOwnProperty.call(config, key)) continue;
+            const value = config[key];
+            if (value === true || value === false) return value;
+            if (value === null || value === undefined) continue;
+            const text = String(value).trim().toLowerCase();
+            if (text === 'true' || text === '1' || text === 'yes' || text === 'on') return true;
+            if (text === 'false' || text === '0' || text === 'no' || text === 'off') return false;
+        }
+        return null;
+    };
+    out.enableThinking = readBooleanValue(['enable_thinking']);
 
     const args = parseCommandArgs(config.cmd);
     const flagMap = {
@@ -274,7 +286,16 @@ function extractSamplingSettingsFromConfig(cfg) {
         '--min-p': 'minP',
         '--presence-penalty': 'presencePenalty',
         '--repeat-penalty': 'repeatPenalty',
-        '--frequency-penalty': 'frequencyPenalty'
+        '--frequency-penalty': 'frequencyPenalty',
+        '--enable-thinking': 'enableThinking'
+    };
+    const parseBoolToken = (raw) => {
+        if (raw === null || raw === undefined) return null;
+        const text = String(raw).trim().toLowerCase();
+        if (!text) return null;
+        if (text === 'true' || text === '1' || text === 'yes' || text === 'on') return true;
+        if (text === 'false' || text === '0' || text === 'no' || text === 'off') return false;
+        return null;
     };
     for (let i = 0; i < args.length; i++) {
         const token = args[i];
@@ -288,9 +309,24 @@ function extractSamplingSettingsFromConfig(cfg) {
         } else if (i + 1 < args.length) {
             val = args[i + 1];
         }
-        if (val !== null && val !== undefined && String(val).startsWith('--')) continue;
         const target = flagMap[key];
-        if (!target || out[target] !== null || val === null || val === undefined || String(val).trim() === '') continue;
+        if (!target || out[target] !== null) continue;
+        if (target === 'enableThinking') {
+            if (eq > -1) {
+                const boolByEq = parseBoolToken(val);
+                if (boolByEq !== null) out[target] = boolByEq;
+                continue;
+            }
+            if (val !== null && val !== undefined && !String(val).startsWith('--')) {
+                const boolByNext = parseBoolToken(val);
+                if (boolByNext !== null) out[target] = boolByNext;
+                continue;
+            }
+            out[target] = true;
+            continue;
+        }
+        if (val !== null && val !== undefined && String(val).startsWith('--')) continue;
+        if (val === null || val === undefined || String(val).trim() === '') continue;
         out[target] = val;
     }
     return out;
@@ -321,16 +357,35 @@ function renderSelectedModelSamplingSettings() {
         ['Repeat Penalty', '--repeat-penalty', 'SamplingFieldRepeatPenalty', s.repeatPenalty],
         ['Frequency Penalty', '--frequency-penalty', 'SamplingFieldFrequencyPenalty', s.frequencyPenalty]
     ];
-    details.innerHTML = fields.map((item) => {
+    const numFieldHtml = fields.map((item) => {
         const id = modalId + item[2];
         const value = item[3] === null || item[3] === undefined ? '' : String(item[3]);
-        return `<div style="padding:8px 10px; border:1px solid #e5e7eb; border-radius:0.75rem;"><div style="font-size:12px; color:#6b7280; margin-bottom:6px;">${safe(item[0])} ${safe(item[1])}</div><input class="form-control" id="${safe(id)}" value="${safe(value)}" /></div>`;
+        return `<div class="model-sampling-field"><div class="model-sampling-field-meta">${safe(item[0])} ${safe(item[1])}</div><input class="form-control" id="${safe(id)}" value="${safe(value)}" /></div>`;
     }).join('');
+    const thinkingChecked = s.enableThinking === true ? ' checked' : '';
+    const thinkingFieldHtml = `<label class="model-sampling-field model-sampling-toggle-row"><span class="model-sampling-field-meta">enable_thinking --enable-thinking</span><span class="model-sampling-toggle-control"><input type="checkbox" class="model-sampling-toggle-input" id="${safe(modalId + 'SamplingFieldEnableThinking')}"${thinkingChecked} /><span class="model-sampling-toggle-track"></span></span></label>`;
+    details.innerHTML = numFieldHtml + thinkingFieldHtml;
     const inputs = details.querySelectorAll('input');
     for (let i = 0; i < inputs.length; i++) {
-        inputs[i].oninput = () => updateSamplingBundleFromForm();
+        inputs[i].oninput = () => {
+            updateSamplingBundleFromForm();
+            scheduleModelSamplingAutoUpdate();
+        };
+        inputs[i].onchange = () => {
+            updateSamplingBundleFromForm();
+            scheduleModelSamplingAutoUpdate();
+        };
     }
     updateSamplingBundleFromForm();
+}
+
+function scheduleModelSamplingAutoUpdate() {
+    const timerKey = '__modelDetailSamplingAutoSaveTimer';
+    if (window[timerKey]) clearTimeout(window[timerKey]);
+    window[timerKey] = setTimeout(() => {
+        window[timerKey] = null;
+        updateModelSamplingConfig({ silentSuccess: true, silentNoSelection: true });
+    }, 400);
 }
 
 function getSamplingDraftFromForm() {
@@ -355,6 +410,8 @@ function getSamplingDraftFromForm() {
     setNumber('presence_penalty', read('SamplingFieldPresencePenalty'), false);
     setNumber('repeat_penalty', read('SamplingFieldRepeatPenalty'), false);
     setNumber('frequency_penalty', read('SamplingFieldFrequencyPenalty'), false);
+    const thinkingEl = document.getElementById(modalId + 'SamplingFieldEnableThinking');
+    out.enable_thinking = !!(thinkingEl && thinkingEl.checked);
     return out;
 }
 
@@ -473,13 +530,17 @@ function addModelSamplingConfig() {
         });
 }
 
-function updateModelSamplingConfig() {
+function updateModelSamplingConfig(options = {}) {
+    const silentSuccess = !!(options && options.silentSuccess);
+    const silentNoSelection = !!(options && options.silentNoSelection);
     const modalId = 'modelDetailModal';
     const select = document.getElementById(modalId + 'SamplingConfigSelect');
     if (!select) return;
     const samplingConfigName = select.value == null ? '' : String(select.value).trim();
     if (!samplingConfigName) {
-        showToast(t('toast.info', '提示'), t('modal.model_detail.sampling.select_first', '请先选择一个采样配置'), 'info');
+        if (!silentNoSelection) {
+            showToast(t('toast.info', '提示'), t('modal.model_detail.sampling.select_first', '请先选择一个采样配置'), 'info');
+        }
         return;
     }
     const sampling = getSamplingDraftFromForm();
@@ -494,7 +555,9 @@ function updateModelSamplingConfig() {
                 if (!window.__modelDetailSamplingBundle) window.__modelDetailSamplingBundle = { configs: {} };
                 if (!window.__modelDetailSamplingBundle.configs) window.__modelDetailSamplingBundle.configs = {};
                 window.__modelDetailSamplingBundle.configs[samplingConfigName] = sampling;
-                showToast(t('toast.success', '成功'), t('modal.model_detail.sampling.updated', '采样配置已更新'), 'success');
+                if (!silentSuccess) {
+                    showToast(t('toast.success', '成功'), t('modal.model_detail.sampling.updated', '采样配置已更新'), 'success');
+                }
             } else {
                 showToast(t('toast.error', '错误'), (res && res.error) ? res.error : t('common.save_failed', '保存失败'), 'error');
             }

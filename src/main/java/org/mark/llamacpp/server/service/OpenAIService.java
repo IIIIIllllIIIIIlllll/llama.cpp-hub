@@ -174,7 +174,7 @@ public class OpenAIService {
 	}
 	
 	/**
-	 * 	处理 OpenAI 聊天补全请求，/v1/chat/completions
+	 * 	处理 OpenAI 聊天补全请求，/v1/chat/completions。考虑到现在有了LlamaServer.isChatStreamingEnabled()，应该不会在进入这里了。
 	 * @param ctx
 	 * @param request
 	 */

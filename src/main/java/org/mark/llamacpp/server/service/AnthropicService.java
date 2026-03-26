@@ -203,11 +203,12 @@ public class AnthropicService {
         	this.sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Invalid JSON body");
             return;
         }
-        
         JsonObject oaiReq = this.convertAnthropicToOai(anthropicReq);
-        ModelSamplingService.getInstance().handleOpenAI(oaiReq);
         // 处理一下think
         ParamTool.handleThinking(oaiReq);
+        
+        // 处理采样覆盖
+        ModelSamplingService.getInstance().handleOpenAI(oaiReq);
         
         String modelName;
         LlamaServerManager manager = LlamaServerManager.getInstance();

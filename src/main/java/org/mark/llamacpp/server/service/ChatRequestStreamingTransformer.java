@@ -371,57 +371,7 @@ public class ChatRequestStreamingTransformer {
 		if (requestJson == null || modelName == null || modelName.isBlank()) {
 			return;
 		}
-		String beforeSampling = this.buildSamplingLogSnapshot(requestJson);
-		JsonObject sampling = ModelSamplingService.getInstance().getOpenAISampling(modelName);
-		if (sampling == null || sampling.entrySet().isEmpty()) {
-			return;
-		}
-		
-		for (Map.Entry<String, JsonElement> item : sampling.entrySet()) {
-			String key = item.getKey();
-			JsonElement value = item.getValue();
-			if (key == null || value == null || value.isJsonNull()) {
-				continue;
-			}
-			requestJson.add(key, value.deepCopy());
-		}
-	}
-	
-	/**
-	 * 	这里是采样覆盖。
-	 * @param jsonObject
-	 * @return
-	 */
-	private String buildSamplingLogSnapshot(JsonObject jsonObject) {
-		if (jsonObject == null) {
-			return "{}";
-		}
-		JsonObject snapshot = new JsonObject();
-		this.copySamplingField(snapshot, jsonObject, "temperature");
-		this.copySamplingField(snapshot, jsonObject, "top_p");
-		this.copySamplingField(snapshot, jsonObject, "min_p");
-		this.copySamplingField(snapshot, jsonObject, "repeat_penalty");
-		this.copySamplingField(snapshot, jsonObject, "top_k");
-		this.copySamplingField(snapshot, jsonObject, "presence_penalty");
-		this.copySamplingField(snapshot, jsonObject, "frequency_penalty");
-		return JsonUtil.toJson(snapshot);
-	}
-	
-	/**
-	 * 	拷贝采样的字段。
-	 * @param target
-	 * @param source
-	 * @param fieldName
-	 */
-	private void copySamplingField(JsonObject target, JsonObject source, String fieldName) {
-		if (target == null || source == null || fieldName == null || !source.has(fieldName)) {
-			return;
-		}
-		JsonElement value = source.get(fieldName);
-		if (value == null || value.isJsonNull()) {
-			return;
-		}
-		target.add(fieldName, value.deepCopy());
+		ModelSamplingService.getInstance().handleOpenAI(requestJson);
 	}
 	
 	/**

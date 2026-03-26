@@ -686,7 +686,7 @@ public class SystemController implements BaseController {
 			if (obj.has("sampling") && obj.get("sampling") != null && obj.get("sampling").isJsonObject()) {
 				sampling = obj.getAsJsonObject("sampling");
 			} else {
-				for (String k : new String[] {"temperature", "temp", "top_p", "topP", "top_k", "topK", "min_p", "minP", "presence_penalty", "presencePenalty", "repeat_penalty", "repeatPenalty", "frequency_penalty", "frequencyPenalty", "cmd"}) {
+				for (String k : new String[] {"temperature", "temp", "top_p", "topP", "top_k", "topK", "min_p", "minP", "presence_penalty", "presencePenalty", "repeat_penalty", "repeatPenalty", "frequency_penalty", "frequencyPenalty", "enable_thinking", "cmd"}) {
 					if (obj.has(k) && obj.get(k) != null && !obj.get(k).isJsonNull()) {
 						sampling.add(k, obj.get(k));
 					}
