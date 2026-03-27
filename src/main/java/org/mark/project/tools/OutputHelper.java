@@ -1,4 +1,4 @@
-package org.mark.file.server;
+package org.mark.project.tools;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.mark.llamacpp.server.LlamaServer;
 
@@ -25,7 +27,7 @@ public final class OutputHelper {
 	
 	
 	public static void main(String[] args) {
-		OutputHelper.run("releases", LlamaServer.class);
+		OutputHelper.run("Z:\\Workspace\\LlamaServer\\Release", LlamaServer.class);
 	}
 	
 	
@@ -119,6 +121,7 @@ public final class OutputHelper {
 		// 同时生成Windows和Linux两个平台的启动脚本
 		generateWindowsScript(targetPath, mainClass.getName(), fileName);
 		generateLinuxScript(targetPath, mainClass.getName(), fileName);
+		zipClassesDirectory(classes);
 	}
 	
 	/**
@@ -333,6 +336,50 @@ public final class OutputHelper {
 					scanDir_0(f, list);
 				else
 					list.add(f);
+			}
+		}
+	}
+
+	public void zipClassesDirectory(String classesDirPath) {
+		File classesDir = new File(classesDirPath);
+		if(!classesDir.exists() || !classesDir.isDirectory())
+			return;
+		File zipFile = new File(classesDir.getParentFile(), classesDir.getName() + ".zip");
+		try (ZipOutputStream zipOut = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(zipFile)))) {
+			zipDirectory(classesDir, classesDir, zipOut);
+			zipOut.flush();
+			System.out.println("Classes zip generated: " + zipFile.getAbsolutePath());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void zipDirectory(File rootDir, File currentDir, ZipOutputStream zipOut) throws IOException {
+		File[] files = currentDir.listFiles();
+		if(files == null || files.length == 0) {
+			if(!rootDir.equals(currentDir)) {
+				String entryName = rootDir.toURI().relativize(currentDir.toURI()).getPath();
+				ZipEntry zipEntry = new ZipEntry(entryName);
+				zipOut.putNextEntry(zipEntry);
+				zipOut.closeEntry();
+			}
+			return;
+		}
+		for(File file : files) {
+			if(file.isDirectory()) {
+				zipDirectory(rootDir, file, zipOut);
+			}else {
+				String entryName = rootDir.toURI().relativize(file.toURI()).getPath();
+				ZipEntry zipEntry = new ZipEntry(entryName);
+				zipOut.putNextEntry(zipEntry);
+				try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+					byte[] buffer = new byte[1024];
+					int len;
+					while ((len = in.read(buffer)) != -1) {
+						zipOut.write(buffer, 0, len);
+					}
+				}
+				zipOut.closeEntry();
 			}
 		}
 	}
