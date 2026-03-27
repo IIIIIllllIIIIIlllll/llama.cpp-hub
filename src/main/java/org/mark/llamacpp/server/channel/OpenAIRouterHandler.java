@@ -102,6 +102,7 @@ public class OpenAIRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 				this.openAIServerHandler.handleOpenAIRerankRequest(ctx, request);
 				return;
 			}
+			
 			this.sendJsonResponse(ctx, ApiResponse.error("404 Not Found"));
 		} catch (Exception e) {
 			logger.info("处理API请求时发生错误", e);
@@ -155,7 +156,6 @@ public class OpenAIRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-		logger.info("OAI 客户端连接关闭：{}", ctx);
 		// 事件通知
 		this.openAIServerHandler.channelInactive(ctx);
 		super.channelInactive(ctx);
