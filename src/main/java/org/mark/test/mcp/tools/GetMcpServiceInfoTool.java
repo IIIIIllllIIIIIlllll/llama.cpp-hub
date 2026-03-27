@@ -4,8 +4,8 @@ import org.mark.llamacpp.server.service.ComputerService;
 import org.mark.test.mcp.IMCPTool;
 import org.mark.test.mcp.struct.McpMessage;
 import org.mark.test.mcp.struct.McpToolInputSchema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonObject;
 
@@ -15,7 +15,7 @@ import com.google.gson.JsonObject;
  */
 public class GetMcpServiceInfoTool implements IMCPTool {
 
-	private static final Logger logger = LoggerFactory.getLogger(GetMcpServiceInfoTool.class);
+	// private static final Logger logger = LoggerFactory.getLogger(GetMcpServiceInfoTool.class);
 
 	public GetMcpServiceInfoTool() {
 	}
@@ -42,7 +42,7 @@ public class GetMcpServiceInfoTool implements IMCPTool {
 
 	@Override
 	public McpMessage execute(String serviceKey, JsonObject arguments) {
-		logger.info("MCP工具执行: name={}, serviceKey={}", this.getMcpName(), serviceKey);
+		// logger.info("MCP工具执行: name={}, serviceKey={}", this.getMcpName(), serviceKey);
 		String cpuModel = ComputerService.getCPUModel();
 		int cpuCoreCount = ComputerService.getCPUCoreCount();
 		long ramKb = ComputerService.getPhysicalMemoryKB();

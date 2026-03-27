@@ -14,14 +14,14 @@ import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.test.mcp.IMCPTool;
 import org.mark.test.mcp.struct.McpMessage;
 import org.mark.test.mcp.struct.McpToolInputSchema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonObject;
 
 public class GetLlamaCppInfoTool implements IMCPTool {
 
-	private static final Logger logger = LoggerFactory.getLogger(GetLlamaCppInfoTool.class);
+	// private static final Logger logger = LoggerFactory.getLogger(GetLlamaCppInfoTool.class);
 
 	@Override
 	public String getMcpName() {
@@ -45,11 +45,11 @@ public class GetLlamaCppInfoTool implements IMCPTool {
 
 	@Override
 	public McpMessage execute(String serviceKey, JsonObject arguments) {
-		logger.info("MCP工具执行: name={}, serviceKey={}", this.getMcpName(), serviceKey);
+		// logger.info("MCP工具执行: name={}, serviceKey={}", this.getMcpName(), serviceKey);
 		try {
 			return new McpMessage().addText(JsonUtil.toJson(this.buildResponse()));
 		} catch (Exception e) {
-			logger.info("MCP工具执行失败: name={}, serviceKey={}", this.getMcpName(), serviceKey, e);
+			// logger.info("MCP工具执行失败: name={}, serviceKey={}", this.getMcpName(), serviceKey, e);
 			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error("获取llama.cpp路径列表失败: " + e.getMessage())));
 		}
 	}

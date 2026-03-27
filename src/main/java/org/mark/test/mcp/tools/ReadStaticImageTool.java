@@ -8,8 +8,8 @@ import java.util.Base64;
 import org.mark.test.mcp.IMCPTool;
 import org.mark.test.mcp.struct.McpMessage;
 import org.mark.test.mcp.struct.McpToolInputSchema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonObject;
 
@@ -19,7 +19,7 @@ import com.google.gson.JsonObject;
  */
 public class ReadStaticImageTool implements IMCPTool {
 
-	private static final Logger logger = LoggerFactory.getLogger(ReadStaticImageTool.class);
+	// private static final Logger logger = LoggerFactory.getLogger(ReadStaticImageTool.class);
 	private static final long MAX_IMAGE_BYTES = 2L * 1024L * 1024L;
 
 	private final Path imagePath;
@@ -62,7 +62,7 @@ public class ReadStaticImageTool implements IMCPTool {
 	private JsonObject readImage(String serviceKey) {
 		JsonObject result = new JsonObject();
 		Path absolutePath = this.imagePath.toAbsolutePath().normalize();
-		logger.info("MCP工具执行: name={}, serviceKey={}, imagePath={}", this.getMcpName(), serviceKey, absolutePath);
+		// logger.info("MCP工具执行: name={}, serviceKey={}, imagePath={}", this.getMcpName(), serviceKey, absolutePath);
 		if (!Files.exists(absolutePath) || !Files.isRegularFile(absolutePath)) {
 			result.addProperty("success", false);
 			result.addProperty("error", "图片文件不存在: " + absolutePath);
@@ -100,7 +100,7 @@ public class ReadStaticImageTool implements IMCPTool {
 				return mimeType;
 			}
 		} catch (IOException e) {
-			logger.info("识别图片MIME失败: path={}, error={}", path, e.getMessage());
+			// logger.info("识别图片MIME失败: path={}, error={}", path, e.getMessage());
 		}
 		String fileName = path.getFileName().toString().toLowerCase();
 		if (fileName.endsWith(".png")) {
