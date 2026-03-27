@@ -81,6 +81,11 @@ public class SystemController implements BaseController {
 			this.handleLmstudioEnableRequest(ctx, request);
 			return true;
 		}
+		// 启用、禁用内置MCP服务
+		if (uri.startsWith("/api/sys/mcp")) {
+			this.handleMcpEnableRequest(ctx, request);
+			return true;
+		}
 		// 获取兼容服务状态
 		if (uri.startsWith("/api/sys/compat/status")) {
 			this.handleCompatStatusRequest(ctx, request);
@@ -329,6 +334,12 @@ public class SystemController implements BaseController {
 			lmstudioData.put("port", lmstudio.getPort());
 			data.put("lmstudio", lmstudioData);
 
+			Map<String, Object> mcpServerData = new HashMap<>();
+			mcpServerData.put("enabled", LlamaServer.isMcpServerEnabled());
+			mcpServerData.put("running", LlamaServer.isMcpServerRunning());
+			mcpServerData.put("port", LlamaServer.getMcpServerPort());
+			data.put("mcpServer", mcpServerData);
+
 			Map<String, Object> requestLogData = new HashMap<>();
 			requestLogData.put("logRequestUrl", LlamaServer.isLogRequestUrlEnabled());
 			requestLogData.put("logRequestHeader", LlamaServer.isLogRequestHeaderEnabled());
@@ -457,6 +468,42 @@ public class SystemController implements BaseController {
 		} catch (Exception e) {
 			logger.info("处理lmstudio启停请求时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理lmstudio启停失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 	启用、禁用内置MCP服务监听
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleMcpEnableRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		try {
+			JsonObject obj = parseJsonBody(ctx, request);
+			if (obj == null) {
+				return;
+			}
+			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的enable参数"));
+				return;
+			}
+
+			boolean enable = ParamTool.parseJsonBoolean(obj, "enable", false);
+			LlamaServer.setMcpServerEnabled(enable);
+
+			Map<String, Object> data = new HashMap<>();
+			data.put("enable", enable);
+			data.put("running", LlamaServer.isMcpServerRunning());
+			data.put("port", LlamaServer.getMcpServerPort());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("处理MCP服务启停请求时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理MCP服务启停失败: " + e.getMessage()));
 		}
 	}
 	

@@ -9,6 +9,11 @@ import org.mark.test.mcp.channel.NettySseMcpServer;
 import org.mark.test.mcp.struct.McpMessage;
 import org.mark.test.mcp.struct.McpSession;
 import org.mark.test.mcp.struct.McpToolRegistry;
+import org.mark.test.mcp.tools.GetLlamaCppInfoTool;
+import org.mark.test.mcp.tools.GetMcpServiceInfoTool;
+import org.mark.test.mcp.tools.GetModelPathTool;
+import org.mark.test.mcp.tools.GetModelsTool;
+import org.mark.test.mcp.tools.GetParamInfoTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,12 +36,14 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 	private static final Logger logger = LoggerFactory.getLogger(DefaultMcpServiceImpl.class);
 	private static final String JSONRPC_VERSION = "2.0";
 	private static final String MCP_PROTOCOL_VERSION = "2024-11-05";
+	private static final String DEFAULT_SERVICE_KEY = "llama_server_info";
 
 	private final McpToolRegistry toolRegistry = new McpToolRegistry();
 	private final NettySseMcpServer nettyServer;
 
 	public DefaultMcpServiceImpl(int port) {
 		this.nettyServer = new NettySseMcpServer(port, this);
+		this.registerBuiltinTools();
 	}
 
 	public void start() throws Exception {
@@ -47,8 +54,28 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 		this.nettyServer.stop();
 	}
 
+	public void awaitClose() throws InterruptedException {
+		this.nettyServer.awaitClose();
+	}
+
+	public boolean isRunning() {
+		return this.nettyServer.isRunning();
+	}
+
+	public int getPort() {
+		return this.nettyServer.getPort();
+	}
+
 	public void registerTool(String serviceKey, IMCPTool tool) {
 		this.toolRegistry.register(serviceKey, tool);
+	}
+
+	private void registerBuiltinTools() {
+		this.registerTool(DEFAULT_SERVICE_KEY, new GetModelsTool());
+		this.registerTool(DEFAULT_SERVICE_KEY, new GetModelPathTool());
+		this.registerTool(DEFAULT_SERVICE_KEY, new GetLlamaCppInfoTool());
+		this.registerTool(DEFAULT_SERVICE_KEY, new GetParamInfoTool());
+		this.registerTool(DEFAULT_SERVICE_KEY, new GetMcpServiceInfoTool());
 	}
 
 	@Override

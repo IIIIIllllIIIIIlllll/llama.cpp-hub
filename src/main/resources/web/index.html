@@ -456,6 +456,31 @@
 
                         <div class="model-list-container" style="margin-top: 1rem;">
                             <div class="model-list-header">
+                                <h2 data-i18n="page.settings.general.mcp_server.title">page.settings.general.mcp_server.title</h2>
+                            </div>
+                            <div class="settings-panel-body">
+                                <div class="form-group" style="margin: 0;">
+                                    <small class="form-text" data-i18n="page.settings.general.mcp_server.desc">page.settings.general.mcp_server.desc</small>
+                                </div>
+                                <div class="settings-toggle-list">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-server"></i>
+                                            <span data-i18n="page.settings.general.mcp_server.enable">page.settings.general.mcp_server.enable</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleMcpServer">
+                                                <label class="form-check-label" for="toggleMcpServer" data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="model-list-container" style="margin-top: 1rem;">
+                            <div class="model-list-header">
                                 <h2 data-i18n="page.settings.search.title">page.settings.search.title</h2>
                             </div>
                             <div class="settings-panel-body">
@@ -1672,6 +1697,7 @@
                 savePortsBtn.addEventListener('click', saveCompatPorts);
             }
             initRequestLogToggles();
+            initMcpServerToggle();
             const saveZhipuBtn = document.getElementById('saveZhipuSearchApiKeyBtn');
             if (saveZhipuBtn) {
                 saveZhipuBtn.addEventListener('click', saveZhipuSearchApiKey);
@@ -1690,6 +1716,13 @@
             const body = document.getElementById('toggleLogRequestBody');
             if (body) {
                 body.addEventListener('change', () => setRequestLogEnabled('LlamaServer.logRequestBody', body.checked, body));
+            }
+        }
+
+        function initMcpServerToggle() {
+            const mcpServer = document.getElementById('toggleMcpServer');
+            if (mcpServer) {
+                mcpServer.addEventListener('change', () => setMcpServerEnabled(mcpServer.checked, mcpServer));
             }
         }
         
@@ -1742,6 +1775,14 @@
                 const logRequestBody = document.getElementById('toggleLogRequestBody');
                 if (logRequestBody && data.data.requestLog && typeof data.data.requestLog.logRequestBody === 'boolean') {
                     logRequestBody.checked = !!data.data.requestLog.logRequestBody;
+                }
+
+                const mcpServer = document.getElementById('toggleMcpServer');
+                if (mcpServer && data.data.mcpServer) {
+                    const enabled = (typeof data.data.mcpServer.enabled === 'boolean')
+                        ? !!data.data.mcpServer.enabled
+                        : (typeof data.data.mcpServer.running === 'boolean' ? !!data.data.mcpServer.running : false);
+                    mcpServer.checked = enabled;
                 }
             } catch (e) {
             }
@@ -1831,6 +1872,31 @@
                 if (el) el.value = '';
             } catch (e) {
                 showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+            }
+        }
+
+        async function setMcpServerEnabled(enable, toggleEl) {
+            const prev = !enable;
+            if (toggleEl) toggleEl.disabled = true;
+            try {
+                const response = await fetch('/api/sys/mcp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable: !!enable })
+                });
+                const data = await response.json();
+                if (!data || !data.success) {
+                    if (toggleEl) toggleEl.checked = prev;
+                    showToast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.operation_failed', '操作失败'), 'error');
+                    return;
+                }
+                showToast(t('toast.success', '成功'), enable ? t('toast.enabled', '已开启') : t('toast.disabled', '已关闭'), 'success');
+                loadCompatServiceStatus();
+            } catch (e) {
+                if (toggleEl) toggleEl.checked = prev;
+                showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+            } finally {
+                if (toggleEl) toggleEl.disabled = false;
             }
         }
         

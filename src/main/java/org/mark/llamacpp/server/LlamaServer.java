@@ -32,6 +32,7 @@ import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.mark.llamacpp.server.websocket.WebSocketManager;
 import org.mark.llamacpp.server.websocket.WebSocketServerHandler;
+import org.mark.test.mcp.DefaultMcpServiceImpl;
 import org.mark.llamacpp.win.WindowsTray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,6 +143,14 @@ public class LlamaServer {
 			}
 		}
 
+		if (mcpServerEnabled) {
+			try {
+				startMcpServerListener();
+			} catch (Exception e) {
+				logger.info("启动MCP服务失败: {}", e.getMessage());
+			}
+		}
+
 		// 尝试创建系统托盘
 		createWindowsSystemTray();
 	}
@@ -185,6 +194,8 @@ public class LlamaServer {
 	 */
 	private static final int DEFAULT_ANTHROPIC_PORT = 8070;
 
+	private static final int DEFAULT_MCP_SERVER_PORT = 8075;
+
 	/**
 	 * 默认下载目录
 	 */
@@ -220,6 +231,8 @@ public class LlamaServer {
 	private static String downloadDirectory = DEFAULT_DOWNLOAD_DIRECTORY;
 
 	private static final Object APPLICATION_CONFIG_LOCK = new Object();
+
+	private static final Object MCP_SERVER_LOCK = new Object();
 	
 	private static volatile boolean apiKeyValidationEnabled = false;
 	
@@ -232,6 +245,10 @@ public class LlamaServer {
 	private static volatile boolean lmstudioCompatEnabled = false;
 	
 	private static volatile int lmstudioCompatPort = 1234;
+
+	private static volatile boolean mcpServerEnabled = false;
+
+	private static volatile DefaultMcpServiceImpl mcpServerService;
 
 	private static volatile boolean chatStreamingEnabled = true;
 
@@ -361,6 +378,12 @@ public class LlamaServer {
 						chatStreamingEnabled = chatStreaming.get("enabled").getAsBoolean();
 					}
 				}
+				if (compat.has("mcpServer")) {
+					JsonObject mcpServer = compat.getAsJsonObject("mcpServer");
+					if (mcpServer != null && mcpServer.has("enabled")) {
+						mcpServerEnabled = mcpServer.get("enabled").getAsBoolean();
+					}
+				}
 			}
 		}
 		
@@ -416,6 +439,10 @@ public class LlamaServer {
 				JsonObject chatStreaming = new JsonObject();
 				chatStreaming.addProperty("enabled", chatStreamingEnabled);
 				compat.add("chatStreaming", chatStreaming);
+
+				JsonObject mcpServer = new JsonObject();
+				mcpServer.addProperty("enabled", mcpServerEnabled);
+				compat.add("mcpServer", mcpServer);
 				
 				root.add("compat", compat);
 				
@@ -546,6 +573,19 @@ public class LlamaServer {
     public static boolean isChatStreamingEnabled() {
     	return chatStreamingEnabled;
     }
+
+    public static boolean isMcpServerEnabled() {
+    	return mcpServerEnabled;
+    }
+
+    public static boolean isMcpServerRunning() {
+    	DefaultMcpServiceImpl service = mcpServerService;
+    	return service != null && service.isRunning();
+    }
+
+    public static int getMcpServerPort() {
+    	return DEFAULT_MCP_SERVER_PORT;
+    }
     
     public static boolean isLogRequestUrlEnabled() {
     	return logRequestUrl;
@@ -592,6 +632,58 @@ public class LlamaServer {
     		}
     		saveApplicationConfig();
     	}
+    }
+
+    public static void setMcpServerEnabled(boolean enabled) throws Exception {
+    	synchronized (MCP_SERVER_LOCK) {
+    		if (enabled) {
+    			startMcpServerListener();
+    			persistMcpServerEnabled(true);
+    			return;
+    		}
+    		stopMcpServerListener();
+    		persistMcpServerEnabled(false);
+    	}
+    }
+
+    private static void startMcpServerListener() throws Exception {
+    	synchronized (MCP_SERVER_LOCK) {
+    		if (mcpServerService != null && mcpServerService.isRunning()) {
+    			return;
+    		}
+    		DefaultMcpServiceImpl service = createDefaultMcpServer();
+    		try {
+    			service.start();
+    			mcpServerService = service;
+    		} catch (Exception e) {
+    			try {
+    				service.stop();
+    			} catch (Exception ignore) {
+    			}
+    			throw e;
+    		}
+    	}
+    }
+
+    private static void stopMcpServerListener() {
+    	synchronized (MCP_SERVER_LOCK) {
+    		DefaultMcpServiceImpl service = mcpServerService;
+    		mcpServerService = null;
+    		if (service != null) {
+    			service.stop();
+    		}
+    	}
+    }
+
+    private static void persistMcpServerEnabled(boolean enabled) {
+    	synchronized (APPLICATION_CONFIG_LOCK) {
+    		mcpServerEnabled = enabled;
+    		saveApplicationConfig();
+    	}
+    }
+
+    private static DefaultMcpServiceImpl createDefaultMcpServer() {
+    	return new DefaultMcpServiceImpl(DEFAULT_MCP_SERVER_PORT);
     }
     
     // ==================== 默认路径的get方法 ====================

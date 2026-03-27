@@ -46,36 +46,75 @@ public class NettySseMcpServer {
 	private NioEventLoopGroup bossGroup;
 	private NioEventLoopGroup workerGroup;
 	private ChannelFuture bindFuture;
+	private volatile boolean running;
 
 	public NettySseMcpServer(int port, McpRequestProcessor requestProcessor) {
 		this.port = port;
 		this.requestProcessor = requestProcessor;
 	}
 
-	public void start() throws Exception {
+	public synchronized void start() throws Exception {
+		if (this.running) {
+			return;
+		}
 		this.bossGroup = new NioEventLoopGroup(1);
 		this.workerGroup = new NioEventLoopGroup();
-		ServerBootstrap bootstrap = new ServerBootstrap();
-		bootstrap.group(this.bossGroup, this.workerGroup).channel(NioServerSocketChannel.class)
-				.option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.SO_KEEPALIVE, true)
-				.childHandler(new ChannelInitializer<SocketChannel>() {
-					@Override
-					protected void initChannel(SocketChannel ch) throws Exception {
-						ch.pipeline().addLast(new HttpServerCodec()).addLast(new HttpObjectAggregator(2 * 1024 * 1024))
-								.addLast(new ChunkedWriteHandler()).addLast(new McpRouterHandler(NettySseMcpServer.this));
-					}
-				});
-		this.bindFuture = bootstrap.bind(this.port).sync();
-		logger.info("MCP测试服务启动成功: http://localhost:{}", this.port);
-		this.bindFuture.channel().closeFuture().sync();
+		try {
+			ServerBootstrap bootstrap = new ServerBootstrap();
+			bootstrap.group(this.bossGroup, this.workerGroup).channel(NioServerSocketChannel.class)
+					.option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.SO_KEEPALIVE, true)
+					.childHandler(new ChannelInitializer<SocketChannel>() {
+						@Override
+						protected void initChannel(SocketChannel ch) throws Exception {
+							ch.pipeline().addLast(new HttpServerCodec()).addLast(new HttpObjectAggregator(2 * 1024 * 1024))
+									.addLast(new ChunkedWriteHandler()).addLast(new McpRouterHandler(NettySseMcpServer.this));
+						}
+					});
+			this.bindFuture = bootstrap.bind(this.port).sync();
+			this.running = true;
+			this.bindFuture.channel().closeFuture().addListener(future -> this.running = false);
+			logger.info("MCP测试服务启动成功: http://localhost:{}", this.port);
+		} catch (Exception e) {
+			this.shutdownEventLoopGroups();
+			this.bindFuture = null;
+			this.running = false;
+			throw e;
+		}
 	}
 
-	public void stop() {
+	public synchronized void stop() {
+		this.sessions.clear();
+		if (this.bindFuture != null && this.bindFuture.channel() != null) {
+			this.bindFuture.channel().close().syncUninterruptibly();
+		}
+		this.shutdownEventLoopGroups();
+		this.bindFuture = null;
+		this.running = false;
+	}
+
+	public void awaitClose() throws InterruptedException {
+		ChannelFuture future = this.bindFuture;
+		if (future != null && future.channel() != null) {
+			future.channel().closeFuture().sync();
+		}
+	}
+
+	public boolean isRunning() {
+		return this.running;
+	}
+
+	public int getPort() {
+		return this.port;
+	}
+
+	private void shutdownEventLoopGroups() {
 		if (this.bossGroup != null) {
-			this.bossGroup.shutdownGracefully();
+			this.bossGroup.shutdownGracefully().syncUninterruptibly();
+			this.bossGroup = null;
 		}
 		if (this.workerGroup != null) {
-			this.workerGroup.shutdownGracefully();
+			this.workerGroup.shutdownGracefully().syncUninterruptibly();
+			this.workerGroup = null;
 		}
 	}
 
