@@ -204,18 +204,6 @@ public class ModelActionController implements BaseController {
 				modelInfo.put("alias", model.getAlias());
 				modelInfo.put("favourite", model.isFavourite());
 
-				// 设置默认路径信息
-				modelInfo.put("path", model.getPath());
-
-				// 从主模型元数据中获取模型类型
-				String modelType = "未知类型";
-				if (primaryModel != null) {
-					modelType = primaryModel.getStringValue("general.architecture");
-					if (modelType == null)
-						modelType = "未知类型";
-				}
-				modelInfo.put("type", modelType);
-
 				// 设置默认大小为0，因为GGUFMetaData类没有提供获取文件大小的方法
 				modelInfo.put("size", model.getSize());
 
@@ -223,32 +211,25 @@ public class ModelActionController implements BaseController {
 				boolean isMultimodal = mmproj != null;
 				modelInfo.put("isMultimodal", isMultimodal);
 
-				// 如果是多模态模型，添加多模态投影信息
-				if (isMultimodal) {
-					Map<String, Object> mmprojInfo = new HashMap<>();
-					mmprojInfo.put("fileName", mmproj.getFileName());
-					mmprojInfo.put("name", mmproj.getStringValue("general.name"));
-					mmprojInfo.put("type", mmproj.getStringValue("general.architecture"));
-
-					modelInfo.put("mmproj", mmprojInfo);
-				}
 				// 是否处于加载状态
 				if (manager.isLoading(modelId)) {
 					modelInfo.put("isLoading", true);
 				}
 
-				// 添加元数据
-				Map<String, Object> metadata = new HashMap<>();
+				String architecture = "未知";
+				String quantization = "";
 				if (primaryModel != null) {
-					String architecture = primaryModel.getStringValue("general.architecture");
-					metadata.put("name", primaryModel.getStringValue("general.name"));
-					metadata.put("architecture", architecture);
-					metadata.put("contextLength", primaryModel.getIntValue(architecture + ".context_length"));
-					metadata.put("embeddingLength", primaryModel.getIntValue(architecture + ".embedding_length"));
-					metadata.put("fileType", primaryModel.getIntValue("general.file_type"));
-					metadata.put("quantization", primaryModel.getQuantizationType());
+					String value = primaryModel.getStringValue("general.architecture");
+					if (value != null && !value.trim().isEmpty()) {
+						architecture = value;
+					}
+					String quantizationValue = primaryModel.getQuantizationType();
+					if (quantizationValue != null) {
+						quantization = quantizationValue;
+					}
 				}
-				modelInfo.put("metadata", metadata);
+				modelInfo.put("architecture", architecture);
+				modelInfo.put("quantization", quantization);
 
 				modelList.add(modelInfo);
 			}

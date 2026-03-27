@@ -292,9 +292,8 @@ function renderModelsList(models) {
 
     let html = '';
     models.forEach(model => {
-        const metadata = model.metadata || {};
-        const architecture = metadata.architecture || t('common.unknown', '未知');
-        const quantization = metadata.quantization || '';
+        const architecture = model.architecture || t('common.unknown', '未知');
+        const quantization = model.quantization || '';
         const isLoading = !!model.isLoading;
 
         let status = model.status;
