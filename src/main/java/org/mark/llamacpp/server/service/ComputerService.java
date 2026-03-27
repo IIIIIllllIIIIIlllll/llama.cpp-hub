@@ -2,6 +2,8 @@ package org.mark.llamacpp.server.service;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
 
 /**
  * 用来获取一些硬件信息，用来记录到benchmark v2的结果里。
@@ -23,14 +25,13 @@ public class ComputerService {
 		try {
 			String os = System.getProperty("os.name").toLowerCase();
 			if (os.contains("win")) {
-				String rawOutput = execAndRead("wmic", "cpu", "get", "name");
-				String[] lines = rawOutput.split("\n");
-				for (int i = 1; i < lines.length; i++) {
-					String model = lines[i].trim();
-					if (!model.isEmpty()) {
-						return model;
-					}
-				}
+				String cpuFromRegistry = parseWindowsCpuModelFromRegistry(
+						tryExecAndRead("reg", "query", "HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", "/v", "ProcessorNameString"));
+				if (!cpuFromRegistry.isEmpty()) return cpuFromRegistry;
+				String cpuFromWmic = parseWindowsCpuModelFromWmic(tryExecAndRead("wmic", "cpu", "get", "name"));
+				if (!cpuFromWmic.isEmpty()) return cpuFromWmic;
+				String cpuFromEnv = normalizeCpuModel(System.getenv("PROCESSOR_IDENTIFIER"));
+				if (!cpuFromEnv.isEmpty()) return cpuFromEnv;
 				return "无法解析CPU信息";
 			} else if (os.contains("linux")) {
 				String cpuFromProc = parseLinuxCpuModel(execAndRead("cat", "/proc/cpuinfo"));
@@ -62,6 +63,37 @@ public class ComputerService {
 		return "";
 	}
 
+	private static String parseWindowsCpuModelFromRegistry(String rawOutput) {
+		if (rawOutput == null || rawOutput.trim().isEmpty()) return "";
+		for (String l : rawOutput.split("\n")) {
+			String line = normalizeCpuModel(l);
+			if (line.isEmpty()) continue;
+			String lowerLine = line.toLowerCase();
+			if (!lowerLine.contains("processornamestring")) continue;
+			int idx = lowerLine.indexOf("processornamestring");
+			String value = line.substring(idx + "processornamestring".length()).trim();
+			value = value.replaceFirst("^REG_\\S+\\s*", "").trim();
+			if (!value.isEmpty()) return value;
+		}
+		return "";
+	}
+
+	private static String parseWindowsCpuModelFromWmic(String rawOutput) {
+		if (rawOutput == null || rawOutput.trim().isEmpty()) return "";
+		for (String l : rawOutput.split("\n")) {
+			String line = normalizeCpuModel(l);
+			if (line.isEmpty()) continue;
+			if ("name".equalsIgnoreCase(line)) continue;
+			return line;
+		}
+		return "";
+	}
+
+	private static String normalizeCpuModel(String value) {
+		if (value == null) return "";
+		return value.replace('\u0000', ' ').replaceAll("\\s+", " ").trim();
+	}
+
 	private static String execAndRead(String... command) throws Exception {
 		ProcessBuilder pb = new ProcessBuilder(command);
 		Process process = pb.start();
@@ -73,6 +105,14 @@ public class ComputerService {
 		}
 		process.waitFor();
 		return output.toString().trim();
+	}
+
+	private static String tryExecAndRead(String... command) {
+		try {
+			return execAndRead(command);
+		} catch (Exception e) {
+			return "";
+		}
 	}
 
 	/**
@@ -170,5 +210,68 @@ public class ComputerService {
 			e.printStackTrace();
 			return -1;
 		}
+	}
+
+	public static String getJavaVersion() {
+		return System.getProperty("java.version", "");
+	}
+
+	public static String getJavaVendor() {
+		return System.getProperty("java.vendor", "");
+	}
+
+	public static String getJvmName() {
+		return System.getProperty("java.vm.name", "");
+	}
+
+	public static String getJvmVersion() {
+		return System.getProperty("java.vm.version", "");
+	}
+
+	public static String getJvmVendor() {
+		return System.getProperty("java.vm.vendor", "");
+	}
+
+	public static String getJvmInputArguments() {
+		try {
+			RuntimeMXBean runtimeMxBean = ManagementFactory.getRuntimeMXBean();
+			return String.join(" ", runtimeMxBean.getInputArguments());
+		} catch (Exception e) {
+			return "";
+		}
+	}
+
+	public static long getJvmStartTime() {
+		try {
+			return ManagementFactory.getRuntimeMXBean().getStartTime();
+		} catch (Exception e) {
+			return -1;
+		}
+	}
+
+	public static long getJvmMaxMemoryMB() {
+		return toMb(Runtime.getRuntime().maxMemory());
+	}
+
+	public static long getJvmTotalMemoryMB() {
+		return toMb(Runtime.getRuntime().totalMemory());
+	}
+
+	public static long getJvmFreeMemoryMB() {
+		return toMb(Runtime.getRuntime().freeMemory());
+	}
+
+	public static long getJvmUsedMemoryMB() {
+		Runtime runtime = Runtime.getRuntime();
+		return toMb(runtime.totalMemory() - runtime.freeMemory());
+	}
+
+	public static int getJvmAvailableProcessors() {
+		return Runtime.getRuntime().availableProcessors();
+	}
+
+	private static long toMb(long bytes) {
+		if (bytes < 0) return -1;
+		return bytes / 1024 / 1024;
 	}
 }
