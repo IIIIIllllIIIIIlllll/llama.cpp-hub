@@ -124,6 +124,13 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 			serverInfo.addProperty("version", "0.0.1");
 			result.add("serverInfo", serverInfo);
 			JsonObject capabilities = new JsonObject();
+			JsonObject prompts = new JsonObject();
+			prompts.addProperty("listChanged", false);
+			capabilities.add("prompts", prompts);
+			JsonObject resources = new JsonObject();
+			resources.addProperty("subscribe", false);
+			resources.addProperty("listChanged", false);
+			capabilities.add("resources", resources);
 			JsonObject tools = new JsonObject();
 			tools.addProperty("listChanged", false);
 			capabilities.add("tools", tools);
@@ -146,6 +153,30 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 		}
 		if ("notifications/initialized".equals(method)) {
 			logger.info("MCP收到initialized通知: sessionId={}", sessionId);
+			server.sendAccepted(ctx);
+			return;
+		}
+		if ("prompts/list".equals(method)) {
+			logger.info("MCP prompts/list请求: sessionId={}, serviceKey={}", sessionId, serviceKey);
+			JsonObject result = new JsonObject();
+			result.add("prompts", new JsonArray());
+			server.sendSseData(sessionId, jsonResult(id, result));
+			server.sendAccepted(ctx);
+			return;
+		}
+		if ("resources/list".equals(method)) {
+			logger.info("MCP resources/list请求: sessionId={}, serviceKey={}", sessionId, serviceKey);
+			JsonObject result = new JsonObject();
+			result.add("resources", new JsonArray());
+			server.sendSseData(sessionId, jsonResult(id, result));
+			server.sendAccepted(ctx);
+			return;
+		}
+		if ("resources/templates/list".equals(method)) {
+			logger.info("MCP resources/templates/list请求: sessionId={}, serviceKey={}", sessionId, serviceKey);
+			JsonObject result = new JsonObject();
+			result.add("resourceTemplates", new JsonArray());
+			server.sendSseData(sessionId, jsonResult(id, result));
 			server.sendAccepted(ctx);
 			return;
 		}

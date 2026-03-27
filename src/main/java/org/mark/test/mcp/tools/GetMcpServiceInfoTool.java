@@ -37,16 +37,12 @@ public class GetMcpServiceInfoTool implements IMCPTool {
 
 	@Override
 	public McpToolInputSchema getInputSchema() {
-		return new McpToolInputSchema().addProperty("query", "string", "用户查询内容", true);
+		return new McpToolInputSchema();
 	}
 
 	@Override
 	public McpMessage execute(String serviceKey, JsonObject arguments) {
-		String query = "";
-		if (arguments != null && arguments.has("query") && arguments.get("query").isJsonPrimitive()) {
-			query = arguments.get("query").getAsString();
-		}
-		logger.info("MCP工具执行: name={}, serviceKey={}, query={}", this.getMcpName(), serviceKey, query);
+		logger.info("MCP工具执行: name={}, serviceKey={}", this.getMcpName(), serviceKey);
 		String cpuModel = ComputerService.getCPUModel();
 		int cpuCoreCount = ComputerService.getCPUCoreCount();
 		long ramKb = ComputerService.getPhysicalMemoryKB();
