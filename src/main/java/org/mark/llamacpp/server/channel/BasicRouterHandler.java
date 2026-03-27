@@ -227,7 +227,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		if (uri.startsWith("/api/") || 
 				uri.startsWith("/session") || 
 				uri.startsWith("/tokenize") || 
-				uri.startsWith("/apply-template")) {
+				uri.startsWith("/apply-template") || 
+				uri.startsWith("/infill")) {
 			return true;
 		}
 		// 2. OpenAI 标准协议路径 (/v1/... 覆盖所有 v1 前缀的变体)
