@@ -132,6 +132,7 @@ jobs:
           JRE_NAME=$(ls jre-linux | head -1)
           mv jre-linux/$JRE_NAME jre-linux/jre
           chmod +x jre-linux/jre/bin/java
+          find jre-linux/jre -name jspawnhelper -exec chmod 755 {} \;
           rm jre-linux.zip
           echo "Linux JRE 下载完成"
 
@@ -151,6 +152,7 @@ jobs:
           #!/bin/bash
           cd "$(dirname "$0")"
           chmod +x ./jre/bin/java
+          find ./jre -name jspawnhelper -exec chmod 755 {} \; 2>/dev/null || true
           ./jre/bin/java -Xms512m -Xmx512m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer "$@"
           EOF
           chmod +x build/run.sh
