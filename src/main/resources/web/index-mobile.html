@@ -930,6 +930,16 @@
             return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
         }
 
+        function getModelArchitecture(model) {
+            const metadata = model && model.metadata ? model.metadata : {};
+            return model && model.architecture ? model.architecture : (metadata.architecture || '未知');
+        }
+
+        function getModelQuantization(model) {
+            const metadata = model && model.metadata ? model.metadata : {};
+            return model && model.quantization ? model.quantization : (metadata.quantization || '');
+        }
+
         function initModelSearch() {
             const input = document.getElementById('modelSearchInput');
             if (!input) return;
@@ -961,8 +971,8 @@
 
             let html = '';
             models.forEach(model => {
-                const metadata = model.metadata || {};
-                const architecture = metadata.architecture || '未知';
+                const architecture = getModelArchitecture(model);
+                const quantization = getModelQuantization(model);
                 const isLoading = !!model.isLoading;
                 const isFavourite = !!model.favourite;
 
@@ -1009,6 +1019,7 @@
                             </div>
                             <div class="model-meta model-mobile-meta">
                                 <span class="model-arch"><i class="fas fa-layer-group"></i> ${architecture}</span>
+                                ${quantization ? `<span><i class="fas fa-microchip"></i> ${quantization}</span>` : ''}
                                 <span><i class="fas fa-hdd"></i> ${formatFileSize(model.size)}</span>
                                 ${model.port ? `<span><i class="fas fa-network-wired"></i> ${model.port}</span>` : ''}
                             </div>
@@ -1030,8 +1041,8 @@
             }
             const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
             const isFavourite = !!model.favourite;
-            const metadata = model.metadata || {};
-            const architecture = metadata.architecture || '未知';
+            const architecture = getModelArchitecture(model);
+            const quantization = getModelQuantization(model);
             const info = document.getElementById('modelActionsInfo');
             const title = document.getElementById('modelActionsTitle');
             const buttons = document.getElementById('modelActionsButtons');
@@ -1039,7 +1050,11 @@
             if (info) {
                 const statusText = model.isLoading ? '加载中' : (model.isLoaded ? (model.status === 'running' ? '运行中' : '已加载') : '已停止');
                 const sizeText = model.size ? formatFileSize(model.size) : '';
-                info.textContent = `${architecture} · ${sizeText} · ${statusText}`;
+                const infoParts = [architecture];
+                if (quantization) infoParts.push(quantization);
+                if (sizeText) infoParts.push(sizeText);
+                infoParts.push(statusText);
+                info.textContent = infoParts.join(' · ');
             }
             if (buttons) {
                 const modelIdEsc = encodeURIComponent(model.id);
