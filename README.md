@@ -95,6 +95,14 @@
 - **显存估算**：根据上下文大小、批处理等参数估算所需的显存占用（对于视觉模型不准确）
 ---
 
+## 第三方资源声明
+
+- `src/main/resources/web/favicon.ico`
+- `src/main/resources/web/llama1-icon-transparent.png`
+
+以上图标资源来自 [llama.cpp](https://github.com/ggml-org/llama.cpp)，按其 MIT License 分发。
+本仓库已在 [LICENSE](./LICENSE) 中补充对应的第三方许可声明。
+
 ## 使用说明
 
 ### 手动编译
@@ -153,7 +161,7 @@ javac-linux.sh
 ### 嵌入模型 & 重排序模型
 
 需要手动在加载页面开启对应的功能！！！
-![image](./screenshot/embedding & rerank.png)
+![image](./screenshot/embedding-rerank.png)
 
 
 ---
