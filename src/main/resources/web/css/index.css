@@ -58,7 +58,12 @@
             text-decoration: none;
         }
         
-        .app-logo i { font-size: 1.5rem; }
+        .app-logo-image {
+            width: 1.5rem;
+            height: 1.5rem;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
 
         .sidebar-nav {
             flex: 1;
