@@ -6,7 +6,10 @@
     "type": "INTEGER",
     "defaultValue": "8192",
     "description": "param.server.ctx_size.desc",
-    "sort": 0
+    "sort": 0,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.server.flash_attn.name",
@@ -20,7 +23,10 @@
       "off",
       "auto"
     ],
-    "sort": 1
+    "sort": 1,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.no_mmap.name",
@@ -29,7 +35,10 @@
     "type": "LOGIC",
     "defaultValue": "1",
     "description": "param.server.no_mmap.desc",
-    "sort": 2
+    "sort": 2,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.mlock.name",
@@ -38,7 +47,10 @@
     "type": "LOGIC",
     "defaultValue": "0",
     "description": "param.server.mlock.desc",
-    "sort": 3
+    "sort": 3,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.embedding.name",
@@ -47,7 +59,10 @@
     "type": "LOGIC",
     "defaultValue": "0",
     "description": "param.server.embedding.desc",
-    "sort": 4
+    "sort": 4,
+    "group": "page.params.group.features",
+    "groupOrder": 40,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.rerank.name",
@@ -56,7 +71,10 @@
     "type": "LOGIC",
     "defaultValue": "0",
     "description": "param.server.rerank.desc",
-    "sort": 5
+    "sort": 5,
+    "group": "page.params.group.features",
+    "groupOrder": 40,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.temp.name",
@@ -65,7 +83,10 @@
     "type": "FLOAT",
     "defaultValue": "0.7",
     "description": "param.server.temp.desc",
-    "sort": 6
+    "sort": 6,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.top_p.name",
@@ -74,7 +95,10 @@
     "type": "FLOAT",
     "defaultValue": "0.95",
     "description": "param.server.top_p.desc",
-    "sort": 7
+    "sort": 7,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.top_k.name",
@@ -83,7 +107,10 @@
     "type": "INTEGER",
     "defaultValue": "40",
     "description": "param.server.top_k.desc",
-    "sort": 8
+    "sort": 8,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.min_p.name",
@@ -92,7 +119,10 @@
     "type": "FLOAT",
     "defaultValue": "0.05",
     "description": "param.server.min_p.desc",
-    "sort": 9
+    "sort": 9,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.top_n_sigma.name",
@@ -101,7 +131,10 @@
     "type": "FLOAT",
     "defaultValue": "-1.0",
     "description": "param.server.top_n_sigma.desc",
-    "sort": 10
+    "sort": 10,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.presence_penalty.name",
@@ -110,7 +143,10 @@
     "type": "FLOAT",
     "defaultValue": "0.0",
     "description": "param.server.presence_penalty.desc",
-    "sort": 11
+    "sort": 11,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.repeat_penalty.name",
@@ -119,7 +155,10 @@
     "type": "FLOAT",
     "defaultValue": "1.0",
     "description": "param.server.repeat_penalty.desc",
-    "sort": 12
+    "sort": 12,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.frequency_penalty.name",
@@ -128,7 +167,10 @@
     "type": "FLOAT",
     "defaultValue": "0.0",
     "description": "param.server.frequency_penalty.desc",
-    "sort": 13
+    "sort": 13,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.dry_multiplier.name",
@@ -137,7 +179,10 @@
     "type": "FLOAT",
     "defaultValue": "0.0",
     "description": "param.server.dry_multiplier.desc",
-    "sort": 14
+    "sort": 14,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.dry_base.name",
@@ -146,7 +191,10 @@
     "type": "FLOAT",
     "defaultValue": "1.75",
     "description": "param.server.dry_base.desc",
-    "sort": 15
+    "sort": 15,
+    "group": "page.params.group.sampling",
+    "groupOrder": 20,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.batch_size.name",
@@ -155,7 +203,10 @@
     "type": "INTEGER",
     "defaultValue": "2048",
     "description": "param.server.batch_size.desc",
-    "sort": 16
+    "sort": 16,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.server.ubatch_size.name",
@@ -164,7 +215,10 @@
     "type": "INTEGER",
     "defaultValue": "512",
     "description": "param.server.ubatch_size.desc",
-    "sort": 17
+    "sort": 17,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.server.parallel.name",
@@ -173,7 +227,10 @@
     "type": "INTEGER",
     "defaultValue": "4",
     "description": "param.server.parallel.desc",
-    "sort": 18
+    "sort": 18,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.server.cache_ram.name",
@@ -182,7 +239,10 @@
     "type": "INTEGER",
     "defaultValue": "8192",
     "description": "param.server.cache_ram.desc",
-    "sort": 19
+    "sort": 19,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.kv_unified.name",
@@ -191,7 +251,10 @@
     "type": "LOGIC",
     "defaultValue": "1",
     "description": "param.server.kv_unified.desc",
-    "sort": 20
+    "sort": 20,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.cache_type_k.name",
@@ -210,9 +273,12 @@
       "iq4_nl",
       "q5_0",
       "q5_1",
-	  "turbo3"
+      "turbo3"
     ],
-    "sort": 21
+    "sort": 21,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.cache_type_v.name",
@@ -231,9 +297,12 @@
       "iq4_nl",
       "q5_0",
       "q5_1",
-	  "turbo3"
+      "turbo3"
     ],
-    "sort": 22
+    "sort": 22,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
     "name": "param.server.threads.name",
@@ -242,7 +311,10 @@
     "type": "INTEGER",
     "defaultValue": "-1",
     "description": "param.server.threads.desc",
-    "sort": 23
+    "sort": 23,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.server.seed.name",
@@ -251,90 +323,168 @@
     "type": "INTEGER",
     "defaultValue": "-1",
     "description": "param.server.seed.desc",
-    "sort": 24
+    "sort": 24,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.server.directio.name",
-	"fullName": "",
-	"abbreviation": "",
-	"type": "STRING",
-	"defaultValue": "default",
-	"description": "param.server.directio.desc",
-	"values": [
-		"default",
-	    "-ndio",
-	    "-dio"
-	],
-    "sort": 25
+    "fullName": "",
+    "abbreviation": "",
+    "type": "STRING",
+    "defaultValue": "default",
+    "description": "param.server.directio.desc",
+    "values": [
+      "default",
+      "-ndio",
+      "-dio"
+    ],
+    "sort": 25,
+    "group": "page.params.group.basic",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
-	"name": "param.server.no_jinja.name",
-	"fullName": "--no-jinja",
-	"abbreviation": "--no-jinja",
-	"type": "LOGIC",
-	"defaultValue": "0",
-	"description": "param.server.no_jinja.desc",
-	"sort": 26
-  },
-  {
-	"name": "param.server.chat_template.name",
-	"fullName": "--chat-template",
-	"abbreviation": "--chat-template",
-	"type": "STRING",
-	"defaultValue": "",
-	"description": "param.server.chat_template.desc",
-	"values": ["", "bailing", "bailing-think", "bailing2", "chatglm3", "chatglm4", "chatml", "command-r", "deepseek", "deepseek2", "deepseek3", "exaone3", "exaone4", "falcon3", "gemma", "gigachat", "glmedge", "gpt-oss", "granite", "grok-2", "hunyuan-dense", "hunyuan-moe", "kimi-k2", "llama2", "llama2-sys", "llama2-sys-bos", "llama2-sys-strip", "llama3", "llama4", "megrez", "minicpm", "mistral-v1", "mistral-v3", "mistral-v3-tekken", "mistral-v7", "mistral-v7-tekken", "monarch", "openchat", "orion", "pangu-embedded", "phi3", "phi4", "rwkv-world", "seed_oss", "smolvlm", "solar-open", "vicuna", "vicuna-orca", "yandex", "zephyr"],
-	"sort": 27
-  },
-  {
-    "name": "param.server.context_shift.name", 
-    "fullName": "--context-shift",
-    "abbreviation": "--context-shift", 
+    "name": "param.server.no_jinja.name",
+    "fullName": "--no-jinja",
+    "abbreviation": "--no-jinja",
     "type": "LOGIC",
-    "defaultValue": "0", 
-    "description":"param.server.context_shift.desc", 
-    "sort": 28
+    "defaultValue": "0",
+    "description": "param.server.no_jinja.desc",
+    "sort": 26,
+    "group": "page.params.group.template",
+    "groupOrder": 50,
+    "groupCollapsed": true
   },
   {
-      "name": "param.server.no_webui.name", 
-      "fullName": "--no-webui",
-      "abbreviation": "--no-webui", 
-      "type": "LOGIC",
-      "defaultValue": "1", 
-      "description":"param.server.no_webui.desc", 
-      "sort": 29
+    "name": "param.server.chat_template.name",
+    "fullName": "--chat-template",
+    "abbreviation": "--chat-template",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "param.server.chat_template.desc",
+    "values": [
+      "",
+      "bailing",
+      "bailing-think",
+      "bailing2",
+      "chatglm3",
+      "chatglm4",
+      "chatml",
+      "command-r",
+      "deepseek",
+      "deepseek2",
+      "deepseek3",
+      "exaone3",
+      "exaone4",
+      "falcon3",
+      "gemma",
+      "gigachat",
+      "glmedge",
+      "gpt-oss",
+      "granite",
+      "grok-2",
+      "hunyuan-dense",
+      "hunyuan-moe",
+      "kimi-k2",
+      "llama2",
+      "llama2-sys",
+      "llama2-sys-bos",
+      "llama2-sys-strip",
+      "llama3",
+      "llama4",
+      "megrez",
+      "minicpm",
+      "mistral-v1",
+      "mistral-v3",
+      "mistral-v3-tekken",
+      "mistral-v7",
+      "mistral-v7-tekken",
+      "monarch",
+      "openchat",
+      "orion",
+      "pangu-embedded",
+      "phi3",
+      "phi4",
+      "rwkv-world",
+      "seed_oss",
+      "smolvlm",
+      "solar-open",
+      "vicuna",
+      "vicuna-orca",
+      "yandex",
+      "zephyr"
+    ],
+    "sort": 27,
+    "group": "page.params.group.template",
+    "groupOrder": 50,
+    "groupCollapsed": true
   },
   {
-	  "name": "param.server.reasoning_format.name", 
-	  "fullName": "--reasoning-format",
-	  "abbreviation": "--reasoning-format", 
-	  "type": "STRING",
-	  "defaultValue": "auto", 
-	  "values": [
-		  "auto",
-		  "none",
-		  "deepseek",
-		  "deepseek-legacy"
-	  ],
-	  "description":"param.server.reasoning_format.desc", 
-	  "sort": 30
+    "name": "param.server.context_shift.name",
+    "fullName": "--context-shift",
+    "abbreviation": "--context-shift",
+    "type": "LOGIC",
+    "defaultValue": "0",
+    "description": "param.server.context_shift.desc",
+    "sort": 28,
+    "group": "page.params.group.features",
+    "groupOrder": 40,
+    "groupCollapsed": true
   },
   {
-	  "name": "param.server.reasoning_budget.name", 
-	  "fullName": "--reasoning-budget",
-	  "abbreviation": "--reasoning-budget", 
-	  "type": "STRING",
-	  "defaultValue": "-1", 
-	  "description":"param.server.reasoning_budget.desc", 
-	  "sort": 31
+    "name": "param.server.no_webui.name",
+    "fullName": "--no-webui",
+    "abbreviation": "--no-webui",
+    "type": "LOGIC",
+    "defaultValue": "1",
+    "description": "param.server.no_webui.desc",
+    "sort": 29,
+    "group": "page.params.group.features",
+    "groupOrder": 40,
+    "groupCollapsed": true
   },
   {
-	"name": "param.server.no_mmproj_offload.name",
-	"fullName": "--no-mmproj-offload",
-	"abbreviation": "--no-mmproj-offload",
-	"type": "LOGIC",
-	"defaultValue": "0",
-	"description": "param.server.no_mmproj_offload.desc",
-	"sort": 32
+    "name": "param.server.reasoning_format.name",
+    "fullName": "--reasoning-format",
+    "abbreviation": "--reasoning-format",
+    "type": "STRING",
+    "defaultValue": "auto",
+    "values": [
+      "auto",
+      "none",
+      "deepseek",
+      "deepseek-legacy"
+    ],
+    "description": "param.server.reasoning_format.desc",
+    "sort": 30,
+    "group": "page.params.group.template",
+    "groupOrder": 50,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.reasoning_budget.name",
+    "fullName": "--reasoning-budget",
+    "abbreviation": "--reasoning-budget",
+    "type": "STRING",
+    "defaultValue": "-1",
+    "description": "param.server.reasoning_budget.desc",
+    "sort": 31,
+    "group": "page.params.group.template",
+    "groupOrder": 50,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.no_mmproj_offload.name",
+    "fullName": "--no-mmproj-offload",
+    "abbreviation": "--no-mmproj-offload",
+    "type": "LOGIC",
+    "defaultValue": "0",
+    "description": "param.server.no_mmproj_offload.desc",
+    "sort": 32,
+    "group": "page.params.group.multimodal",
+    "groupOrder": 60,
+    "groupCollapsed": true
   }
 ]

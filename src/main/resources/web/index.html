@@ -1157,6 +1157,82 @@
                 });
         }
         
+        function getParamGroupName(param) {
+            const raw = param && param.group != null ? String(param.group).trim() : '';
+            if (!raw) return 'page.params.group.default';
+            if (raw.startsWith('page.params.group.')) return raw;
+            const legacyGroupMap = {
+                '基础参数': 'page.params.group.basic',
+                '采样参数': 'page.params.group.sampling',
+                '性能与缓存': 'page.params.group.performance',
+                '功能开关': 'page.params.group.features',
+                '模板与推理': 'page.params.group.template',
+                '多模态': 'page.params.group.multimodal',
+                '其他参数': 'page.params.group.default'
+            };
+            return legacyGroupMap[raw] || raw;
+        }
+
+        function getParamGroupOrder(param, fallbackOrder) {
+            const raw = param && param.groupOrder != null ? Number(param.groupOrder) : NaN;
+            return Number.isFinite(raw) ? raw : fallbackOrder;
+        }
+
+        function isParamGroupCollapsed(param) {
+            const raw = param && param.groupCollapsed;
+            if (typeof raw === 'boolean') return raw;
+            if (raw == null) return false;
+            const normalized = String(raw).trim().toLowerCase();
+            return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+        }
+
+        function buildParamGroups(params) {
+            const groups = [];
+            const groupMap = new Map();
+            params.forEach((param, index) => {
+                const sortValue = Number(param && param.sort);
+                const fallbackOrder = Number.isFinite(sortValue) ? sortValue : index;
+                const groupName = getParamGroupName(param);
+                let group = groupMap.get(groupName);
+                if (!group) {
+                    group = {
+                        name: groupName,
+                        order: getParamGroupOrder(param, fallbackOrder),
+                        collapsed: isParamGroupCollapsed(param),
+                        firstIndex: index,
+                        params: []
+                    };
+                    groupMap.set(groupName, group);
+                    groups.push(group);
+                } else {
+                    group.order = Math.min(group.order, getParamGroupOrder(param, fallbackOrder));
+                }
+                group.params.push(param);
+            });
+
+            groups.sort((a, b) => {
+                if (a.order !== b.order) return a.order - b.order;
+                return a.firstIndex - b.firstIndex;
+            });
+            return groups;
+        }
+
+        function renderParamGroup(group) {
+            const groupTitle = escapeHtml(t(group.name, group.name));
+            const openAttr = group.collapsed ? '' : ' open';
+            let html = `<details class="param-group"${openAttr}>`;
+            html += `<summary class="param-group-summary"><span class="param-group-title">${groupTitle}</span><span class="param-group-count">${group.params.length}</span></summary>`;
+            html += '<div class="param-group-body">';
+            html += '<div class="param-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
+            group.params.forEach(param => {
+                html += renderParamField(param, false);
+            });
+            html += '</div>';
+            html += '</div>';
+            html += '</details>';
+            return html;
+        }
+
         // 渲染动态参数
         function renderDynamicParams() {
             const container = document.getElementById('dynamicParamsContainer');
@@ -1164,14 +1240,15 @@
             
             // 按 sort 排序
             const sortedParams = [...paramConfig].sort((a, b) => (a.sort || 0) - (b.sort || 0));
+            const groupedParams = buildParamGroups(sortedParams);
             
             let html = '';
             
             // 渲染所有参数
-            if (sortedParams.length > 0) {
-                html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
-                sortedParams.forEach(param => {
-                    html += renderParamField(param, false);
+            if (groupedParams.length > 0) {
+                html += '<div class="param-groups">';
+                groupedParams.forEach(group => {
+                    html += renderParamGroup(group);
                 });
                 html += '</div>';
             }
