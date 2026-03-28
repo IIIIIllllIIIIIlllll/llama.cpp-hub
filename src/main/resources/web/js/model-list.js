@@ -22,9 +22,9 @@ function renderBuildInfo(buildInfo) {
     const version = buildInfo && buildInfo.version ? String(buildInfo.version).trim() : '';
     const createdTime = buildInfo && buildInfo.createdTime ? String(buildInfo.createdTime).trim() : '';
     const displayVersion = tag || (version ? (version.startsWith('v') ? version : `v${version}`) : '--');
-
-    versionEl.textContent = displayVersion;
-    createdTimeEl.textContent = formatBuildCreatedTime(createdTime);
+    
+    versionEl.textContent = displayVersion == '{tag}' ? 'unkown' : displayVersion;
+    createdTimeEl.textContent = createdTime == '{createdTime}' ? 'unkown' : formatBuildCreatedTime(createdTime);
 
     const titleParts = [];
     if (tag) titleParts.push(`tag: ${tag}`);
