@@ -89,6 +89,58 @@
     "groupCollapsed": true
   },
   {
+    "name": "param.server.samplers.name",
+    "fullName": "--samplers",
+    "abbreviation": "--samplers",
+    "type": "STRING",
+    "uiType": "ordered-multiselect",
+    "delimiter": ";",
+    "defaultValue": "penalties;dry;top_n_sigma;top_k;typ_p;top_p;min_p;xtc;temperature",
+    "description": "param.server.samplers.desc",
+    "values": [
+      {
+        "value": "penalties",
+        "label": "param.server.samplers.option.penalties"
+      },
+      {
+        "value": "dry",
+        "label": "param.server.samplers.option.dry"
+      },
+      {
+        "value": "top_n_sigma",
+        "label": "param.server.samplers.option.top_n_sigma"
+      },
+      {
+        "value": "top_k",
+        "label": "param.server.samplers.option.top_k"
+      },
+      {
+        "value": "typ_p",
+        "label": "param.server.samplers.option.typ_p"
+      },
+      {
+        "value": "top_p",
+        "label": "param.server.samplers.option.top_p"
+      },
+      {
+        "value": "min_p",
+        "label": "param.server.samplers.option.min_p"
+      },
+      {
+        "value": "xtc",
+        "label": "param.server.samplers.option.xtc"
+      },
+      {
+        "value": "temperature",
+        "label": "param.server.samplers.option.temperature"
+      }
+    ],
+    "sort": 6.5,
+    "group": "page.params.group.sampler_chain",
+    "groupOrder": 21,
+    "groupCollapsed": false
+  },
+  {
     "name": "param.server.top_p.name",
     "fullName": "--top-p",
     "abbreviation": "--top-p",

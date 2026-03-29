@@ -1220,10 +1220,13 @@
         function renderParamGroup(group) {
             const groupTitle = escapeHtml(t(group.name, group.name));
             const openAttr = group.collapsed ? '' : ' open';
-            let html = `<details class="param-group"${openAttr}>`;
+            const specialClass = group.params.some(param => getParamUiType(param) === 'ordered-multiselect') ? ' param-group-special' : '';
+            let html = `<details class="param-group${specialClass}"${openAttr}>`;
             html += `<summary class="param-group-summary"><span class="param-group-title">${groupTitle}</span><span class="param-group-count">${group.params.length}</span></summary>`;
             html += '<div class="param-group-body">';
-            html += '<div class="param-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
+            html += group.params.some(param => getParamUiType(param) === 'ordered-multiselect')
+                ? '<div class="param-group-grid param-group-grid-special" style="display: grid; grid-template-columns: 1fr; gap: 1rem;">'
+                : '<div class="param-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
             group.params.forEach(param => {
                 html += renderParamField(param, false);
             });
@@ -1231,6 +1234,131 @@
             html += '</div>';
             html += '</details>';
             return html;
+        }
+
+        function getParamUiType(param) {
+            const raw = param && param.uiType != null ? String(param.uiType).trim().toLowerCase() : '';
+            return raw;
+        }
+
+        function getParamOptionItems(param) {
+            const rawValues = param && Array.isArray(param.values) ? param.values : [];
+            return rawValues.map(item => {
+                if (item && typeof item === 'object' && !Array.isArray(item)) {
+                    const value = item.value == null ? '' : String(item.value).trim();
+                    const labelKey = item.label == null ? '' : String(item.label).trim();
+                    return {
+                        value,
+                        label: labelKey ? t(labelKey, value) : value
+                    };
+                }
+                const value = item == null ? '' : String(item).trim();
+                return { value, label: value };
+            }).filter(item => item.value);
+        }
+
+        function parseOrderedMultiSelectValue(rawValue, optionItems, delimiter) {
+            const allowed = new Set(optionItems.map(item => item.value));
+            const seen = new Set();
+            return String(rawValue == null ? '' : rawValue)
+                .split(delimiter)
+                .map(item => item.trim())
+                .filter(item => item && allowed.has(item) && !seen.has(item) && seen.add(item));
+        }
+
+        function getOrderedMultiSelectOptionsFromWidget(widget) {
+            return Array.from(widget.querySelectorAll('.ordered-multiselect-option')).map(option => ({
+                value: option.dataset.value || '',
+                label: option.dataset.label || option.dataset.value || ''
+            })).filter(item => item.value);
+        }
+
+        function syncOrderedMultiSelectWidget(widget) {
+            if (!widget) return;
+            const hiddenInput = widget.querySelector('.ordered-multiselect-input');
+            const selectedList = widget.querySelector('.ordered-multiselect-selected-list');
+            const preview = widget.querySelector('.ordered-multiselect-preview');
+            if (!hiddenInput || !selectedList || !preview) return;
+            const delimiter = widget.dataset.delimiter || ';';
+            const emptyText = widget.dataset.emptyText || '';
+            const previewLabel = widget.dataset.previewLabel || '';
+            const options = getOrderedMultiSelectOptionsFromWidget(widget);
+            const labelMap = new Map(options.map(item => [item.value, item.label]));
+            const selected = parseOrderedMultiSelectValue(hiddenInput.value, options, delimiter);
+            hiddenInput.value = selected.join(delimiter);
+
+            widget.querySelectorAll('.ordered-multiselect-option').forEach(option => {
+                const value = option.dataset.value || '';
+                const checked = selected.includes(value);
+                option.classList.toggle('is-selected', checked);
+            });
+
+            if (!selected.length) {
+                selectedList.innerHTML = `<div class="ordered-multiselect-empty">${escapeHtml(emptyText)}</div>`;
+            } else {
+                selectedList.innerHTML = selected.map((value, index) => {
+                    const label = labelMap.get(value) || value;
+                    return `<div class="ordered-multiselect-selected-item" data-value="${escapeHtml(value)}">` +
+                        `<span class="ordered-multiselect-selected-text">${escapeHtml(label)}</span>` +
+                        `<div class="ordered-multiselect-selected-actions">` +
+                        `<button type="button" class="ordered-multiselect-action" data-action="up" data-value="${escapeHtml(value)}" ${index === 0 ? 'disabled' : ''} title="${escapeHtml(t('page.params.ordered_multi.move_up', '上移'))}">↑</button>` +
+                        `<button type="button" class="ordered-multiselect-action" data-action="down" data-value="${escapeHtml(value)}" ${index === selected.length - 1 ? 'disabled' : ''} title="${escapeHtml(t('page.params.ordered_multi.move_down', '下移'))}">↓</button>` +
+                        `<button type="button" class="ordered-multiselect-action danger" data-action="remove" data-value="${escapeHtml(value)}" title="${escapeHtml(t('page.params.ordered_multi.remove', '移除'))}">×</button>` +
+                        `</div>` +
+                        `</div>`;
+                }).join('');
+            }
+
+            preview.textContent = previewLabel + (selected.length ? selected.join(delimiter) : emptyText);
+        }
+
+        function initOrderedMultiSelects(root) {
+            const widgets = (root || document).querySelectorAll('.ordered-multiselect');
+            widgets.forEach(widget => {
+                if (widget.dataset.initialized === '1') {
+                    syncOrderedMultiSelectWidget(widget);
+                    return;
+                }
+                widget.dataset.initialized = '1';
+                const hiddenInput = widget.querySelector('.ordered-multiselect-input');
+                if (!hiddenInput) return;
+                const delimiter = widget.dataset.delimiter || ';';
+                const options = getOrderedMultiSelectOptionsFromWidget(widget);
+
+                widget.addEventListener('click', (event) => {
+                    const optionButton = event.target.closest('.ordered-multiselect-option-toggle');
+                    if (optionButton) {
+                        const value = optionButton.dataset.value || '';
+                        const selected = parseOrderedMultiSelectValue(hiddenInput.value, options, delimiter);
+                        const next = selected.filter(item => item !== value);
+                        if (!selected.includes(value)) next.push(value);
+                        hiddenInput.value = next.join(delimiter);
+                        syncOrderedMultiSelectWidget(widget);
+                        return;
+                    }
+                    const button = event.target.closest('.ordered-multiselect-action');
+                    if (!button) return;
+                    const value = button.dataset.value || '';
+                    const action = button.dataset.action || '';
+                    const selected = parseOrderedMultiSelectValue(hiddenInput.value, options, delimiter);
+                    const index = selected.indexOf(value);
+                    if (index < 0) return;
+                    if (action === 'up' && index > 0) {
+                        [selected[index - 1], selected[index]] = [selected[index], selected[index - 1]];
+                    } else if (action === 'down' && index < selected.length - 1) {
+                        [selected[index], selected[index + 1]] = [selected[index + 1], selected[index]];
+                    } else if (action === 'remove') {
+                        selected.splice(index, 1);
+                    }
+                    hiddenInput.value = selected.join(delimiter);
+                    syncOrderedMultiSelectWidget(widget);
+                });
+
+                if (hiddenInput) {
+                    hiddenInput.addEventListener('change', () => syncOrderedMultiSelectWidget(widget));
+                }
+                syncOrderedMultiSelectWidget(widget);
+            });
         }
 
         // 渲染动态参数
@@ -1261,6 +1389,7 @@
             html += '</div>';
             
             container.innerHTML = html;
+            initOrderedMultiSelects(container);
         }
         
         // 渲染单个参数字段
@@ -1288,7 +1417,8 @@
             const description = t(param.description, '');
             const defaultValue = param.defaultValue || '';
             const type = param.type || 'STRING';
-            const values = param.values || [];
+            const values = getParamOptionItems(param);
+            const uiType = getParamUiType(param);
             
             let html = '';
             
@@ -1301,14 +1431,33 @@
                 `<label class="form-label" for="${fieldId}" style="margin: 0; font-size: 15px; line-height: 1.1;">${labelContent}</label>` +
                 `</div>`;
             
-            // 如果有 values，使用下拉选单
-            if (values && values.length > 0) {
+            if (uiType === 'ordered-multiselect') {
+                const delimiter = param.delimiter ? String(param.delimiter) : ';';
+                const availableTitle = t('page.params.ordered_multi.available', '点击添加采样器');
+                const selectedTitle = t('page.params.ordered_multi.selected', '当前执行顺序');
+                const emptyText = t('page.params.ordered_multi.empty', '未选择');
+                const previewLabel = t('page.params.ordered_multi.preview', '最终值：');
+                html += '<div class="form-group param-field param-field-ordered-multiselect">';
+                html += labelHtml;
+                html += `<div class="ordered-multiselect" data-delimiter="${escapeHtml(delimiter)}" data-empty-text="${escapeHtml(emptyText)}" data-preview-label="${escapeHtml(previewLabel)}">`;
+                html += `<input type="hidden" class="ordered-multiselect-input" data-param-ui="ordered-multiselect" id="${fieldId}" name="${fieldName}" value="${escapeHtml(defaultValue)}">`;
+                html += `<div class="ordered-multiselect-section ordered-multiselect-section-available"><div class="ordered-multiselect-heading">${escapeHtml(availableTitle)}</div><div class="ordered-multiselect-options">`;
+                values.forEach(option => {
+                    html += `<button type="button" class="ordered-multiselect-option ordered-multiselect-option-toggle" data-value="${escapeHtml(option.value)}" data-label="${escapeHtml(option.label)}">`;
+                    html += `<span class="ordered-multiselect-option-text">${escapeHtml(option.label)}</span>`;
+                    html += `</button>`;
+                });
+                html += `</div></div>`;
+                html += `<div class="ordered-multiselect-section ordered-multiselect-section-selected"><div class="ordered-multiselect-heading">${escapeHtml(selectedTitle)}</div><div class="ordered-multiselect-selected-list"></div><div class="ordered-multiselect-preview"></div></div>`;
+                html += `</div>`;
+                html += '</div>';
+            } else if (values && values.length > 0) {
                 html += '<div class="form-group param-field">';
                 html += labelHtml;
                 html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
-                values.forEach(v => {
-                    const selected = v === defaultValue ? 'selected' : '';
-                    html += `<option value="${v}" ${selected}>${v}</option>`;
+                values.forEach(option => {
+                    const selected = option.value === defaultValue ? 'selected' : '';
+                    html += `<option value="${escapeHtml(option.value)}" ${selected}>${escapeHtml(option.label)}</option>`;
                 });
                 html += '</select>';
                 html += '</div>';

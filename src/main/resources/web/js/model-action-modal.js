@@ -70,6 +70,13 @@ function setFieldValue(modal, keys, value) {
         }
         if ('value' in el) {
             el.value = value === null || value === undefined ? '' : String(value);
+            if (el.dataset && el.dataset.paramUi === 'ordered-multiselect' && typeof el.dispatchEvent === 'function') {
+                try {
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                } catch (e) {
+                    el.dispatchEvent(new Event('change'));
+                }
+            }
             return true;
         }
     }
@@ -204,6 +211,27 @@ function buildOptionLookupFromParamConfig(cfgList) {
     return lookup;
 }
 
+function getParamUiType(p) {
+    if (!p || p.uiType === null || p.uiType === undefined) return '';
+    return String(p.uiType).trim().toLowerCase();
+}
+
+function getParamOptionValues(p) {
+    if (!p || !Array.isArray(p.values)) return [];
+    const out = [];
+    for (let i = 0; i < p.values.length; i++) {
+        const raw = p.values[i];
+        let value = '';
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+            value = raw.value === null || raw.value === undefined ? '' : String(raw.value).trim();
+        } else {
+            value = raw === null || raw === undefined ? '' : String(raw).trim();
+        }
+        if (value) out.push(value);
+    }
+    return out;
+}
+
 function buildAllowedBareTokenSetFromParamConfig(cfgList) {
     const set = new Set();
     for (let i = 0; i < cfgList.length; i++) {
@@ -214,9 +242,7 @@ function buildAllowedBareTokenSetFromParamConfig(cfgList) {
         const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName).trim();
         const abbr = p.abbreviation === null || p.abbreviation === undefined ? '' : String(p.abbreviation).trim();
         if (fullName || abbr) continue;
-        const values = Array.isArray(p.values)
-            ? p.values.map(v => (v === null || v === undefined) ? '' : String(v).trim()).filter(v => v.length > 0)
-            : [];
+        const values = getParamOptionValues(p);
         for (let j = 0; j < values.length; j++) {
             const v = values[j];
             if (v && v.startsWith('-')) set.add(v);
@@ -278,7 +304,7 @@ function applyCmdToDynamicFields(modal, cmd) {
 
             const type = (p.type === null || p.type === undefined) ? 'STRING' : String(p.type);
             const typeUpper = String(type).toUpperCase();
-            const values = Array.isArray(p.values) ? p.values.map(v => (v === null || v === undefined) ? '' : String(v).trim()) : [];
+            const values = getParamOptionValues(p);
             let defaultValue = p.defaultValue;
             if (defaultValue === null || defaultValue === undefined) {
                 defaultValue = values.length ? values[0] : '';
@@ -361,7 +387,7 @@ function applyCmdToDynamicFields(modal, cmd) {
         const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName).trim();
         const abbr = p.abbreviation === null || p.abbreviation === undefined ? '' : String(p.abbreviation).trim();
         if (fullName || abbr) continue;
-        const values = Array.isArray(p.values) ? p.values.map(v => (v === null || v === undefined) ? '' : String(v).trim()).filter(v => v.length > 0) : [];
+        const values = getParamOptionValues(p);
         if (!values.length) continue;
         const defaultValue = p.defaultValue === null || p.defaultValue === undefined ? values[0] : String(p.defaultValue).trim();
         const candidates = values.filter(v => v !== defaultValue);
@@ -985,11 +1011,25 @@ function buildLoadModelPayload(modal) {
         const abbr = p.abbreviation === null || p.abbreviation === undefined ? '' : String(p.abbreviation);
         const type = p.type === null || p.type === undefined ? 'STRING' : String(p.type);
         const typeUpper = String(type).toUpperCase();
+        const uiType = getParamUiType(p);
         const fullNameTrimmed = fullName.trim();
         const abbrTrimmed = abbr.trim();
 
+        if (uiType === 'ordered-multiselect') {
+            if (!fullNameTrimmed) continue;
+            const fieldName = fieldNameFromParamConfig(p);
+            if (!fieldName) continue;
+            if (!isLoadModelParamEnabled(modal, fieldName)) continue;
+            const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
+            if (!el || !('value' in el)) continue;
+            const selected = String(el.value || '').trim();
+            if (!selected) continue;
+            cmdParts.push(fullNameTrimmed, quoteArgIfNeeded(selected));
+            continue;
+        }
+
         if (typeUpper === 'STRING' && !fullNameTrimmed && !abbrTrimmed) {
-            const values = Array.isArray(p.values) ? p.values.map(v => (v === null || v === undefined) ? '' : String(v)) : [];
+            const values = getParamOptionValues(p);
             if (!values.length) continue;
             const defaultValue = p.defaultValue === null || p.defaultValue === undefined ? (values.length ? String(values[0]) : '') : String(p.defaultValue);
             const fieldName = fieldNameFromParamConfig(p);
