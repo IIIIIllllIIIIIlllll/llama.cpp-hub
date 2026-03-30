@@ -694,6 +694,7 @@
   "page.params.ordered_multi.move_down": "Move down",
   "page.params.ordered_multi.remove": "Remove",
   "modal.model_detail.sampling.enable_thinking_desc": "Overrides the request-level thinking switch and keeps it aligned with the chat template parameters.",
+  "modal.model_detail.sampling.force_enable_thinking_desc": "When enabled, it forcibly overrides the client's thinking switch. When disabled, the client request decides whether chain-of-thought is used.",
   "param.benchmark.repetitions.name": "Repetitions",
   "param.benchmark.repetitions.desc": "Number of repetitions to obtain more stable performance data. Higher values are more stable but take longer.",
   "param.benchmark.output.name": "Output format",

@@ -387,8 +387,12 @@ public class ModelSamplingService {
 		setIntFromKeys(out, "dry_allowed_length", configObj, "dry_allowed_length", "dryAllowedLength", "dry-allowed-length");
 		setIntFromKeys(out, "dry_penalty_last_n", configObj, "dry_penalty_last_n", "dryPenaltyLastN", "dry-penalty-last-n");
 		setStringArrayFromKeys(out, "dry_sequence_breakers", configObj, false, "dry_sequence_breakers", "drySequenceBreakers", "dry-sequence-breakers");
+		setBooleanFromKeys(out, "force_enable_thinking", configObj, "force_enable_thinking", "forceEnableThinking");
 		setBooleanFromKeys(out, "enable_thinking", configObj, "enable_thinking");
 		applySamplingFromCmd(out, JsonUtil.getJsonString(configObj, "cmd", null));
+		if (out.has("enable_thinking") && !out.has("force_enable_thinking")) {
+			out.addProperty("force_enable_thinking", true);
+		}
 		return out;
 	}
 	
@@ -541,6 +545,9 @@ public class ModelSamplingService {
 		if (requestJson == null || sampling == null) {
 			return;
 		}
+		if (!readForceThinkingToggle(sampling)) {
+			return;
+		}
 		Boolean enabled = readThinkingToggle(sampling);
 		if (enabled == null) {
 			return;
@@ -563,11 +570,22 @@ public class ModelSamplingService {
 		return null;
 	}
 
+	private boolean readForceThinkingToggle(JsonObject sampling) {
+		if (sampling == null) {
+			return false;
+		}
+		Boolean force = readBoolean(sampling, "force_enable_thinking");
+		if (force != null) {
+			return force;
+		}
+		return readThinkingToggle(sampling) != null;
+	}
+
 	private boolean isThinkingToggleKey(String key) {
 		if (key == null) {
 			return false;
 		}
-		return "enable_thinking".equals(key);
+		return "enable_thinking".equals(key) || "force_enable_thinking".equals(key);
 	}
 	
 	private void setDoubleFromKeys(JsonObject out, String targetKey, JsonObject src, String... keys) {

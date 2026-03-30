@@ -364,7 +364,11 @@ function extractSamplingSettingsFromConfig(cfg) {
         }
         return null;
     };
+    out.forceEnableThinking = readBooleanValue(['force_enable_thinking', 'forceEnableThinking']);
     out.enableThinking = readBooleanValue(['enable_thinking']);
+    if (out.forceEnableThinking === null) {
+        out.forceEnableThinking = out.enableThinking !== null;
+    }
 
     const args = parseCommandArgs(config.cmd);
     const parseBoolToken = (raw) => {
@@ -632,9 +636,12 @@ function renderSelectedModelSamplingSettings() {
     const fieldHtml = fields.map((item) => renderModelSamplingField(item)).join('');
     const seedFieldHtml = renderModelSamplingField({ nameKey: 'param.server.seed.name', nameFallback: '随机种子', descKey: 'param.server.seed.desc', descFallback: '固定后可提高输出可复现性；-1 表示使用随机种子。', flag: '--seed', id: 'SamplingFieldSeed', value: s.seed });
     const samplersFieldHtml = renderModelSamplingSamplersField(s.samplers);
+    const forceThinkingChecked = s.forceEnableThinking === true ? ' checked' : '';
     const thinkingChecked = s.enableThinking === true ? ' checked' : '';
-    const thinkingFieldHtml = `<label class="model-sampling-field model-sampling-toggle-row" style="grid-column:1 / -1;"><span><span class="model-sampling-field-meta">enable_thinking --enable-thinking</span><span class="model-sampling-field-meta" style="margin-top:2px;">${safe(t('modal.model_detail.sampling.enable_thinking_desc', '用于覆盖请求中的 thinking 开关，并同步到聊天模板参数。'))}</span></span><span class="model-sampling-toggle-control"><input type="checkbox" class="model-sampling-toggle-input" id="${safe(modalId + 'SamplingFieldEnableThinking')}"${thinkingChecked} /><span class="model-sampling-toggle-track"></span></span></label>`;
-    details.innerHTML = thinkingFieldHtml + fieldHtml + seedFieldHtml + samplersFieldHtml;
+    const forceThinkingFieldHtml = `<label class="model-sampling-field model-sampling-toggle-row" style="grid-column:1 / -1;"><span><span class="model-sampling-field-meta">force_enable_thinking - </span><span class="model-sampling-field-meta" style="margin-top:2px;">${safe(t('modal.model_detail.sampling.force_enable_thinking_desc', '开启后才会强制覆盖客户端的 thinking 开关。关闭时，客户端请求决定是否思维链。'))}</span></span><span class="model-sampling-toggle-control"><input type="checkbox" class="model-sampling-toggle-input" id="${safe(modalId + 'SamplingFieldForceEnableThinking')}"${forceThinkingChecked} /><span class="model-sampling-toggle-track"></span></span></label>`;
+    const thinkingFieldHtml = `<label class="model-sampling-field model-sampling-toggle-row" id="${safe(modalId + 'SamplingFieldEnableThinkingRow')}" style="grid-column:1 / -1;"><span><span class="model-sampling-field-meta">enable_thinking - </span><span class="model-sampling-field-meta" style="margin-top:2px;">${safe(t('modal.model_detail.sampling.enable_thinking_desc', '用于覆盖请求中的 thinking 开关，并同步到聊天模板参数。'))}</span></span><span class="model-sampling-toggle-control"><input type="checkbox" class="model-sampling-toggle-input" id="${safe(modalId + 'SamplingFieldEnableThinking')}"${thinkingChecked} /><span class="model-sampling-toggle-track"></span></span></label>`;
+    details.innerHTML = forceThinkingFieldHtml + thinkingFieldHtml + fieldHtml + seedFieldHtml + samplersFieldHtml;
+    syncThinkingForceToggle(modalId);
     bindModelSamplingSamplersField(modalId);
     const inputs = details.querySelectorAll('input, textarea');
     for (let i = 0; i < inputs.length; i++) {
@@ -647,7 +654,25 @@ function renderSelectedModelSamplingSettings() {
             scheduleModelSamplingAutoUpdate();
         };
     }
+    const forceThinkingEl = document.getElementById(modalId + 'SamplingFieldForceEnableThinking');
+    if (forceThinkingEl) {
+        forceThinkingEl.addEventListener('change', () => {
+            syncThinkingForceToggle(modalId);
+        });
+    }
     updateSamplingBundleFromForm();
+}
+
+function syncThinkingForceToggle(modalId) {
+    const forceEl = document.getElementById(modalId + 'SamplingFieldForceEnableThinking');
+    const thinkingEl = document.getElementById(modalId + 'SamplingFieldEnableThinking');
+    const thinkingRowEl = document.getElementById(modalId + 'SamplingFieldEnableThinkingRow');
+    if (!forceEl || !thinkingEl) return;
+    const enabled = !!forceEl.checked;
+    thinkingEl.disabled = !enabled;
+    if (thinkingRowEl) {
+        thinkingRowEl.style.display = enabled ? '' : 'none';
+    }
 }
 
 function scheduleModelSamplingAutoUpdate() {
@@ -691,8 +716,13 @@ function getSamplingDraftFromForm() {
     setNumber('dry_penalty_last_n', read('SamplingFieldDryPenaltyLastN'), true);
     const drySequenceBreakers = normalizeModelSamplingStringArray(read('SamplingFieldDrySequenceBreakers'), { mode: 'json-array', allowDuplicates: true });
     if (drySequenceBreakers.length) out.dry_sequence_breakers = drySequenceBreakers;
+    const forceThinkingEl = document.getElementById(modalId + 'SamplingFieldForceEnableThinking');
+    const forceEnableThinking = !!(forceThinkingEl && forceThinkingEl.checked);
+    out.force_enable_thinking = forceEnableThinking;
     const thinkingEl = document.getElementById(modalId + 'SamplingFieldEnableThinking');
-    out.enable_thinking = !!(thinkingEl && thinkingEl.checked);
+    if (forceEnableThinking) {
+        out.enable_thinking = !!(thinkingEl && thinkingEl.checked);
+    }
     return out;
 }
 

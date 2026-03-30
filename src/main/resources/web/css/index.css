@@ -650,6 +650,24 @@
         .param-label-row { margin-bottom: 8px; }
         .param-enable-toggle { opacity: 0; pointer-events: none; transition: opacity 0.12s ease-in-out; }
         .param-field:hover .param-enable-toggle, .param-field:focus-within .param-enable-toggle { opacity: 1; pointer-events: auto; }
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .form-label,
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .form-text,
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .ordered-multiselect-heading,
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .ordered-multiselect-preview {
+            color: #9ca3af;
+        }
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .form-control,
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .ordered-multiselect-section,
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .ordered-multiselect-option,
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .ordered-multiselect-selected-item {
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+            color: #9ca3af;
+        }
+        #loadModelModal .param-field:has(.param-enable-toggle:not(:checked)) .ordered-multiselect-action {
+            color: #9ca3af;
+            border-color: #d1d5db;
+        }
         #loadModelModal .param-group-special .param-group-summary {
             background: linear-gradient(180deg, #f5f7ff 0%, #f9fafb 100%);
         }
