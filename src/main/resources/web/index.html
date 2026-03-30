@@ -1219,12 +1219,13 @@
 
         function renderParamGroup(group) {
             const groupTitle = escapeHtml(t(group.name, group.name));
-            const openAttr = group.collapsed ? '' : ' open';
-            const specialClass = group.params.some(param => getParamUiType(param) === 'ordered-multiselect') ? ' param-group-special' : '';
+            const isSpecialGroup = group.params.some(param => getParamUiType(param) === 'ordered-multiselect');
+            const openAttr = (!group.collapsed && !isSpecialGroup) ? ' open' : '';
+            const specialClass = isSpecialGroup ? ' param-group-special' : '';
             let html = `<details class="param-group${specialClass}"${openAttr}>`;
             html += `<summary class="param-group-summary"><span class="param-group-title">${groupTitle}</span><span class="param-group-count">${group.params.length}</span></summary>`;
             html += '<div class="param-group-body">';
-            html += group.params.some(param => getParamUiType(param) === 'ordered-multiselect')
+            html += isSpecialGroup
                 ? '<div class="param-group-grid param-group-grid-special" style="display: grid; grid-template-columns: 1fr; gap: 1rem;">'
                 : '<div class="param-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
             group.params.forEach(param => {
