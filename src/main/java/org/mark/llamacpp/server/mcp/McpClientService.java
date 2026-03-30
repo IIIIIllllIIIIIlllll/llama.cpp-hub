@@ -367,6 +367,10 @@ public class McpClientService {
 				if (line == null) {
 					break;
 				}
+				if (line.isBlank()) {
+					lastEvent = null;
+					continue;
+				}
 				String event = readSseFieldValue(line, "event");
 				if (event != null) {
 					lastEvent = event;
@@ -434,6 +438,10 @@ public class McpClientService {
 				new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
 			String line;
 			while ((line = reader.readLine()) != null) {
+				if (line.isBlank()) {
+					lastEvent = null;
+					continue;
+				}
 				String event = readSseFieldValue(line, "event");
 				if (event != null) {
 					lastEvent = event;
@@ -446,7 +454,7 @@ public class McpClientService {
 				}
 
 				// 处理 endpoint 事件，获取后续发送 POST 请求的地址
-				if ("endpoint".equals(lastEvent)) {
+				if ("endpoint".equals(lastEvent) && postUri == null) {
 					postUri = resolveEndpoint(sseUrl, data);
 					initializeAndListTools(postUri, headers);
 					initialized = true;
