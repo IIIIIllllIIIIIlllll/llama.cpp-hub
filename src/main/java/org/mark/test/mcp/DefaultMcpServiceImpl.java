@@ -14,6 +14,7 @@ import org.mark.test.mcp.tools.GetMcpServiceInfoTool;
 import org.mark.test.mcp.tools.GetModelPathTool;
 import org.mark.test.mcp.tools.GetModelsTool;
 import org.mark.test.mcp.tools.GetParamInfoTool;
+import org.mark.test.mcp.tools.context.ContextSummaryTool;
 import org.mark.test.mcp.tools.experience.ExperienceGetTool;
 import org.mark.test.mcp.tools.experience.ExperienceListTool;
 import org.mark.test.mcp.tools.experience.ExperienceLogTool;
@@ -80,6 +81,7 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetLlamaCppInfoTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetParamInfoTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetMcpServiceInfoTool());
+		this.registerTool(DEFAULT_SERVICE_KEY, new ContextSummaryTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceLogTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceListTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceGetTool());
