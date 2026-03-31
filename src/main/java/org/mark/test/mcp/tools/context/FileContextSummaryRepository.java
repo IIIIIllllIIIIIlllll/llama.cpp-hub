@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -13,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.tools.JsonUtil;
 
 public class FileContextSummaryRepository {
@@ -21,11 +21,11 @@ public class FileContextSummaryRepository {
 	private final Path repositoryPath;
 
 	public FileContextSummaryRepository() {
-		this(Paths.get(System.getProperty("user.dir"), "context-summary"));
+		this(LlamaServer.getCachePath().resolve("context-summary"));
 	}
 
 	public FileContextSummaryRepository(Path repositoryPath) {
-		this.repositoryPath = repositoryPath == null ? Paths.get(System.getProperty("user.dir"), "context-summary") : repositoryPath;
+		this.repositoryPath = repositoryPath == null ? LlamaServer.getCachePath().resolve("context-summary") : repositoryPath;
 		ensureRepositoryDirectory();
 		this.sequence = new AtomicLong(loadMaxSequence());
 	}

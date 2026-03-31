@@ -30,16 +30,16 @@ public class ContextSummaryTool implements IMCPTool {
 
 	@Override
 	public String getMcpDescription() {
-		return "用于轻松场景的上下文压缩工具，支持查看使用说明、写入总结记录、读取上一次总结";
+		return "用于保存当前会话上下文的轻量工具，重点是给出明确主题，并用简短总结说明当前在做什么。支持查看说明、写入记录、读取上一次记录。该工具是否使用只能由用户决定，只有用户指定使用时才能调用。";
 	}
 
 	@Override
 	public McpToolInputSchema getInputSchema() {
 		return new McpToolInputSchema().addProperty("action", "string", "操作类型：instruction/write/read_latest", true)
-				.addProperty("topic", "string", "总结主题，如摸鱼讨论、临时方案、小型协作事项", false)
-				.addProperty("scene", "string", "场景说明，如群聊、私聊、临时会议、闲聊串", false)
-				.addProperty("sourceHint", "string", "原始聊天记录的简短来源说明，不建议直接塞全部原文", false)
-				.addProperty("summary", "string", "压缩后的上下文正文，write 时必填", false)
+				.addProperty("topic", "string", "总结主题，建议一句话直接点明当前会话在处理什么", false)
+				.addProperty("scene", "string", "场景说明，可选，简单说明这是代码协作、讨论还是其他场景", false)
+				.addProperty("sourceHint", "string", "来源提示，可选，用很短的话说明上下文来自哪里", false)
+				.addProperty("summary", "string", "当前会话的简短上下文总结，write 时必填", false)
 				.addProperty("keyPoints", "array", "关键事实或已确认信息列表", false)
 				.addProperty("pendingItems", "array", "待处理项、未决问题或后续动作列表", false)
 				.addProperty("nextSuggestion", "string", "建议的下一步行动", false)
@@ -78,19 +78,14 @@ public class ContextSummaryTool implements IMCPTool {
 
 	private Map<String, Object> buildUsageInstruction() {
 		Map<String, Object> usage = new LinkedHashMap<>();
-		usage.put("goal", "把冗长聊天压缩成可快速接手的上下文记录，适合轻松、临时、非严肃的协作场景");
-		usage.put("whenToUse", List.of("聊天记录太长，需要给后续模型或同事快速补上下文", "讨论比较发散，但已经出现可复用的信息、决定或待办", "不想保留完整原文，只保留浓缩后的可执行版本"));
-		usage.put("howToSummarize", List.of("先提取当前到底在聊什么，不要把跑题内容全部照抄进去", "保留已确认事实、已经达成的决定、明确的偏好和限制条件",
-				"把未解决的问题、下一步动作单独列出来，避免混在正文里", "对随口吐槽、寒暄、重复确认、情绪化表达做压缩，只保留对后续有帮助的部分",
-				"如果聊天氛围会影响后续回复风格，可以用 mood 简短记录，例如轻松、吐槽、玩笑、随意", "不要伪造结论；不确定的内容明确标注为待确认"));
-		usage.put("recommendedStructure", List.of("topic：一句话点明主题", "scene：说明聊天发生在哪里、为什么要总结", "summary：3到8句正文，写清主线、结论和背景",
-				"keyPoints：列关键事实、约束、偏好、共识", "pendingItems：列未决问题和后续动作", "nextSuggestion：给出最自然的下一步",
-				"suggestedPrompt：为后续模型生成一段可直接接手的提示词"));
-		usage.put("qualityChecklist", List.of("读完后能在几十秒内知道发生了什么", "知道哪些事已经定了，哪些事还没定", "知道下一步应该继续问什么或做什么",
-				"没有把大量原始废话照搬进 summary", "总结足够忠实，不擅自补充聊天里没有出现的事实"));
-		usage.put("suggestedWorkflow", List.of("先调用 action=instruction 获取规范", "根据规范整理总结内容", "调用 action=write 写入本次压缩记录", "下次接手前调用 action=read_latest 读取最近一次总结"));
-		usage.put("promptTemplate",
-				"请把下面的聊天整理成轻量上下文记录。输出时明确给出：topic、scene、summary、keyPoints、pendingItems、nextSuggestion、suggestedPrompt、mood。要求忠实原意、压缩废话、保留决定与未决事项，不要凭空补事实。");
+		usage.put("goal", "把当前会话压缩成一条可快速接手的上下文记录，重点是主题明确、总结简短");
+		usage.put("whenToUse", List.of("准备中断当前对话，之后还要继续接手", "当前在处理某件具体事情，希望下次快速恢复上下文", "不想保留整段原文，只想保留一句主题和一段简短说明"));
+		usage.put("howToSummarize", List.of("先写一个明确主题，直接点明当前在做什么", "summary 只保留当前任务主线，不展开无关细节", "优先写清对象、动作和当前进展，例如正在修改哪部分代码",
+				"不要把整段对话照抄进去，也不要补充对话里没有的信息"));
+		usage.put("recommendedStructure", List.of("topic：一句话主题，例如“MCP工具提示词修改”", "summary：一句到几句话，说明当前在处理什么、涉及什么对象、进展到哪里", "其他字段按需补充，不必每次都写满"));
+		usage.put("qualityChecklist", List.of("读完 topic 和 summary 就知道当前会话在做什么", "内容足够短，下次能快速恢复上下文", "没有混入太多无关闲聊或展开说明", "表述忠实，不虚构未发生的内容"));
+		usage.put("suggestedWorkflow", List.of("先确定一个清晰主题", "写一段简短 summary", "调用 action=write 保存", "下次接手前调用 action=read_latest 读取最近一次记录"));
+		usage.put("promptTemplate", "请把当前会话整理成简短上下文记录，只需要明确 topic 和 summary。topic 要直接点明主题，summary 用一两句话说明当前在做什么、涉及什么对象、进展到哪里。示例：MCP工具提示词修改：用户正在修改关于 XXX 的代码。");
 		return usage;
 	}
 
@@ -99,7 +94,7 @@ public class ContextSummaryTool implements IMCPTool {
 		write.put("action", "write");
 		write.put("requiredFields", List.of("summary"));
 		write.put("optionalFields", List.of("topic", "scene", "sourceHint", "keyPoints", "pendingItems", "nextSuggestion", "suggestedPrompt", "mood"));
-		write.put("behavior", "写入一条新的上下文总结记录，并持久化到项目根目录的 context-summary 目录");
+		write.put("behavior", "写入一条新的上下文总结记录，并持久化到程序根目录的 cache/context-summary 目录");
 		return write;
 	}
 
