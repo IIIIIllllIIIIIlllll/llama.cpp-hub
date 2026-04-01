@@ -14,6 +14,7 @@ import org.mark.test.mcp.tools.GetMcpServiceInfoTool;
 import org.mark.test.mcp.tools.GetModelPathTool;
 import org.mark.test.mcp.tools.GetModelsTool;
 import org.mark.test.mcp.tools.GetParamInfoTool;
+import org.mark.test.mcp.tools.ReadStaticImageTool;
 import org.mark.test.mcp.tools.context.ContextSummaryTool;
 import org.mark.test.mcp.tools.experience.ExperienceGetTool;
 import org.mark.test.mcp.tools.experience.ExperienceListTool;
@@ -41,8 +42,17 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 	private static final Logger logger = LoggerFactory.getLogger(DefaultMcpServiceImpl.class);
 	private static final String JSONRPC_VERSION = "2.0";
 	private static final String MCP_PROTOCOL_VERSION = "2024-11-05";
-	private static final String DEFAULT_SERVICE_KEY = "llama_server_info";
-
+	
+	
+	private static final String DEFAULT_SERVICE_KEY = "llama_hub_info";
+	
+	
+	private static final String IMAGE_SERVICE_KEY = "llama_hub_image";
+	
+	
+	private static final String CONTEXT_SERVICE_KEY = "llama_hub_context";
+	
+	
 	private final McpToolRegistry toolRegistry = new McpToolRegistry();
 	private final NettySseMcpServer nettyServer;
 
@@ -76,12 +86,17 @@ public class DefaultMcpServiceImpl implements McpRequestProcessor {
 	}
 
 	private void registerBuiltinTools() {
+		// 图片相关的。
+		this.registerTool(IMAGE_SERVICE_KEY, new ReadStaticImageTool());
+		// 默认的服务器相关。
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetModelsTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetModelPathTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetLlamaCppInfoTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetParamInfoTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new GetMcpServiceInfoTool());
-		this.registerTool(DEFAULT_SERVICE_KEY, new ContextSummaryTool());
+		// 上下文相关。
+		this.registerTool(CONTEXT_SERVICE_KEY, new ContextSummaryTool());
+		// 自定义的‘经验’工具。
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceLogTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceListTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceGetTool());
