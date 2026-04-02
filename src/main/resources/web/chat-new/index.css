@@ -514,6 +514,56 @@ button { cursor: pointer; }
   border: none;
 }
 
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: start;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.message-image-link {
+  display: grid;
+  grid-template-rows: 160px auto;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--muted-bg);
+  color: inherit;
+  text-decoration: none;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
+}
+
+.message-image-link:hover {
+  border-color: var(--ring);
+}
+
+.message-image {
+  width: 160px;
+  max-width: 160px;
+  height: 160px;
+  max-height: 160px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.message-image-caption {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Message actions ── */
 .message-actions {
   display: flex;
@@ -710,6 +760,67 @@ button { cursor: pointer; }
   margin: 0 auto;
   display: grid;
   gap: 8px;
+  overflow: hidden;
+}
+
+.draft-image-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 96px));
+  gap: 10px;
+  align-items: start;
+}
+
+.draft-image-card {
+  width: 96px;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.draft-image-thumb {
+  width: 100%;
+  max-width: 96px;
+  height: 96px;
+  max-height: 96px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--muted-bg);
+}
+
+.draft-image-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.72);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  z-index: 1;
+}
+
+.draft-image-remove:hover {
+  background: rgba(10, 10, 10, 0.88);
+}
+
+.draft-image-name {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .composer-input {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>llama.cpp Chat</title>
+  <title>llama.cpp 对话</title>
   <link rel="stylesheet" href="./index.css">
 </head>
 <body>
@@ -14,19 +14,19 @@
           <div class="brand-mark">L</div>
           <div class="brand-copy">
             <h1>llama.cpp</h1>
-            <p>Modern chat interface</p>
+            <p>现代对话界面</p>
           </div>
         </div>
       </div>
 
-      <button id="newChatBtn" class="primary-button full" type="button">＋ New chat</button>
+      <button id="newChatBtn" class="primary-button full" type="button">＋ 新建对话</button>
 
       <div class="search-wrap">
         <span>⌕</span>
-        <input id="searchInput" type="text" placeholder="Search conversations">
+        <input id="searchInput" type="text" placeholder="搜索会话">
       </div>
 
-      <div class="sidebar-label">Conversations</div>
+      <div class="sidebar-label">会话列表</div>
       <ul id="conversationList" class="conversation-list"></ul>
     </aside>
 
@@ -35,7 +35,7 @@
         <div class="topbar-leading">
           <button id="sidebarToggleBtn" class="icon-button sidebar-toggle" type="button" aria-label="打开会话列表" aria-expanded="false">☰</button>
           <div class="topbar-copy">
-            <h2 id="conversationTitle">New chat</h2>
+            <h2 id="conversationTitle">新对话</h2>
           </div>
         </div>
         <div class="topbar-actions">
@@ -43,7 +43,7 @@
             <span id="statusDot" class="status-dot"></span>
             <span id="statusShortText">未连接</span>
           </div>
-          <div id="messageCountChip" class="meta-chip">0 messages</div>
+          <div id="messageCountChip" class="meta-chip">0 条消息</div>
           <button id="settingsBtn" class="icon-button" type="button" aria-label="设置">⚙</button>
         </div>
       </header>
@@ -53,7 +53,7 @@
           <div id="emptyState" class="empty-state">
             <div class="empty-card">
               <h3>llama.cpp</h3>
-              <p>输入消息开始对话，或选择下方的快捷提示。配置选项位于设置面板中。</p>
+              <p>输入文字、粘贴图片或上传图片开始对话，也可以直接选择下方的快捷提示。</p>
               <div class="empty-hints">
                 <button class="empty-hint" data-hint="用简单的语言解释一下什么是大语言模型">什么是大语言模型？</button>
                 <button class="empty-hint" data-hint="帮我写一个 Python 快速排序算法">写一个快速排序</button>
@@ -67,10 +67,13 @@
 
       <section class="composer-shell">
         <div class="composer-card">
-          <textarea id="promptInput" class="composer-input" placeholder="Type a message..."></textarea>
+          <textarea id="promptInput" class="composer-input" placeholder="输入消息，支持粘贴图片…"></textarea>
+          <input id="imageInput" class="hidden" type="file" accept="image/*" multiple>
+          <div id="draftImageList" class="draft-image-list hidden"></div>
           <div class="composer-bar">
             <div class="composer-left">
               <button id="refreshModelsBtn" class="icon-button" type="button" aria-label="刷新模型" title="刷新模型">↻</button>
+              <button id="imageUploadBtn" class="ghost-button" type="button">上传图片</button>
               <select id="modelSelect" class="model-select" aria-label="选择模型"></select>
             </div>
             <div class="composer-right">
@@ -81,7 +84,7 @@
             </div>
           </div>
         </div>
-        <div class="composer-hint">Press Enter to send, Shift + Enter for new line</div>
+        <div class="composer-hint">支持粘贴或上传图片，回车发送，Shift + 回车换行</div>
       </section>
     </main>
   </div>
@@ -92,7 +95,7 @@
   <div id="settingsDrawer" class="drawer" aria-hidden="true">
     <div class="drawer-panel">
       <div class="drawer-head">
-        <h3>Settings</h3>
+        <h3>设置</h3>
         <button id="closeSettingsBtn" class="icon-button" type="button" aria-label="关闭">×</button>
       </div>
 
@@ -106,21 +109,21 @@
           <input id="modelsEndpointInput" class="drawer-input" value="/v1/models">
         </div>
         <div class="drawer-field">
-          <label for="apiKeyInput">API Key</label>
+          <label for="apiKeyInput">API 密钥</label>
           <input id="apiKeyInput" class="drawer-input" type="password" placeholder="可留空">
         </div>
         <div class="drawer-field">
-          <label for="temperatureInput">Temperature</label>
+          <label for="temperatureInput">温度</label>
           <input id="temperatureInput" class="drawer-input" type="number" step="0.1" min="0" max="2" value="0.7">
         </div>
         <div class="drawer-field">
-          <label for="maxTokensInput">Max Tokens</label>
+          <label for="maxTokensInput">最大生成长度</label>
           <input id="maxTokensInput" class="drawer-input" type="number" step="1" min="1" placeholder="默认">
         </div>
         <div class="drawer-field">
           <label for="streamToggleWrap">流式输出</label>
           <label id="streamToggleWrap" class="drawer-toggle">
-            <span>Enable stream</span>
+            <span>启用流式输出</span>
             <input id="streamToggle" type="checkbox" checked>
           </label>
         </div>
@@ -139,6 +142,8 @@
 
   <script>
     const STORAGE_KEY = 'chat-new-state-v3';
+    const MAX_IMAGE_COUNT = 6;
+    const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
     const state = {
       endpoint: '/v1/chat/completions',
@@ -155,6 +160,7 @@
       abortController: null,
       isSending: false,
       editingMessageIndex: null,
+      draftImages: [],
       sidebarOpen: false,
       sidebarCollapsed: false
     };
@@ -165,6 +171,8 @@
       searchInput: document.getElementById('searchInput'),
       conversationList: document.getElementById('conversationList'),
       refreshModelsBtn: document.getElementById('refreshModelsBtn'),
+      imageUploadBtn: document.getElementById('imageUploadBtn'),
+      imageInput: document.getElementById('imageInput'),
       conversationTitle: document.getElementById('conversationTitle'),
       statusDot: document.getElementById('statusDot'),
       statusShortText: document.getElementById('statusShortText'),
@@ -174,6 +182,7 @@
       emptyState: document.getElementById('emptyState'),
       messages: document.getElementById('messages'),
       promptInput: document.getElementById('promptInput'),
+      draftImageList: document.getElementById('draftImageList'),
       modelSelect: document.getElementById('modelSelect'),
       exportBtn: document.getElementById('exportBtn'),
       clearBtn: document.getElementById('clearBtn'),
@@ -268,6 +277,270 @@
       return 'chat-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     }
 
+    function makeImageId() {
+      return 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function normalizeConversationTitle(title) {
+      return title === 'New chat' ? '新对话' : title;
+    }
+
+    function normalizeImages(images) {
+      return Array.isArray(images)
+        ? images
+            .filter(item => item && typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:image/'))
+            .map((item, index) => ({
+              id: typeof item.id === 'string' && item.id ? item.id : 'saved-image-' + index,
+              name: typeof item.name === 'string' && item.name.trim() ? item.name.trim() : '图片',
+              type: typeof item.type === 'string' && item.type ? item.type : 'image/*',
+              size: Number.isFinite(Number(item.size)) ? Number(item.size) : 0,
+              dataUrl: item.dataUrl
+            }))
+        : [];
+    }
+
+    function getMessageImages(message) {
+      return normalizeImages(message?.images);
+    }
+
+    function getMessageText(message) {
+      return typeof message?.content === 'string' ? message.content : '';
+    }
+
+    function hasMessageBody(message) {
+      return !!String(getMessageText(message) || '').trim() || getMessageImages(message).length > 0;
+    }
+
+    function formatMessageCount(count) {
+      return String(Number(count || 0)) + ' 条消息';
+    }
+
+    function createMessageImageCard(image) {
+      const link = document.createElement('a');
+      link.className = 'message-image-link';
+      link.href = image.dataUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.style.width = '160px';
+      link.style.maxWidth = '160px';
+      link.style.minWidth = '160px';
+      link.style.overflow = 'hidden';
+      link.style.display = 'grid';
+      link.style.gridTemplateRows = '160px auto';
+
+      const preview = document.createElement('img');
+      preview.className = 'message-image';
+      preview.src = image.dataUrl;
+      preview.alt = image.name || '图片';
+      preview.width = 160;
+      preview.height = 160;
+      preview.loading = 'lazy';
+      preview.decoding = 'async';
+      preview.style.width = '160px';
+      preview.style.height = '160px';
+      preview.style.maxWidth = '160px';
+      preview.style.maxHeight = '160px';
+      preview.style.objectFit = 'cover';
+      preview.style.display = 'block';
+
+      const caption = document.createElement('span');
+      caption.className = 'message-image-caption';
+      caption.textContent = image.name || '图片';
+      caption.style.maxWidth = '160px';
+
+      link.appendChild(preview);
+      link.appendChild(caption);
+      return link;
+    }
+
+    function escapeAttribute(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function resizePromptInput() {
+      els.promptInput.style.height = 'auto';
+      els.promptInput.style.height = Math.min(els.promptInput.scrollHeight, 220) + 'px';
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('图片读取失败'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderDraftImages() {
+      els.draftImageList.innerHTML = '';
+      if (!state.draftImages.length) {
+        els.draftImageList.classList.add('hidden');
+        return;
+      }
+
+      els.draftImageList.classList.remove('hidden');
+      els.draftImageList.style.display = 'flex';
+      els.draftImageList.style.flexWrap = 'wrap';
+      els.draftImageList.style.gap = '10px';
+      els.draftImageList.style.alignItems = 'flex-start';
+      els.draftImageList.style.maxWidth = '100%';
+      els.draftImageList.style.overflow = 'hidden';
+      for (const image of state.draftImages) {
+        const card = document.createElement('div');
+        card.className = 'draft-image-card';
+        card.style.width = '96px';
+        card.style.minWidth = '96px';
+        card.style.maxWidth = '96px';
+        card.style.display = 'grid';
+        card.style.gap = '6px';
+        card.style.position = 'relative';
+        card.style.overflow = 'hidden';
+        card.style.flex = '0 0 96px';
+
+        const preview = document.createElement('img');
+        preview.className = 'draft-image-thumb';
+        preview.src = image.dataUrl;
+        preview.alt = image.name || '图片';
+        preview.width = 96;
+        preview.height = 96;
+        preview.loading = 'lazy';
+        preview.decoding = 'async';
+        preview.style.width = '96px';
+        preview.style.height = '96px';
+        preview.style.maxWidth = '96px';
+        preview.style.maxHeight = '96px';
+        preview.style.objectFit = 'cover';
+        preview.style.display = 'block';
+        preview.style.borderRadius = '12px';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'draft-image-remove';
+        removeBtn.dataset.removeDraftImage = image.id;
+        removeBtn.setAttribute('aria-label', '移除图片');
+        removeBtn.title = '移除图片';
+        removeBtn.textContent = '×';
+
+        const name = document.createElement('div');
+        name.className = 'draft-image-name';
+        name.textContent = image.name || '图片';
+        name.style.maxWidth = '96px';
+
+        card.appendChild(preview);
+        card.appendChild(removeBtn);
+        card.appendChild(name);
+        els.draftImageList.appendChild(card);
+      }
+    }
+
+    async function addDraftImages(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) {
+        return;
+      }
+
+      let added = 0;
+      let invalidCount = 0;
+      let oversizedCount = 0;
+      let limitReached = false;
+
+      for (const file of files) {
+        if (!String(file.type || '').startsWith('image/')) {
+          invalidCount += 1;
+          continue;
+        }
+        if (state.draftImages.length >= MAX_IMAGE_COUNT) {
+          limitReached = true;
+          continue;
+        }
+        if (Number(file.size || 0) > MAX_IMAGE_SIZE) {
+          oversizedCount += 1;
+          continue;
+        }
+        try {
+          const dataUrl = await readFileAsDataUrl(file);
+          state.draftImages.push({
+            id: makeImageId(),
+            name: file.name || '图片',
+            type: file.type || 'image/*',
+            size: Number(file.size || 0),
+            dataUrl
+          });
+          added += 1;
+        } catch (error) {
+          showToast('error', error.message || '图片读取失败');
+        }
+      }
+
+      renderDraftImages();
+      if (els.imageInput.value) {
+        els.imageInput.value = '';
+      }
+      if (added) {
+        showToast('success', '已添加 ' + added + ' 张图片');
+      }
+      if (invalidCount) {
+        showToast('info', '已忽略 ' + invalidCount + ' 个非图片文件');
+      }
+      if (oversizedCount) {
+        showToast('error', oversizedCount + ' 张图片超过 10 MB，未添加');
+      }
+      if (limitReached) {
+        showToast('info', '最多只能添加 ' + MAX_IMAGE_COUNT + ' 张图片');
+      }
+      if (added) {
+        els.promptInput.focus();
+      }
+    }
+
+    function removeDraftImage(id) {
+      state.draftImages = state.draftImages.filter(item => item.id !== id);
+      renderDraftImages();
+    }
+
+    function buildUserContent(message) {
+      const text = String(getMessageText(message) || '').trim();
+      const images = getMessageImages(message);
+      if (!images.length) {
+        return text;
+      }
+      const content = [];
+      if (text) {
+        content.push({ type: 'text', text });
+      }
+      for (const image of images) {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: image.dataUrl
+          }
+        });
+      }
+      return content;
+    }
+
+    function contentToText(value) {
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (Array.isArray(value)) {
+        return value.map(item => {
+          if (typeof item === 'string') {
+            return item;
+          }
+          if (typeof item?.text === 'string') {
+            return item.text;
+          }
+          return '';
+        }).join('');
+      }
+      return '';
+    }
+
     function getCurrentConversation() {
       return state.conversations.find(item => item.id === state.currentConversationId) || null;
     }
@@ -277,7 +550,7 @@
         const id = makeId();
         state.conversations.push({
           id,
-          title: 'New chat',
+          title: '新对话',
           createdAt: Date.now(),
           updatedAt: Date.now(),
           messages: []
@@ -293,10 +566,15 @@
       if (!conversation) {
         return;
       }
-      const firstUser = conversation.messages.find(item => item.role === 'user' && String(item.content || '').trim());
-      conversation.title = firstUser
-        ? String(firstUser.content).trim().replace(/\s+/g, ' ').slice(0, 28)
-        : 'New chat';
+      const firstUser = conversation.messages.find(item => item.role === 'user' && hasMessageBody(item));
+      if (!firstUser) {
+        conversation.title = '新对话';
+        return;
+      }
+      const text = String(firstUser.content || '').trim();
+      conversation.title = text
+        ? text.replace(/\s+/g, ' ').slice(0, 28)
+        : '图片对话';
     }
 
     function syncSettingsInputs() {
@@ -349,7 +627,7 @@
                 .filter(item => item && typeof item.id === 'string')
                 .map(item => ({
                   id: item.id,
-                  title: typeof item.title === 'string' ? item.title : 'New chat',
+                  title: typeof item.title === 'string' ? normalizeConversationTitle(item.title) : '新对话',
                   createdAt: Number(item.createdAt || Date.now()),
                   updatedAt: Number(item.updatedAt || Date.now()),
                   messages: Array.isArray(item.messages)
@@ -358,6 +636,7 @@
                         .map(message => ({
                           role: message.role,
                           content: typeof message.content === 'string' ? message.content : '',
+                          images: normalizeImages(message.images),
                           reasoning: typeof message.reasoning === 'string' ? message.reasoning : '',
                           time: typeof message.time === 'string' ? message.time : nowTime(),
                           reasoningCollapsed: typeof message.reasoningCollapsed === 'boolean' ? message.reasoningCollapsed : false
@@ -392,7 +671,7 @@
       if (!list.length) {
         const li = document.createElement('li');
         li.className = 'conversation-meta';
-        li.textContent = 'No matching conversations';
+        li.textContent = '没有匹配的会话';
         els.conversationList.appendChild(li);
         return;
       }
@@ -404,8 +683,8 @@
         button.className = 'conversation-item' + (item.id === state.currentConversationId ? ' active' : '');
         button.dataset.id = item.id;
         button.innerHTML =
-          '<div class="conversation-title">' + escapeHtml(item.title || 'New chat') + '</div>' +
-          '<div class="conversation-meta"><span>' + (Array.isArray(item.messages) ? item.messages.length : 0) + ' messages</span><span>' + escapeHtml(formatConversationTime(item.updatedAt)) + '</span></div>';
+          '<div class="conversation-title">' + escapeHtml(item.title || '新对话') + '</div>' +
+          '<div class="conversation-meta"><span>' + formatMessageCount(Array.isArray(item.messages) ? item.messages.length : 0) + '</span><span>' + escapeHtml(formatConversationTime(item.updatedAt)) + '</span></div>';
         li.appendChild(button);
         els.conversationList.appendChild(li);
       }
@@ -420,7 +699,7 @@
       head.className = 'message-head';
       head.innerHTML =
         '<span class="avatar">' + (message.role === 'user' ? '你' : 'AI') + '</span>' +
-        '<strong>' + (message.role === 'user' ? 'You' : 'Assistant') + '</strong>' +
+        '<strong>' + (message.role === 'user' ? '用户' : '助手') + '</strong>' +
         '<span>' + escapeHtml(message.time || nowTime()) + '</span>';
 
       const bubble = document.createElement('div');
@@ -461,6 +740,22 @@
       }
 
       if (isEditing) {
+        const images = getMessageImages(message);
+        if (images.length) {
+          const gallery = document.createElement('div');
+          gallery.className = 'message-images';
+          gallery.style.display = 'flex';
+          gallery.style.flexWrap = 'wrap';
+          gallery.style.gap = '10px';
+          gallery.style.alignItems = 'flex-start';
+          gallery.style.maxWidth = '100%';
+          gallery.style.overflow = 'hidden';
+          for (const image of images) {
+            gallery.appendChild(createMessageImageCard(image));
+          }
+          bubble.appendChild(gallery);
+        }
+
         const editWrap = document.createElement('div');
         editWrap.className = 'message-edit';
 
@@ -493,15 +788,34 @@
         editWrap.appendChild(editActions);
         bubble.appendChild(editWrap);
       } else {
-        const content = document.createElement('div');
-        content.innerHTML = renderMarkdown(message.content || '');
-        bubble.appendChild(content);
+        const images = getMessageImages(message);
+        if (images.length) {
+          const gallery = document.createElement('div');
+          gallery.className = 'message-images';
+          gallery.style.display = 'flex';
+          gallery.style.flexWrap = 'wrap';
+          gallery.style.gap = '10px';
+          gallery.style.alignItems = 'flex-start';
+          gallery.style.maxWidth = '100%';
+          gallery.style.overflow = 'hidden';
+          for (const image of images) {
+            gallery.appendChild(createMessageImageCard(image));
+          }
+          bubble.appendChild(gallery);
+        }
+
+        if (String(message.content || '').trim()) {
+          const content = document.createElement('div');
+          content.className = 'message-content';
+          content.innerHTML = renderMarkdown(message.content || '');
+          bubble.appendChild(content);
+        }
       }
 
       article.appendChild(head);
       article.appendChild(bubble);
 
-      if (!isEditing && (message.content || message.reasoning)) {
+      if (!isEditing && (message.content || message.reasoning || getMessageImages(message).length)) {
         const actions = document.createElement('div');
         actions.className = 'message-actions';
 
@@ -563,8 +877,8 @@
     function syncConversationMeta() {
       const conversation = getCurrentConversation();
       const messages = conversation ? conversation.messages : [];
-      els.conversationTitle.textContent = conversation ? (conversation.title || 'New chat') : 'New chat';
-      els.messageCountChip.textContent = messages.length + ' messages';
+      els.conversationTitle.textContent = conversation ? (conversation.title || '新对话') : '新对话';
+      els.messageCountChip.textContent = formatMessageCount(messages.length);
     }
 
     function updateMessageActionStates() {
@@ -612,6 +926,7 @@
       conversation.messages.push({
         role,
         content,
+        images: normalizeImages(extra.images),
         reasoning: extra.reasoning || '',
         time: extra.time || nowTime(),
         reasoningCollapsed: typeof extra.reasoningCollapsed === 'boolean' ? extra.reasoningCollapsed : false
@@ -681,9 +996,10 @@
                 }
               }
 
-              let contentDiv = bubble.querySelector(':scope > div:not(.reasoning-box):not(.message-edit)');
+              let contentDiv = bubble.querySelector(':scope > .message-content');
               if (!contentDiv) {
                 contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
                 bubble.appendChild(contentDiv);
               }
               contentDiv.innerHTML = renderMarkdown(content || '');
@@ -729,7 +1045,7 @@
       indicator.className = 'typing-indicator';
       indicator.id = 'typingIndicator';
       indicator.innerHTML =
-        '<div class="message-head"><span class="avatar">AI</span><strong>Assistant</strong></div>' +
+        '<div class="message-head"><span class="avatar">AI</span><strong>助手</strong></div>' +
         '<div class="typing-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
       els.messages.appendChild(indicator);
       requestAnimationFrame(() => {
@@ -784,8 +1100,13 @@
       if (!message) {
         return;
       }
+      const text = String(message.content || '').trim();
+      const imageCount = getMessageImages(message).length;
+      const copyValue = text
+        ? (imageCount ? text + '\n\n[附带 ' + imageCount + ' 张图片]' : text)
+        : (imageCount ? '[图片消息，共 ' + imageCount + ' 张]' : '');
       try {
-        await copyText(String(message.content || '').trim());
+        await copyText(copyValue);
         showToast('success', '已复制到剪贴板');
       } catch (error) {
         showToast('error', error.message || '复制失败');
@@ -819,8 +1140,8 @@
       if (!message) {
         return;
       }
-      if (!nextContent) {
-        updateStatus('error', 'Message cannot be empty', '空内容');
+      if (!nextContent && !getMessageImages(message).length) {
+        updateStatus('error', '消息内容不能为空', '空内容');
         return;
       }
       message.content = nextContent;
@@ -841,7 +1162,7 @@
         return;
       }
       if (!state.model) {
-        updateStatus('error', 'Please choose a model first', '未选择模型');
+        updateStatus('error', '请先选择模型', '未选择模型');
         return;
       }
 
@@ -855,7 +1176,7 @@
       const payload = buildPayload();
       showTypingIndicator();
       els.statusDot.classList.add('loading');
-      updateStatus('ready', 'Generating response...', '生成中');
+      updateStatus('ready', '正在生成回复…', '生成中');
 
       try {
         const response = await fetch(state.endpoint, {
@@ -884,7 +1205,7 @@
         if (!(result.content || result.reasoning)) {
           updateLastAssistantMessage('模型返回了空内容。', '');
         }
-        updateStatus('ready', 'Response complete', '已完成');
+        updateStatus('ready', '回复生成完成', '已完成');
       } catch (error) {
         removeTypingIndicator();
         const conversation = getCurrentConversation();
@@ -895,7 +1216,7 @@
         }
         if (error.name === 'AbortError') {
           updateLastAssistantMessage('响应已中断。', '');
-          updateStatus('error', 'Generation stopped', '已停止');
+          updateStatus('error', '生成已停止', '已停止');
         } else {
           updateLastAssistantMessage('请求失败：' + (error.message || '未知错误'), '');
           updateStatus('error', error.message || '请求失败', '请求失败');
@@ -926,9 +1247,9 @@
         return;
       }
       const nextMessages = conversation.messages.slice(0, index);
-      const hasUserPrompt = nextMessages.some(item => item.role === 'user' && String(item.content || '').trim());
+      const hasUserPrompt = nextMessages.some(item => item.role === 'user' && hasMessageBody(item));
       if (!hasUserPrompt) {
-        updateStatus('error', 'No prompt available for regeneration', '无法重试');
+        updateStatus('error', '没有可用于重试的用户消息', '无法重试');
         return;
       }
       setConversationMessages(nextMessages);
@@ -1034,8 +1355,11 @@
       const history = Array.isArray(conversation?.messages) ? conversation.messages : [];
       for (const item of history) {
         const content = typeof item.content === 'string' ? item.content : '';
-        if ((item.role === 'user' || item.role === 'assistant') && content.trim()) {
-          messages.push({ role: item.role, content: item.content });
+        const images = getMessageImages(item);
+        if (item.role === 'user' && (content.trim() || images.length)) {
+          messages.push({ role: 'user', content: buildUserContent(item) });
+        } else if (item.role === 'assistant' && content.trim()) {
+          messages.push({ role: 'assistant', content });
         }
       }
       const payload = {
@@ -1059,12 +1383,13 @@
       const message = choice?.message;
       const delta = choice?.delta;
       return {
-        content:
+        content: contentToText(
           message?.content ??
           delta?.content ??
           json?.message?.content ??
           json?.content ??
-          '',
+          ''
+        ),
         reasoning:
           message?.reasoning_content ??
           message?.reasoning ??
@@ -1110,12 +1435,7 @@
           }
           const choice = Array.isArray(json.choices) ? json.choices[0] : null;
           const delta = choice?.delta || {};
-          const chunkContent =
-            typeof delta.content === 'string'
-              ? delta.content
-              : Array.isArray(delta.content)
-                ? delta.content.map(item => item?.text || '').join('')
-                : '';
+          const chunkContent = contentToText(delta.content);
           const chunkReasoning =
             typeof delta.reasoning_content === 'string'
               ? delta.reasoning_content
@@ -1132,7 +1452,7 @@
 
     async function refreshModels() {
       saveSettings();
-      updateStatus('', 'Loading models...', '刷新中');
+      updateStatus('', '正在刷新模型列表…', '刷新中');
       try {
         const json = await fetchJson(state.modelsEndpoint, { headers: getHeaders() });
         const models = Array.isArray(json?.data) ? json.data : [];
@@ -1140,7 +1460,7 @@
         if (!models.length) {
           const option = document.createElement('option');
           option.value = '';
-          option.textContent = 'No models available';
+          option.textContent = '暂无可用模型';
           els.modelSelect.appendChild(option);
           state.model = '';
         } else {
@@ -1161,7 +1481,7 @@
           }
         }
         persistState();
-        updateStatus('ready', models.length ? 'Models loaded' : 'No loaded model found', models.length ? '已连接' : '无模型');
+        updateStatus('ready', models.length ? '模型列表已刷新' : '当前未发现可用模型', models.length ? '已连接' : '无模型');
       } catch (error) {
         updateStatus('error', error.message || '连接失败', '连接失败');
       }
@@ -1169,11 +1489,11 @@
 
     async function checkConnection() {
       saveSettings();
-      updateStatus('', 'Checking connection...', '检测中');
+      updateStatus('', '正在检测连接…', '检测中');
       try {
         const json = await fetchJson(state.modelsEndpoint, { headers: getHeaders() });
         const models = Array.isArray(json?.data) ? json.data : [];
-        updateStatus('ready', models.length ? 'Connection is healthy' : 'Connected, but no model is loaded', '连接正常');
+        updateStatus('ready', models.length ? '连接正常' : '连接正常，但没有加载模型', '连接正常');
       } catch (error) {
         updateStatus('error', error.message || '连接失败', '连接失败');
       }
@@ -1184,19 +1504,22 @@
         return;
       }
       const prompt = els.promptInput.value.trim();
-      if (!prompt) {
-        updateStatus('error', 'Please enter a message', '空消息');
+      const images = normalizeImages(state.draftImages);
+      if (!prompt && !images.length) {
+        updateStatus('error', '请输入消息或添加图片', '空消息');
         return;
       }
       if (!state.model) {
-        updateStatus('error', 'Please choose a model first', '未选择模型');
+        updateStatus('error', '请先选择模型', '未选择模型');
         return;
       }
 
-      pushMessage('user', prompt);
+      pushMessage('user', prompt, { images });
       state.editingMessageIndex = null;
       els.promptInput.value = '';
-      els.promptInput.style.height = 'auto';
+      state.draftImages = [];
+      renderDraftImages();
+      resizePromptInput();
       await requestAssistantResponse();
     }
 
@@ -1204,10 +1527,11 @@
       if (state.abortController) {
         state.abortController.abort();
       }
+      state.draftImages = [];
       const id = makeId();
       state.conversations.unshift({
         id,
-        title: 'New chat',
+        title: '新对话',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         messages: []
@@ -1215,10 +1539,11 @@
       state.currentConversationId = id;
       renderConversationList();
       renderMessages();
+      renderDraftImages();
       persistState();
       els.promptInput.focus();
       setSidebarOpen(false);
-      updateStatus('ready', 'New conversation created', '新对话');
+      updateStatus('ready', '已创建新对话', '新对话');
     }
 
     function openConversation(id) {
@@ -1227,8 +1552,10 @@
       }
       state.currentConversationId = id;
       state.editingMessageIndex = null;
+      state.draftImages = [];
       renderConversationList();
       renderMessages();
+      renderDraftImages();
       persistState();
       setSidebarOpen(false);
     }
@@ -1240,10 +1567,12 @@
       }
       conversation.messages = [];
       conversation.updatedAt = Date.now();
-      conversation.title = 'New chat';
+      conversation.title = '新对话';
       state.editingMessageIndex = null;
+      state.draftImages = [];
       renderConversationList();
       renderMessages();
+      renderDraftImages();
       persistState();
       showToast('info', '对话已清空');
     }
@@ -1263,7 +1592,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = (conversation.title || 'chat').replace(/[\\/:*?"<>|]/g, '_') + '.json';
+      link.download = (conversation.title || '对话').replace(/[\\/:*?"<>|]/g, '_') + '.json';
       link.click();
       URL.revokeObjectURL(url);
       showToast('success', '对话已导出');
@@ -1312,6 +1641,12 @@
       });
       els.newChatBtn.addEventListener('click', createConversation);
       els.refreshModelsBtn.addEventListener('click', refreshModels);
+      els.imageUploadBtn.addEventListener('click', () => {
+        els.imageInput.click();
+      });
+      els.imageInput.addEventListener('change', async () => {
+        await addDraftImages(els.imageInput.files);
+      });
       els.checkConnectionBtn.addEventListener('click', checkConnection);
       els.saveSettingsBtn.addEventListener('click', () => {
         saveSettings();
@@ -1377,17 +1712,31 @@
           sendMessage();
         }
       });
+      els.promptInput.addEventListener('paste', async event => {
+        const items = Array.from(event.clipboardData?.items || []).filter(item => String(item.type || '').startsWith('image/'));
+        if (!items.length) {
+          return;
+        }
+        event.preventDefault();
+        const files = items.map(item => item.getAsFile()).filter(Boolean);
+        await addDraftImages(files);
+      });
       els.promptInput.addEventListener('input', () => {
-        els.promptInput.style.height = 'auto';
-        els.promptInput.style.height = Math.min(els.promptInput.scrollHeight, 220) + 'px';
+        resizePromptInput();
+      });
+      els.draftImageList.addEventListener('click', event => {
+        const button = event.target.closest('button[data-remove-draft-image]');
+        if (button) {
+          removeDraftImage(button.dataset.removeDraftImage);
+          els.promptInput.focus();
+        }
       });
 
       document.addEventListener('click', event => {
         const hint = event.target.closest('.empty-hint[data-hint]');
         if (hint) {
           els.promptInput.value = hint.dataset.hint;
-          els.promptInput.style.height = 'auto';
-          els.promptInput.style.height = Math.min(els.promptInput.scrollHeight, 220) + 'px';
+          resizePromptInput();
           els.promptInput.focus();
         }
       });
@@ -1397,9 +1746,10 @@
       loadState();
       renderConversationList();
       renderMessages();
+      renderDraftImages();
       bindEvents();
       syncResponsiveLayout();
-      updateStatus('', 'Open settings or refresh models to begin', '未连接');
+      updateStatus('', '请先刷新模型或打开设置完成配置', '未连接');
       refreshModels();
     }
 
