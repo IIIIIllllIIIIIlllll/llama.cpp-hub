@@ -206,6 +206,138 @@ function getMessageById(id) {
   return entry ? entry.msg : null;
 }
 
+function cloneMessageVersionData(value) {
+  if (value == null) return value;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (e) {
+    return value;
+  }
+}
+
+function createAssistantVersionSnapshot(source, fallbackTs) {
+  const base = (source && typeof source === 'object') ? source : {};
+  const snapshot = {
+    content: (base.content == null ? '' : String(base.content)),
+    reasoning: (typeof base.reasoning === 'string' ? base.reasoning : ''),
+    ts: (typeof base.ts === 'number' ? base.ts : (typeof fallbackTs === 'number' ? fallbackTs : Date.now()))
+  };
+  if (typeof base.uiContent === 'string') snapshot.uiContent = base.uiContent;
+  if (base.timings !== undefined) snapshot.timings = cloneMessageVersionData(base.timings);
+  if (Array.isArray(base.tool_calls) && base.tool_calls.length) {
+    snapshot.tool_calls = cloneMessageVersionData(base.tool_calls);
+  }
+  return snapshot;
+}
+
+function getAssistantMessageVersions(msg) {
+  if (!msg || msg.role !== 'assistant') return [];
+  const fallbackTs = (typeof msg.ts === 'number' ? msg.ts : Date.now());
+  const rawVersions = Array.isArray(msg.versions) ? msg.versions : [];
+  const versions = rawVersions.length
+    ? rawVersions.map(item => createAssistantVersionSnapshot(item, fallbackTs))
+    : [createAssistantVersionSnapshot(msg, fallbackTs)];
+  msg.versions = versions;
+  let index = Number(msg.activeVersionIndex);
+  if (!Number.isFinite(index)) index = versions.length - 1;
+  index = Math.max(0, Math.min(index, versions.length - 1));
+  msg.activeVersionIndex = index;
+  msg.versionSwitchLocked = msg.versionSwitchLocked === true;
+  return versions;
+}
+
+function applyAssistantVersionToMessage(msg, index) {
+  if (!msg || msg.role !== 'assistant') return null;
+  const versions = getAssistantMessageVersions(msg);
+  if (!versions.length) return null;
+  const nextIndex = Math.max(0, Math.min(Number(index) || 0, versions.length - 1));
+  const snapshot = versions[nextIndex];
+  msg.activeVersionIndex = nextIndex;
+  msg.content = snapshot.content || '';
+  msg.reasoning = snapshot.reasoning || '';
+  msg.ts = (typeof snapshot.ts === 'number' ? snapshot.ts : (typeof msg.ts === 'number' ? msg.ts : Date.now()));
+  if (typeof snapshot.uiContent === 'string') msg.uiContent = snapshot.uiContent;
+  else delete msg.uiContent;
+  if (snapshot.timings !== undefined) msg.timings = cloneMessageVersionData(snapshot.timings);
+  else delete msg.timings;
+  if (Array.isArray(snapshot.tool_calls) && snapshot.tool_calls.length) {
+    msg.tool_calls = cloneMessageVersionData(snapshot.tool_calls);
+  } else {
+    delete msg.tool_calls;
+  }
+  return snapshot;
+}
+
+function syncAssistantMessageVersionFromTopLevel(msg) {
+  if (!msg || msg.role !== 'assistant') return null;
+  const versions = getAssistantMessageVersions(msg);
+  const index = Math.max(0, Math.min(Number(msg.activeVersionIndex) || 0, versions.length - 1));
+  const snapshot = createAssistantVersionSnapshot(msg, msg.ts);
+  versions[index] = snapshot;
+  return snapshot;
+}
+
+function beginAssistantMessageRegeneration(messageId) {
+  const msg = getMessageById(messageId);
+  if (!msg || msg.role !== 'assistant') return null;
+  syncAssistantMessageVersionFromTopLevel(msg);
+  const versions = getAssistantMessageVersions(msg);
+  const nextTs = Date.now();
+  versions.push(createAssistantVersionSnapshot({ content: '', reasoning: '', ts: nextTs }, nextTs));
+  msg.activeVersionIndex = versions.length - 1;
+  msg.versionSwitchLocked = true;
+  applyAssistantVersionToMessage(msg, msg.activeVersionIndex);
+  return msg;
+}
+
+function finalizeAssistantMessageRegeneration(messageId) {
+  const msg = getMessageById(messageId);
+  if (!msg || msg.role !== 'assistant') return false;
+  syncAssistantMessageVersionFromTopLevel(msg);
+  const wasLocked = msg.versionSwitchLocked === true;
+  msg.versionSwitchLocked = false;
+  if (wasLocked) {
+    rerenderAll();
+  }
+  return wasLocked;
+}
+
+function rollbackAssistantMessageVersion(messageId) {
+  const msg = getMessageById(messageId);
+  if (!msg || msg.role !== 'assistant') return false;
+  const versions = getAssistantMessageVersions(msg);
+  if (versions.length <= 1) return false;
+  const index = Math.max(0, Math.min(Number(msg.activeVersionIndex) || 0, versions.length - 1));
+  const snapshot = versions[index] || {};
+  const hasData = !!(
+    String(snapshot.content || '').trim()
+    || String(snapshot.uiContent || '').trim()
+    || String(snapshot.reasoning || '').trim()
+    || (Array.isArray(snapshot.tool_calls) && snapshot.tool_calls.length)
+  );
+  if (hasData) return false;
+  versions.splice(index, 1);
+  msg.activeVersionIndex = Math.max(0, Math.min(index - 1, versions.length - 1));
+  msg.versionSwitchLocked = false;
+  applyAssistantVersionToMessage(msg, msg.activeVersionIndex);
+  rerenderAll();
+  return true;
+}
+
+function switchAssistantVersion(messageId, direction) {
+  if (state.abortController) return;
+  const msg = getMessageById(messageId);
+  if (!msg || msg.role !== 'assistant' || msg.versionSwitchLocked) return;
+  const versions = getAssistantMessageVersions(msg);
+  if (versions.length <= 1) return;
+  syncAssistantMessageVersionFromTopLevel(msg);
+  const current = Math.max(0, Math.min(Number(msg.activeVersionIndex) || 0, versions.length - 1));
+  const next = Math.max(0, Math.min(current + Number(direction || 0), versions.length - 1));
+  if (next === current) return;
+  applyAssistantVersionToMessage(msg, next);
+  rerenderAll();
+}
+
 function upsertMessageDomEntry(id) {
   const key = String(id || '');
   if (!key) return null;
@@ -349,6 +481,9 @@ function syncHtmlPreviewAction(id) {
 }
 
 function renderMessage(msg) {
+  if (msg && msg.role === 'assistant') {
+    applyAssistantVersionToMessage(msg, msg.activeVersionIndex);
+  }
   const wrap = document.createElement('div');
   wrap.className = 'msg ' + msg.role;
   wrap.dataset.id = msg.id;
@@ -398,6 +533,46 @@ function renderMessage(msg) {
     });
     actions.appendChild(b);
     return b;
+  }
+
+  if (msg.role === 'assistant') {
+    const versions = getAssistantMessageVersions(msg);
+    const showVersionSwitch = versions.length > 1 || msg.versionSwitchLocked;
+    if (showVersionSwitch) {
+      const versionBar = document.createElement('div');
+      versionBar.className = 'version-switcher';
+
+      const prevBtn = document.createElement('button');
+      prevBtn.type = 'button';
+      prevBtn.className = 'msg-btn ghost version-switcher-btn';
+      prevBtn.textContent = '←';
+      prevBtn.disabled = msg.versionSwitchLocked || msg.activeVersionIndex <= 0;
+      prevBtn.setAttribute('aria-label', t('page.chat.completion.action.previous_version', '上一版'));
+      prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switchAssistantVersion(msg.id, -1);
+      });
+
+      const status = document.createElement('div');
+      status.className = 'version-switcher-status';
+      status.textContent = (msg.activeVersionIndex + 1) + ' / ' + versions.length + (msg.versionSwitchLocked ? ' · ' + t('page.chat.completion.status.generating_short', '生成中') : '');
+
+      const nextBtn = document.createElement('button');
+      nextBtn.type = 'button';
+      nextBtn.className = 'msg-btn ghost version-switcher-btn';
+      nextBtn.textContent = '→';
+      nextBtn.disabled = msg.versionSwitchLocked || msg.activeVersionIndex >= versions.length - 1;
+      nextBtn.setAttribute('aria-label', t('page.chat.completion.action.next_version', '下一版'));
+      nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switchAssistantVersion(msg.id, 1);
+      });
+
+      versionBar.appendChild(prevBtn);
+      versionBar.appendChild(status);
+      versionBar.appendChild(nextBtn);
+      actions.appendChild(versionBar);
+    }
   }
 
   if (msg.role === 'assistant' || msg.role === 'user') {
@@ -907,6 +1082,10 @@ function rerenderAll() {
 function addMessage(role, content, extra) {
   const msg = { id: uid(), role, content: content || '', ts: Date.now(), order: nextMessageOrder() };
   if (extra && typeof extra === 'object') Object.assign(msg, extra);
+  if (role === 'assistant') {
+    applyAssistantVersionToMessage(msg, msg.activeVersionIndex);
+    syncAssistantMessageVersionFromTopLevel(msg);
+  }
   state.messages.push(msg);
   renderMessage(msg);
   return msg;
@@ -915,6 +1094,10 @@ function addMessage(role, content, extra) {
 function addHiddenMessage(role, content, extra) {
   const msg = { id: uid(), role, content: content || '', ts: Date.now(), hidden: true, order: nextMessageOrder() };
   if (extra && typeof extra === 'object') Object.assign(msg, extra);
+  if (role === 'assistant') {
+    applyAssistantVersionToMessage(msg, msg.activeVersionIndex);
+    syncAssistantMessageVersionFromTopLevel(msg);
+  }
   state.messages.push(msg);
   return msg;
 }
@@ -932,6 +1115,7 @@ function updateMessage(id, content) {
   const el = entry && entry.contentEl ? entry.contentEl : null;
   const m = getMessageById(id);
   if (m) m.content = content || '';
+  if (m && m.role === 'assistant') syncAssistantMessageVersionFromTopLevel(m);
   const displayText = (m && typeof m.uiContent === 'string') ? m.uiContent : (content || '');
   if (el) requestRenderMessageContent(el, displayText);
   syncToolMessageMeta(id);
@@ -945,6 +1129,7 @@ function setMessageUiContent(id, uiText) {
   const el = entry && entry.contentEl ? entry.contentEl : null;
   const m = getMessageById(id);
   if (m) m.uiContent = (uiText == null ? '' : String(uiText));
+  if (m && m.role === 'assistant') syncAssistantMessageVersionFromTopLevel(m);
   if (el) requestRenderMessageContent(el, (uiText == null ? '' : String(uiText)));
   syncToolMessageMeta(id);
   syncHtmlPreviewAction(id);
@@ -957,6 +1142,7 @@ function setMessageUiAndContent(id, uiText, contentText) {
   if (m) {
     m.content = contentText || '';
     m.uiContent = (uiText == null ? '' : String(uiText));
+    if (m.role === 'assistant') syncAssistantMessageVersionFromTopLevel(m);
   }
   setMessageUiContent(id, uiText);
 }
@@ -965,6 +1151,7 @@ function setMessageToolCalls(id, toolCalls) {
   const m = getMessageById(id);
   if (!m) return;
   m.tool_calls = (Array.isArray(toolCalls) ? toolCalls : []);
+  if (m.role === 'assistant') syncAssistantMessageVersionFromTopLevel(m);
   syncMessageTimingsUi(id);
 }
 
@@ -1025,6 +1212,7 @@ function updateReasoning(id, reasoning) {
   }
   const m = getMessageById(id);
   if (m) m.reasoning = reasoningText;
+  if (m && m.role === 'assistant') syncAssistantMessageVersionFromTopLevel(m);
   maybeScrollToBottom();
 }
 

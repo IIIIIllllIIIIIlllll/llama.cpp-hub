@@ -514,6 +514,7 @@
     .msg-actions {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
       flex: 0 0 auto;
     }
@@ -547,6 +548,35 @@
     .msg-btn.danger {
       border-color: rgba(239, 68, 68, 0.55);
       background: rgba(239, 68, 68, 0.12);
+    }
+
+    .version-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      padding: 4px 8px;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .version-switcher-btn {
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .version-switcher-status {
+      min-width: 64px;
+      text-align: center;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
     }
 
     .content {
@@ -930,7 +960,7 @@
     .composer textarea {
       width: 100%;
       resize: vertical;
-      min-height: 64px;
+      min-height: 128px;
       max-height: 240px;
       background: #ffffff;
       border: 1px solid var(--border);

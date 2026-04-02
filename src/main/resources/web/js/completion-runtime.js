@@ -781,6 +781,7 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
   setBusyGenerating(true);
   setSaveHint('');
   let currentAssistantId = assistantMsgId;
+  let generationStatus = 'success';
 
   try {
     await maybeUploadPendingAttachment();
@@ -952,6 +953,7 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
     setStatus(t('page.chat.completion.status.done', '完成'));
     scheduleSave(t('page.chat.completion.save_reason.done', '完成'));
   } catch (e) {
+    generationStatus = e.name === 'AbortError' ? 'aborted' : 'error';
     if (currentAssistantId) {
       const m = getMessageById(currentAssistantId);
       const canDrop = m && m.role === 'assistant'
@@ -976,6 +978,7 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
     state.abortController = null;
     state.toolAbortController = null;
   }
+  return { status: generationStatus, assistantMessageId: currentAssistantId };
 }
 
 async function regenerateMessage(messageId) {
@@ -1001,29 +1004,16 @@ async function regenerateMessage(messageId) {
   }
 
   if (msg.role === 'assistant') {
-    const hasToolCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
-    if (hasToolCalls) {
-      state.messages = state.messages.slice(0, idx);
-      rerenderAll();
-      if (!!els.streamToggle.checked) {
-        await generateIntoMessage(state.messages, null);
-      } else {
-        const assistantMsg = addMessage('assistant', '');
-        await generateIntoMessage(state.messages, assistantMsg.id);
-      }
-      scheduleSave(t('page.chat.completion.save_reason.regenerate', '重生成'));
-      return;
-    }
-
-    msg.reasoning = '';
-    delete msg.uiContent;
-    delete msg.timings;
+    beginAssistantMessageRegeneration(msg.id);
     state.timingsLog = (Array.isArray(state.timingsLog) ? state.timingsLog : []).filter(it => String(it?.messageId || '') !== String(msg.id));
-
     state.messages = state.messages.slice(0, idx + 1);
     rerenderAll();
-    updateMessage(msg.id, '');
-    await generateIntoMessage(state.messages.slice(0, idx), msg.id);
+    const result = await generateIntoMessage(state.messages.slice(0, idx), msg.id);
+    if (result?.status === 'success') {
+      finalizeAssistantMessageRegeneration(msg.id);
+    } else if (!rollbackAssistantMessageVersion(msg.id)) {
+      finalizeAssistantMessageRegeneration(msg.id);
+    }
     scheduleSave(t('page.chat.completion.save_reason.regenerate', '重生成'));
     return;
   }
@@ -1315,6 +1305,14 @@ async function switchCompletion(id) {
   }
 }
 
+function normalizeAssistantMessageVersions(message) {
+  if (!message || message.role !== 'assistant') return undefined;
+  const rawVersions = Array.isArray(message.versions) ? message.versions : [];
+  if (!rawVersions.length) return undefined;
+  const fallbackTs = (typeof message.ts === 'number' ? message.ts : Date.now());
+  return rawVersions.map(item => createAssistantVersionSnapshot(item, fallbackTs));
+}
+
 function normalizeHistory(history) {
   if (!Array.isArray(history)) return [];
   const out = [];
@@ -1362,7 +1360,7 @@ function normalizeHistory(history) {
         if (!String(toolArguments || '').trim() && saved.tool_arguments) toolArguments = saved.tool_arguments;
       }
     }
-    out.push({
+    const normalized = {
       id: m?.id || uid(),
       role,
       content: (m?.content == null ? '' : String(m.content)),
@@ -1380,7 +1378,14 @@ function normalizeHistory(history) {
       ts: typeof m?.ts === 'number' ? m.ts : Date.now(),
       order: typeof m?.order === 'number' ? m.order : undefined,
       isSystemLog: m?.isSystemLog === true
-    });
+    };
+    if (role === 'assistant') {
+      const versions = normalizeAssistantMessageVersions(m);
+      if (versions && versions.length) normalized.versions = versions;
+      if (Number.isFinite(m?.activeVersionIndex)) normalized.activeVersionIndex = Number(m.activeVersionIndex);
+      normalized.versionSwitchLocked = false;
+    }
+    out.push(normalized);
   }
   return out;
 }
