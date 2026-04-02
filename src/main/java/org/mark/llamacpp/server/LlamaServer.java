@@ -274,12 +274,12 @@ public class LlamaServer {
     /**
      * 	日志相关：打印请求的URL
      */
-    public static boolean logRequestUrl = true;
+    public static boolean logRequestUrl = false;
     
     /**
      * 	日志相关：打印请求的请求头。调试用
      */
-    public static boolean logRequestHeader = true;
+    public static boolean logRequestHeader = false;
     
     /**
      * 	日志相关：打印请求的请求体。调试用
