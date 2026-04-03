@@ -188,6 +188,13 @@
             <div class="settings-group">
               <div class="settings-group-title">助手管理</div>
               <div class="settings-field">
+                <div class="settings-field-header">
+                  <label for="settingsConversationAssistantSelect">当前会话使用的助手</label>
+                </div>
+                <p class="settings-field-desc">切换后，本会话会立即改用所选助手的模型、提示词和采样参数</p>
+                <select id="settingsConversationAssistantSelect" class="drawer-input" aria-label="设置面板中的当前会话助手"></select>
+              </div>
+              <div class="settings-field">
                 <div class="settings-inline-actions">
                   <button id="newAssistantBtn" class="ghost-button" type="button">新建助手</button>
                   <button id="deleteAssistantBtn" class="ghost-button" type="button">删除当前助手</button>
@@ -367,6 +374,7 @@
       streamToggle: document.getElementById('streamToggle'),
       systemPromptInput: document.getElementById('systemPromptInput'),
       conversationAssistantSelect: document.getElementById('conversationAssistantSelect'),
+      settingsConversationAssistantSelect: document.getElementById('settingsConversationAssistantSelect'),
       newAssistantBtn: document.getElementById('newAssistantBtn'),
       deleteAssistantBtn: document.getElementById('deleteAssistantBtn'),
       assistantNameInput: document.getElementById('assistantNameInput'),
@@ -1524,6 +1532,7 @@
         performanceDiv.removeAttribute('title');
         performanceDiv.removeAttribute('aria-label');
       }
+      bubble.appendChild(performanceDiv);
     }
 
     function syncSettingsInputs() {
@@ -1541,14 +1550,18 @@
       els.systemPromptInput.value = state.systemPrompt;
       els.searchInput.value = state.search;
       const currentAssistant = getCurrentAssistant();
-      els.conversationAssistantSelect.innerHTML = '';
-      for (const assistant of state.assistants) {
-        const option = document.createElement('option');
-        option.value = assistant.id;
-        option.textContent = getAssistantDisplayLabel(assistant);
-        els.conversationAssistantSelect.appendChild(option);
+      const assistantSelects = [els.conversationAssistantSelect, els.settingsConversationAssistantSelect].filter(Boolean);
+      for (const select of assistantSelects) {
+        select.innerHTML = '';
+        for (const assistant of state.assistants) {
+          const option = document.createElement('option');
+          option.value = assistant.id;
+          option.textContent = getAssistantDisplayLabel(assistant);
+          select.appendChild(option);
+        }
+        select.value = currentAssistant?.id || '';
+        select.title = currentAssistant ? '当前助手：' + getAssistantDisplayLabel(currentAssistant) : '当前没有可用助手';
       }
-      els.conversationAssistantSelect.value = currentAssistant?.id || '';
       els.assistantNameInput.value = currentAssistant ? getAssistantDisplayLabel(currentAssistant) : '';
       els.assistantNameInput.readOnly = !!state.privacyMode;
       els.assistantNameInput.setAttribute('aria-readonly', state.privacyMode ? 'true' : 'false');
@@ -1560,9 +1573,6 @@
       }
       els.deleteAssistantBtn.disabled = state.assistants.length <= 1;
       syncModelSelectControl();
-      if (els.conversationAssistantSelect) {
-        els.conversationAssistantSelect.title = currentAssistant ? '当前助手：' + getAssistantDisplayLabel(currentAssistant) : '当前没有可用助手';
-      }
       renderThinkingMenu();
     }
 
@@ -1965,7 +1975,10 @@
           ].join('')));
         }
 
-        actions.appendChild(createMessageActionButton('delete', index, '删除', [
+        const deleteLabel = message.role === 'assistant' && Array.isArray(message.responses) && message.responses.length > 1
+          ? '删除当前响应'
+          : '删除';
+        actions.appendChild(createMessageActionButton('delete', index, deleteLabel, [
           '<path d="M3 6h18"></path>',
           '<path d="M8 6V4h8v2"></path>',
           '<path d="M19 6l-1 14H6L5 6"></path>',
@@ -2607,6 +2620,23 @@
       if (!message) {
         return;
       }
+      if (message.role === 'assistant' && Array.isArray(message.responses) && message.responses.length > 1) {
+        const nextMessages = conversation.messages.slice();
+        const nextMessage = {
+          ...message,
+          responses: message.responses.slice()
+        };
+        const deleteIndex = Math.min(
+          Math.max(Number(message.activeResponseIndex || 0), 0),
+          nextMessage.responses.length - 1
+        );
+        nextMessage.responses.splice(deleteIndex, 1);
+        nextMessage.activeResponseIndex = Math.min(deleteIndex, nextMessage.responses.length - 1);
+        nextMessages[index] = nextMessage;
+        setConversationMessages(nextMessages);
+        showToast('info', '当前响应已删除');
+        return;
+      }
       const nextMessages = conversation.messages.slice();
       const removeCount = message.role === 'user' && nextMessages[index + 1]?.role === 'assistant' ? 2 : 1;
       nextMessages.splice(index, removeCount);
@@ -3192,6 +3222,9 @@
       });
       els.conversationAssistantSelect.addEventListener('change', async () => {
         await switchConversationAssistant(els.conversationAssistantSelect.value);
+      });
+      els.settingsConversationAssistantSelect.addEventListener('change', async () => {
+        await switchConversationAssistant(els.settingsConversationAssistantSelect.value);
       });
       els.newAssistantBtn.addEventListener('click', async () => {
         await createAssistantProfile();
