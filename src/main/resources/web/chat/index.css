@@ -165,6 +165,17 @@ button { cursor: pointer; }
   background: var(--secondary);
 }
 
+.privacy-mode-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.privacy-mode-btn.active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: #1d4ed8;
+}
+
 .primary-button {
   height: 36px;
   min-height: 36px;
@@ -258,13 +269,17 @@ button { cursor: pointer; }
   flex: 1;
 }
 
+.conversation-row {
+  position: relative;
+}
+
 .conversation-item {
   width: 100%;
   text-align: left;
   border: none;
   background: transparent;
   border-radius: var(--radius);
-  padding: 8px 10px;
+  padding: 8px 40px 8px 10px;
   display: grid;
   gap: 2px;
   color: var(--fg);
@@ -296,6 +311,75 @@ button { cursor: pointer; }
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.conversation-more-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.conversation-row:hover .conversation-more-btn,
+.conversation-more-btn.active {
+  opacity: 1;
+}
+
+.conversation-more-btn:hover {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.conversation-menu {
+  position: absolute;
+  top: 34px;
+  right: 6px;
+  min-width: 112px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  display: none;
+  z-index: 5;
+}
+
+.conversation-menu.open {
+  display: block;
+}
+
+.conversation-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.conversation-menu-item:hover {
+  background: var(--secondary);
+}
+
+.conversation-menu-item.danger {
+  color: var(--destructive);
 }
 
 /* ── Main ── */
@@ -970,16 +1054,16 @@ button { cursor: pointer; }
 .image-upload-btn {
   height: 36px;
   min-height: 36px;
-  padding: 0 12px;
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--fg);
-  font-weight: 500;
-  font-size: 14px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
@@ -1136,6 +1220,11 @@ button { cursor: pointer; }
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.composer-assistant-select {
+  min-width: 160px;
+  max-width: 220px;
+}
+
 .composer-bar {
   display: flex;
   align-items: center;
@@ -1164,6 +1253,31 @@ button { cursor: pointer; }
   font-size: 14px;
   color: var(--fg);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toolbar-icon-button {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-icon-button svg,
+.send-toggle-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.send-toggle-button.is-stop {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+}
+
+.send-toggle-button.is-stop:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.14);
 }
 
 .composer-hint {
@@ -1674,6 +1788,7 @@ body.sidebar-collapsed .sidebar {
   .topbar { flex-direction: column; align-items: stretch; gap: 8px; }
   .topbar-actions, .composer-left, .composer-right { width: 100%; }
   .model-select { width: 100%; max-width: none; }
+  .composer-assistant-select { width: 100%; max-width: none; }
   .empty-card h3 { font-size: 20px; }
   .empty-hints { flex-direction: column; align-items: stretch; }
 
