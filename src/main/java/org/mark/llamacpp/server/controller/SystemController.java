@@ -931,7 +931,7 @@ public class SystemController implements BaseController {
 		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			Path logPath = LlamaServer.getConsoleLogPath();
+			Path logPath = LlamaServer.getApplicationLogPath();
 			File file = logPath.toFile();
 			if (!file.exists()) {
 				LlamaServer.sendTextResponse(ctx, "");

@@ -1,7 +1,6 @@
 package org.mark.llamacpp.server;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.RandomAccessFile;
@@ -75,12 +74,17 @@ public class LlamaServer {
 	public static void main(String[] args) {
 		// 这里重定向输出流
 		try {
-			Files.createDirectories(CONSOLE_LOG_PATH.getParent());
-			ConsoleBroadcastOutputStream out = new ConsoleBroadcastOutputStream(
-					new FileOutputStream(CONSOLE_LOG_PATH.toFile(), true), StandardCharsets.UTF_8);
-			PrintStream ps = new PrintStream(out, true, StandardCharsets.UTF_8.name());
-			System.setOut(ps);
-			System.setErr(ps);
+			Files.createDirectories(LOG_DIR);
+			PrintStream stdout = new PrintStream(
+					new ConsoleBroadcastOutputStream(STDOUT_LOGGER::info, StandardCharsets.UTF_8),
+					true,
+					StandardCharsets.UTF_8.name());
+			PrintStream stderr = new PrintStream(
+					new ConsoleBroadcastOutputStream(STDERR_LOGGER::error, StandardCharsets.UTF_8),
+					true,
+					StandardCharsets.UTF_8.name());
+			System.setOut(stdout);
+			System.setErr(stderr);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -181,6 +185,8 @@ public class LlamaServer {
 	
 	
 	private static final Logger logger = LoggerFactory.getLogger(LlamaServer.class);
+	private static final Logger STDOUT_LOGGER = LoggerFactory.getLogger("STDOUT");
+	private static final Logger STDERR_LOGGER = LoggerFactory.getLogger("STDERR");
 	
 	/**
 	 * 	默认端口：OpenAI + 程序主要业务
@@ -212,10 +218,8 @@ public class LlamaServer {
 	private static final String DEFAULT_LLAMACPP_DIRECTORY = Paths.get(System.getProperty("user.dir"), "llamacpp").toString();
 	
 	
-	/**
-	 * 	日志的路径
-	 */
-	private static final Path CONSOLE_LOG_PATH = Paths.get("logs", "console.log");
+	private static final Path LOG_DIR = Paths.get("logs");
+	private static final Path APPLICATION_LOG_PATH = LOG_DIR.resolve("app.log");
 	
 	/**
 	 * 	WebSocket地址
@@ -818,14 +822,13 @@ public class LlamaServer {
 	}
     
     
-
-    public static Path getConsoleLogPath() {
-        return CONSOLE_LOG_PATH;
-    }
-    
     /**
      * 广播WebSocket消息
      */
+    public static Path getApplicationLogPath() {
+        return APPLICATION_LOG_PATH;
+    }
+    
     public static void broadcastWebSocketMessage(String message) {
         WebSocketManager.getInstance().broadcast(message);
     }
