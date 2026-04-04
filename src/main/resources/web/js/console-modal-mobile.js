@@ -4,6 +4,7 @@
     let timer = null;
     let pending = [];
     let scheduled = false;
+    let snapshotInFlight = false;
 
     function getEls() {
         return {
@@ -30,16 +31,20 @@
     async function fetchConsole() {
         const els = getEls();
         if (els.status) els.status.textContent = '加载中...';
+        snapshotInFlight = true;
         try {
             const res = await fetch('/api/sys/console');
             const text = await res.text();
             const stay = nearBottom(els.container);
             if (els.content) els.content.textContent = text;
+            snapshotInFlight = false;
+            flushAppend();
             if (stay) scrollBottom(els.container);
             if (els.status) {
                 els.status.textContent = `已更新 · ${new Date().toLocaleTimeString()} · ${text.length}`;
             }
         } catch (e) {
+            snapshotInFlight = false;
             if (els.status) els.status.textContent = '加载失败';
         }
     }
@@ -69,11 +74,15 @@
 
     function flushAppend() {
         scheduled = false;
+        if (snapshotInFlight) {
+            return;
+        }
         const els = getEls();
         if (!els.content) {
             pending = [];
             return;
         }
+        if (!pending.length) return;
         const stay = nearBottom(els.container);
         const chunk = pending.join('');
         pending = [];
@@ -86,6 +95,7 @@
         if (!els.modal || !els.modal.classList.contains('show')) return;
         const clean = (line == null ? '' : String(line)).replace(/\r/g, '');
         pending.push(clean.endsWith('\n') ? clean : clean + '\n');
+        if (snapshotInFlight) return;
         if (!scheduled) {
             scheduled = true;
             requestAnimationFrame(flushAppend);
@@ -116,4 +126,3 @@
     window.appendLogLine = appendLogLine;
     window.stopConsoleAuto = stopConsoleAuto;
 })();
-

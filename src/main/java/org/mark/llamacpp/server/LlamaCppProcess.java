@@ -27,6 +27,7 @@ public class LlamaCppProcess {
 	 * 	日志打印机
 	 */
 	private static final Logger logger = LoggerFactory.getLogger(LlamaCppProcess.class);
+	private static final Logger RAW_PROCESS_LOGGER = LoggerFactory.getLogger("LLAMA_CPP_RAW");
 	
 	
 	/**
@@ -317,7 +318,7 @@ public class LlamaCppProcess {
 						this.outputHandler.accept(line);
 					}
 					if(!line.contains("update_slots") && !line.contains("log_server_r")) {
-						logger.info(line);
+						RAW_PROCESS_LOGGER.info(line);
 					}
 				}
 			} catch (IOException e) {
@@ -339,7 +340,7 @@ public class LlamaCppProcess {
 						this.outputHandler.accept(line);
 					}
 					if(!line.contains("update_slots") && !line.contains("log_server_r")) {
-						logger.info(line);
+						RAW_PROCESS_LOGGER.info(line);
 					}
 				}
 			} catch (IOException e) {

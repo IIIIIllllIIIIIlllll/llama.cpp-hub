@@ -1617,7 +1617,7 @@ button { cursor: pointer; }
 }
 
 .drawer-textarea {
-  min-height: 100px;
+  min-height: 256px;
   resize: vertical;
   padding: 10px 12px;
   line-height: 1.5;

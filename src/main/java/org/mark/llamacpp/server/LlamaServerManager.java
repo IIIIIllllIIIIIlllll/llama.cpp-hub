@@ -1006,6 +1006,7 @@ public class LlamaServerManager {
 			AtomicBoolean loadSuccess = new AtomicBoolean(false);
 
 			process.setOutputHandler(line -> {
+				LlamaServer.sendConsoleLineEvent(modelId, line);
 				if (line.contains("srv  update_slots: all slots are idle")) {
 					loadSuccess.set(true);
 					latch.countDown();

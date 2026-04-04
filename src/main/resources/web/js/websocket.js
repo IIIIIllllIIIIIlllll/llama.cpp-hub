@@ -65,18 +65,17 @@ function handleWebSocketMessage(message) {
                 case 'console':
                     {
                         const consoleMain = document.getElementById('main-console');
-                        if (consoleMain && consoleMain.style && consoleMain.style.display !== 'none') {
-                            let text = '';
-                            if (typeof data.line64 === 'string') {
-                                const bin = atob(data.line64);
-                                const bytes = new Uint8Array(bin.length);
-                                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                                text = wsDecoder.decode(bytes);
-                            } else if (typeof data.line === 'string') {
-                                text = data.line;
-                            }
-                            if (text && typeof appendLogLine === 'function') appendLogLine(text);
+                        if (!consoleMain) break;
+                        let text = '';
+                        if (typeof data.line64 === 'string') {
+                            const bin = atob(data.line64);
+                            const bytes = new Uint8Array(bin.length);
+                            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                            text = wsDecoder.decode(bytes);
+                        } else if (typeof data.line === 'string') {
+                            text = data.line;
                         }
+                        if (text && typeof appendLogLine === 'function') appendLogLine(text);
                     }
                     break;
             }
@@ -157,4 +156,3 @@ function handleModelSlotsUpdate(data) {
         updateModelSlotsDom(data.modelId, slots);
     }
 }
-

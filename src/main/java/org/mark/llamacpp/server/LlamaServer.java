@@ -22,6 +22,7 @@ import org.mark.llamacpp.server.channel.FileDownloadRouterHandler;
 import org.mark.llamacpp.server.channel.OpenAIChatStreamingHandler;
 import org.mark.llamacpp.server.channel.OpenAIRouterHandler;
 import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
+import org.mark.llamacpp.server.io.ConsoleBufferLogAppender;
 import org.mark.llamacpp.server.mcp.McpClientService;
 import org.mark.llamacpp.server.service.ModelSamplingService;
 import org.mark.llamacpp.server.struct.LlamaCppConfig;
@@ -88,6 +89,8 @@ public class LlamaServer {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		ConsoleBufferLogAppender.install();
+		preloadConsoleBufferFromAppLog();
 		// 执行一次，创建缓存目录。
 		LlamaServer.getCachePath();
 
@@ -220,6 +223,9 @@ public class LlamaServer {
 	
 	private static final Path LOG_DIR = Paths.get("logs");
 	private static final Path APPLICATION_LOG_PATH = LOG_DIR.resolve("app.log");
+	private static final int CONSOLE_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
+	private static final Object CONSOLE_BUFFER_LOCK = new Object();
+	private static final StringBuilder CONSOLE_BUFFER = new StringBuilder();
 	
 	/**
 	 * 	WebSocket地址
@@ -828,6 +834,87 @@ public class LlamaServer {
     public static Path getApplicationLogPath() {
         return APPLICATION_LOG_PATH;
     }
+
+    public static String getConsoleBufferText() {
+        synchronized (CONSOLE_BUFFER_LOCK) {
+            return CONSOLE_BUFFER.toString();
+        }
+    }
+
+    private static void preloadConsoleBufferFromAppLog() {
+        try {
+            if (!Files.exists(APPLICATION_LOG_PATH) || !Files.isRegularFile(APPLICATION_LOG_PATH)) {
+                return;
+            }
+            String text = readTailUtf8(APPLICATION_LOG_PATH, CONSOLE_BUFFER_MAX_BYTES);
+            if (text == null || text.isEmpty()) {
+                return;
+            }
+            synchronized (CONSOLE_BUFFER_LOCK) {
+                CONSOLE_BUFFER.setLength(0);
+                CONSOLE_BUFFER.append(trimConsoleBufferToMaxBytes(text));
+            }
+        } catch (Exception ignore) {
+        }
+    }
+
+    private static void appendConsoleBufferLine(String line) {
+        String entry = line == null ? "\n" : line + "\n";
+        synchronized (CONSOLE_BUFFER_LOCK) {
+            CONSOLE_BUFFER.append(entry);
+            String trimmed = trimConsoleBufferToMaxBytes(CONSOLE_BUFFER.toString());
+            if (trimmed.length() != CONSOLE_BUFFER.length()) {
+                CONSOLE_BUFFER.setLength(0);
+                CONSOLE_BUFFER.append(trimmed);
+            }
+        }
+    }
+
+    private static String trimConsoleBufferToMaxBytes(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length <= CONSOLE_BUFFER_MAX_BYTES) {
+            return text;
+        }
+        int start = bytes.length - CONSOLE_BUFFER_MAX_BYTES;
+        while (start < bytes.length && (bytes[start] & 0xC0) == 0x80) {
+            start++;
+        }
+        if (start >= bytes.length) {
+            return "";
+        }
+        return new String(bytes, start, bytes.length - start, StandardCharsets.UTF_8);
+    }
+
+    private static String readTailUtf8(Path path, int maxBytes) throws IOException {
+        if (path == null || maxBytes <= 0) {
+            return "";
+        }
+        try (RandomAccessFile raf = new RandomAccessFile(path.toFile(), "r")) {
+            long len = raf.length();
+            if (len <= 0) {
+                return "";
+            }
+            int toRead = (int) Math.min((long) maxBytes, len);
+            long start = len - toRead;
+            raf.seek(start);
+            byte[] bytes = new byte[toRead];
+            int read = raf.read(bytes);
+            if (read <= 0) {
+                return "";
+            }
+            int offset = 0;
+            while (offset < read && (bytes[offset] & 0xC0) == 0x80) {
+                offset++;
+            }
+            if (offset >= read) {
+                return "";
+            }
+            return new String(bytes, offset, read - offset, StandardCharsets.UTF_8);
+        }
+    }
     
     public static void broadcastWebSocketMessage(String message) {
         WebSocketManager.getInstance().broadcast(message);
@@ -863,6 +950,7 @@ public class LlamaServer {
     }
     
     public static void sendConsoleLineEvent(String modelId, String line) {
+        appendConsoleBufferLine(line);
         WebSocketManager.getInstance().sendConsoleLineEvent(modelId, line);
     }
     

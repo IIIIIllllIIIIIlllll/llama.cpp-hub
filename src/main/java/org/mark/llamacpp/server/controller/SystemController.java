@@ -1,7 +1,6 @@
 package org.mark.llamacpp.server.controller;
 
 import java.io.File;
-import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -931,27 +930,7 @@ public class SystemController implements BaseController {
 		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			Path logPath = LlamaServer.getApplicationLogPath();
-			File file = logPath.toFile();
-			if (!file.exists()) {
-				LlamaServer.sendTextResponse(ctx, "");
-				return;
-			}
-			long max = 1L * 256 * 1024;
-			try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-				long len = raf.length();
-				long start = Math.max(0, len - max);
-				raf.seek(start);
-				int toRead = (int) Math.min(max, len - start);
-				byte[] buf = new byte[toRead];
-				int read = raf.read(buf);
-				if (read <= 0) {
-					LlamaServer.sendTextResponse(ctx, "");
-					return;
-				}
-				String text = new String(buf, 0, read, StandardCharsets.UTF_8);
-				LlamaServer.sendTextResponse(ctx, text);
-			}
+			LlamaServer.sendTextResponse(ctx, LlamaServer.getConsoleBufferText());
 		} catch (Exception e) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取控制台日志失败: " + e.getMessage()));
 		}

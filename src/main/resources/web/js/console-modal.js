@@ -9,6 +9,7 @@
     let consoleTimer = null;
     let pendingLogs = [];
     let flushScheduled = false;
+    let snapshotInFlight = false;
 
     function nearBottom() {
         if (!logContainer) return true;
@@ -22,16 +23,20 @@
 
     async function fetchConsole() {
         if (consoleStatusText) consoleStatusText.textContent = '加载中...';
+        snapshotInFlight = true;
         try {
             const res = await fetch('/api/sys/console');
             const text = await res.text();
             const atBottom = nearBottom();
             if (logEl) logEl.textContent = text;
+            snapshotInFlight = false;
+            flushPendingLogs();
             if (atBottom) scrollBottom();
             if (consoleStatusText) {
                 consoleStatusText.textContent = `已更新 · ${new Date().toLocaleTimeString()} · Size: ${text.length}`;
             }
         } catch (e) {
+            snapshotInFlight = false;
             if (consoleStatusText) consoleStatusText.textContent = '加载失败';
         }
     }
@@ -49,17 +54,27 @@
         const clean = (line || '').replace(/\r/g, '');
         const withNl = clean.endsWith('\n') ? clean : clean + '\n';
         pendingLogs.push(withNl);
+        if (snapshotInFlight) return;
+        scheduleFlush();
+    }
+
+    function scheduleFlush() {
         if (!flushScheduled) {
             flushScheduled = true;
             requestAnimationFrame(() => {
-                flushScheduled = false;
-                const atBottom = nearBottom();
-                const chunk = pendingLogs.join('');
-                pendingLogs = [];
-                logEl.textContent += chunk;
-                if (atBottom) scrollBottom();
+                flushPendingLogs();
             });
         }
+    }
+
+    function flushPendingLogs() {
+        flushScheduled = false;
+        if (snapshotInFlight || !pendingLogs.length || !logEl) return;
+        const atBottom = nearBottom();
+        const chunk = pendingLogs.join('');
+        pendingLogs = [];
+        logEl.textContent += chunk;
+        if (atBottom) scrollBottom();
     }
 
     function startConsoleAuto() {
