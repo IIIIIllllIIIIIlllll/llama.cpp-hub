@@ -45,15 +45,34 @@ public class McpRouterHandler extends SimpleChannelInboundHandler<FullHttpReques
 		}
 		String path = this.server.cleanPath(request.uri());
 		Matcher sseMatcher = SSE_PATH.matcher(path);
-		if (request.method() == HttpMethod.GET && sseMatcher.matches()) {
-			logger.info("MCP路由分发SSE连接: serviceKey={}", sseMatcher.group(1));
-			this.server.handleSseConnect(ctx, sseMatcher.group(1));
-			return;
+		if (sseMatcher.matches()) {
+			String serviceKey = sseMatcher.group(1);
+			if (request.method() == HttpMethod.GET) {
+				String sessionId = this.server.readSessionIdHeader(request);
+				if (sessionId != null && !sessionId.isBlank()) {
+					logger.info("MCP路由分发Streamable GET: serviceKey={}, sessionId={}", serviceKey, sessionId);
+					this.server.handleStreamableGet(ctx, serviceKey, sessionId);
+					return;
+				}
+				logger.info("MCP路由分发旧版SSE连接: serviceKey={}", serviceKey);
+				this.server.handleLegacySseConnect(ctx, serviceKey);
+				return;
+			}
+			if (request.method() == HttpMethod.POST) {
+				logger.info("MCP路由分发Streamable POST: serviceKey={}", serviceKey);
+				this.server.handleStreamablePost(ctx, request, serviceKey);
+				return;
+			}
+			if (request.method() == HttpMethod.DELETE) {
+				logger.info("MCP路由分发Streamable DELETE: serviceKey={}", serviceKey);
+				this.server.handleStreamableDelete(ctx, request, serviceKey);
+				return;
+			}
 		}
 		Matcher msgMatcher = MESSAGE_PATH.matcher(path);
 		if (request.method() == HttpMethod.POST && msgMatcher.matches()) {
 			logger.info("MCP路由分发消息请求: serviceKey={}", msgMatcher.group(1));
-			this.server.handleMessagePost(ctx, request, msgMatcher.group(1));
+			this.server.handleLegacyMessagePost(ctx, request, msgMatcher.group(1));
 			return;
 		}
 		logger.info("MCP路由未命中: method={}, path={}", request.method().name(), path);
