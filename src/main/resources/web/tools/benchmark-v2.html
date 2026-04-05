@@ -266,6 +266,15 @@
       text-align: center;
       color: var(--text-secondary);
     }
+    .result-table .action-cell {
+      width: 72px;
+      text-align: center;
+    }
+    .record-action-btn {
+      padding: 2px 8px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
     @media (max-width: 960px) {
       .content {
         grid-template-columns: 1fr;
@@ -333,11 +342,12 @@
                   <th data-i18n="page.benchmark_v2.table.prefill_speed">预填充速度（token/s）</th>
                   <th data-i18n="page.benchmark_v2.table.output_tokens">输出长度</th>
                   <th data-i18n="page.benchmark_v2.table.decode_speed">输出速度（token/s）</th>
+                  <th data-i18n="page.benchmark_v2.table.actions">操作</th>
                 </tr>
               </thead>
               <tbody id="resultBody">
                 <tr id="emptyRow">
-                  <td class="empty" colspan="6" data-i18n="page.benchmark_v2.empty.no_records">暂无记录</td>
+                  <td class="empty" colspan="7" data-i18n="page.benchmark_v2.empty.no_records">暂无记录</td>
                 </tr>
               </tbody>
             </table>
@@ -542,7 +552,7 @@
       tr.id = 'emptyRow';
       const td = document.createElement('td');
       td.className = 'empty';
-      td.colSpan = 6;
+      td.colSpan = 7;
       td.textContent = message || t('page.benchmark_v2.empty.no_records', '暂无记录');
       tr.appendChild(td);
       els.resultBody.appendChild(tr);
@@ -612,6 +622,50 @@
       return text || '-';
     }
 
+    function getRecordLineNumber(record) {
+      const n = Number(record && record._lineNumber);
+      return Number.isInteger(n) && n > 0 ? n : null;
+    }
+
+    async function deleteBenchmarkRecord(record, btn) {
+      const modelId = safeText(record && record.modelId ? record.modelId : selectedModelId).trim();
+      const lineNumber = getRecordLineNumber(record);
+      if (!modelId || !lineNumber) {
+        setStatus(t('page.benchmark_v2.status.delete_invalid', '无法删除该记录'));
+        return;
+      }
+      const timestamp = formatTimestamp(record && record.timestamp ? record.timestamp : null);
+      const confirmText = tf(
+        'page.benchmark_v2.confirm.delete_record',
+        { model: modelId, time: timestamp },
+        `确定删除模型 ${modelId} 在 ${timestamp} 的测试结果吗？`
+      );
+      if (!window.confirm(confirmText)) {
+        return;
+      }
+      if (btn) btn.disabled = true;
+      setStatus(t('page.benchmark_v2.status.deleting_record', '删除记录中…'));
+      try {
+        const data = await fetchJson('/api/v2/models/benchmark/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modelId,
+            lineNumber
+          })
+        });
+        if (!data || data.success !== true) {
+          throw new Error((data && data.error) ? data.error : t('page.benchmark_v2.status.delete_failed', '删除记录失败'));
+        }
+        await loadBenchmarkRecords(modelId, { mode: 'replace' });
+        setStatus(t('page.benchmark_v2.status.deleted', '记录已删除'));
+      } catch (e) {
+        setStatus((e && e.message) ? e.message : t('page.benchmark_v2.status.delete_failed', '删除记录失败'));
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
     function createRecordRows(record, fallbackModelId) {
       const values = normalizeRecordRow(record, fallbackModelId);
       const dataRow = document.createElement('tr');
@@ -625,11 +679,24 @@
         const row = document.createElement('tr');
         row.className = `record-detail ${extraClass || ''}`.trim();
         const td = document.createElement('td');
-        td.colSpan = 6;
+        td.colSpan = 7;
         td.textContent = text;
         row.appendChild(td);
         return row;
       };
+      const actionTd = document.createElement('td');
+      actionTd.className = 'action-cell';
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn record-action-btn';
+      deleteBtn.textContent = t('page.benchmark_v2.action.delete', '删除');
+      if (!getRecordLineNumber(record)) {
+        deleteBtn.disabled = true;
+      } else {
+        deleteBtn.addEventListener('click', () => deleteBenchmarkRecord(record, deleteBtn));
+      }
+      actionTd.appendChild(deleteBtn);
+      dataRow.appendChild(actionTd);
       const cpuRamRow = buildDetailRow(values.cpuRam);
       const gpuRow = buildDetailRow(values.gpu);
       const cmdRow = buildDetailRow(values.cmd);
@@ -689,6 +756,10 @@
 
     function recordKey(record, fallbackModelId) {
       const modelId = safeText(record && record.modelId ? record.modelId : fallbackModelId).trim();
+      const lineNumber = getRecordLineNumber(record);
+      if (lineNumber) {
+        return `${modelId}|line:${lineNumber}`;
+      }
       const ts = safeText(record && record.timestamp).trim();
       const pt = record && record.promptTokens != null ? String(record.promptTokens) : '';
       const mt = record && record.maxTokens != null ? String(record.maxTokens) : '';

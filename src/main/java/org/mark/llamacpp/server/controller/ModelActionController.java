@@ -114,7 +114,11 @@ public class ModelActionController implements BaseController {
 		if (uri.startsWith("/api/v2/models/benchmark/get")) {
 			this.handleModelBenchmarkV2Get(ctx, request);
 			return true;
-		}		
+		}
+		if (uri.startsWith("/api/v2/models/benchmark/delete")) {
+			this.handleModelBenchmarkV2Delete(ctx, request);
+			return true;
+		}
 		
 		// 对应URL-GET：/metrics
 		// 客户端传入modelId作为参数
@@ -732,13 +736,15 @@ public class ModelActionController implements BaseController {
 			}
 			List<String> lines = Files.readAllLines(target.toPath(), StandardCharsets.UTF_8);
 			List<Object> records = new ArrayList<>();
-			for (String line : lines) {
+			for (int i = 0; i < lines.size(); i++) {
+				String line = lines.get(i);
 				if (line == null) continue;
 				String trimmed = line.trim();
 				if (trimmed.isEmpty()) continue;
-				Object obj = JsonUtil.fromJson(trimmed, Object.class);
+				JsonObject obj = JsonUtil.fromJson(trimmed, JsonObject.class);
 				if (obj != null) {
-					records.add(obj);
+					obj.addProperty("_lineNumber", Integer.valueOf(i + 1));
+					records.add(JsonUtil.fromJson(obj, Object.class));
 				}
 			}
 			Map<String, Object> data = new HashMap<>();
@@ -749,6 +755,68 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取基准测试V2结果失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 删除指定的性能测试 V2 记录。
+	 *
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleModelBenchmarkV2Delete(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				return;
+			}
+			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			if (json == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+			String modelId = JsonUtil.getJsonString(json, "modelId", null);
+			if (modelId != null) modelId = modelId.trim();
+			if (modelId == null || modelId.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				return;
+			}
+			Integer lineNumber = JsonUtil.getJsonInt(json, "lineNumber", null);
+			if (lineNumber == null || lineNumber.intValue() <= 0) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的lineNumber参数"));
+				return;
+			}
+
+			String safeModelId = modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+			File dir = new File("benchmarks");
+			String fileName = safeModelId + "_V2.jsonl";
+			File target = new File(dir, fileName);
+			if (!target.exists() || !target.isFile()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				return;
+			}
+
+			List<String> lines = Files.readAllLines(target.toPath(), StandardCharsets.UTF_8);
+			int lineIndex = lineNumber.intValue() - 1;
+			if (lineIndex < 0 || lineIndex >= lines.size()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("记录不存在"));
+				return;
+			}
+			lines.remove(lineIndex);
+			Files.write(target.toPath(), lines, StandardCharsets.UTF_8);
+
+			Map<String, Object> data = new HashMap<>();
+			data.put("modelId", modelId);
+			data.put("fileName", fileName);
+			data.put("lineNumber", lineNumber);
+			data.put("deleted", true);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除基准测试V2记录失败: " + e.getMessage()));
 		}
 	}
 	
