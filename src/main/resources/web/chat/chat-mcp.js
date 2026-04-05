@@ -153,7 +153,7 @@
         return normalizeToolCall(toolCall, index);
       })
       .filter(function (toolCall) {
-        return !!toolCall.function.name;
+        return !!toolCall.id || !!toolCall.function.name || !!toolCall.function.arguments;
       });
   }
 
@@ -191,10 +191,7 @@
   }
 
   function finalizeToolCalls(toolCalls) {
-    return (Array.isArray(toolCalls) ? toolCalls : [])
-      .map(function (toolCall, index) {
-        return normalizeToolCall(toolCall, index);
-      })
+    return normalizeToolCalls(toolCalls)
       .filter(function (toolCall) {
         return !!toolCall.function.name;
       })
@@ -248,6 +245,23 @@
       blocks.push(JSON.stringify(result.structuredContent, null, 2));
     }
     return blocks.join('\n\n').trim() || contentText;
+  }
+
+  function parseToolArgumentsPayload(argumentsText) {
+    const raw = typeof argumentsText === 'string' ? argumentsText.trim() : '';
+    if (!raw) {
+      return {};
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      throw new Error('工具参数不是完整的 JSON：' + raw);
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('工具参数必须是 JSON 对象');
+    }
+    return parsed;
   }
 
   function create(options) {
@@ -366,10 +380,95 @@
       return map;
     }
 
+    function snapshotScrollPositions() {
+      if (!els.mcpServerList) {
+        return null;
+      }
+      const containers = [];
+      const list = els.mcpServerList;
+      const content = typeof list.closest === 'function' ? list.closest('.settings-content') : null;
+      [content, list].forEach(function (element) {
+        if (!element || containers.indexOf(element) >= 0) {
+          return;
+        }
+        containers.push(element);
+      });
+      const toolLists = Array.from(list.querySelectorAll('.mcp-tool-list')).map(function (element) {
+        return {
+          serverUrl: element.getAttribute('data-mcp-tool-list') || '',
+          top: element.scrollTop,
+          left: element.scrollLeft
+        };
+      });
+      const activeElement = document.activeElement;
+      return {
+        containers: containers.map(function (element) {
+          return {
+            element: element,
+            top: element.scrollTop,
+            left: element.scrollLeft
+          };
+        }),
+        toolLists: toolLists,
+        activeToggle: activeElement && activeElement.matches && activeElement.matches('[data-mcp-tool-toggle]')
+          ? {
+              serverUrl: activeElement.getAttribute('data-mcp-tool-server') || '',
+              toolName: activeElement.getAttribute('data-mcp-tool-name') || ''
+            }
+          : null
+      };
+    }
+
+    function restoreScrollPositions(snapshot) {
+      const data = snapshot && typeof snapshot === 'object' ? snapshot : null;
+      if (!data) {
+        return;
+      }
+      (Array.isArray(data.containers) ? data.containers : []).forEach(function (item) {
+        if (!item || !item.element || !item.element.isConnected) {
+          return;
+        }
+        item.element.scrollTop = item.top;
+        item.element.scrollLeft = item.left;
+      });
+      if (els.mcpServerList) {
+        const toolListMap = new Map();
+        Array.from(els.mcpServerList.querySelectorAll('.mcp-tool-list')).forEach(function (element) {
+          toolListMap.set(element.getAttribute('data-mcp-tool-list') || '', element);
+        });
+        (Array.isArray(data.toolLists) ? data.toolLists : []).forEach(function (item) {
+          if (!item) {
+            return;
+          }
+          const element = toolListMap.get(item.serverUrl || '');
+          if (!element) {
+            return;
+          }
+          element.scrollTop = item.top;
+          element.scrollLeft = item.left;
+        });
+        const activeToggle = data.activeToggle;
+        if (activeToggle && activeToggle.serverUrl && activeToggle.toolName) {
+          const nextToggle = Array.from(els.mcpServerList.querySelectorAll('[data-mcp-tool-toggle]')).find(function (element) {
+            return (element.getAttribute('data-mcp-tool-server') || '') === activeToggle.serverUrl &&
+              (element.getAttribute('data-mcp-tool-name') || '') === activeToggle.toolName;
+          });
+          if (nextToggle && typeof nextToggle.focus === 'function') {
+            try {
+              nextToggle.focus({ preventScroll: true });
+            } catch (error) {
+              nextToggle.focus();
+            }
+          }
+        }
+      }
+    }
+
     function renderServerList() {
       if (!els.mcpServerList) {
         return;
       }
+      const scrollSnapshots = snapshotScrollPositions();
       const entries = Object.values(registryServers).sort(function (a, b) {
         return String(a.name || a.url).localeCompare(String(b.name || b.url), 'zh-Hans-CN');
       });
@@ -413,7 +512,7 @@
                   .join('')
               : '<div class="mcp-empty">该服务当前未发现可用工具</div>';
             return (
-              '<div class="mcp-server-item' + (!isServerEnabled ? ' is-disabled' : '') + '">' +
+              '<div class="mcp-server-item' + (!isServerEnabled ? ' is-disabled' : '') + '" data-mcp-server="' + escapeHtml(server.url) + '">' +
                 '<div class="mcp-server-main">' +
                   '<div class="mcp-server-head">' +
                     '<div class="mcp-server-head-main">' +
@@ -442,7 +541,7 @@
                   '<div class="mcp-server-url">' + escapeHtml(server.url) + '</div>' +
                   (server.description ? '<div class="mcp-server-desc">' + escapeHtml(server.description) + '</div>' : '') +
                   '<div class="mcp-server-tools">仅启用的工具会出现在发送给模型的请求中</div>' +
-                  '<div class="mcp-tool-list' + (isCollapsed ? ' is-collapsed' : '') + '">' + toolItems + '</div>' +
+                  '<div class="mcp-tool-list' + (isCollapsed ? ' is-collapsed' : '') + '" data-mcp-tool-list="' + escapeHtml(server.url) + '">' + toolItems + '</div>' +
                   '<div class="mcp-server-actions">' +
                     '<button type="button" class="ghost danger" data-mcp-remove="' + escapeHtml(server.url) + '">移除服务</button>' +
                   '</div>' +
@@ -463,6 +562,12 @@
         els.mcpSummary.textContent = enabledTools.length
           ? '当前助手已启用 ' + enabledServerCount + ' 个 MCP 服务，向模型暴露 ' + enabledTools.length + ' / ' + totalToolCount + ' 个工具'
           : '当前助手未向模型暴露任何 MCP 工具';
+      }
+      restoreScrollPositions(scrollSnapshots);
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          restoreScrollPositions(scrollSnapshots);
+        });
       }
     }
 
@@ -684,12 +789,13 @@
           if (!tool) {
             throw new Error('未找到可执行的 MCP 工具: ' + toolCall.function.name);
           }
+          const parsedArguments = parseToolArgumentsPayload(toolCall.function.arguments);
           const response = await apiFetch('/api/tools/execute', {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({
               tool_name: tool.name,
-              arguments: toolCall.function.arguments || '{}',
+              arguments: parsedArguments,
               mcpServerUrl: tool.mcpServerUrl,
               preparedQuery: context && context.preparedQuery ? context.preparedQuery : ''
             })

@@ -3444,6 +3444,60 @@
       let model = '';
       let timings = null;
       let toolCalls = [];
+      const finalizeResult = function () {
+        return { content: answer, reasoning, model, timings, toolCalls: finalizeMcpToolCalls(toolCalls) };
+      };
+      const processSseLine = function (rawLine) {
+        const line = typeof rawLine === 'string' ? rawLine.trim() : '';
+        if (!line.startsWith('data:')) {
+          return null;
+        }
+        const data = line.slice(5).trim();
+        if (!data) {
+          return null;
+        }
+        if (data === '[DONE]') {
+          return finalizeResult();
+        }
+        let json;
+        try {
+          json = JSON.parse(data);
+        } catch (error) {
+          return null;
+        }
+        if (!model && typeof json?.model === 'string' && json.model.trim()) {
+          model = json.model.trim();
+        }
+        const extractedTimings = normalizeTimings(json?.timings);
+        if (extractedTimings) {
+          timings = extractedTimings;
+        }
+        const choice = Array.isArray(json.choices) ? json.choices[0] : null;
+        const delta = choice?.delta || {};
+        const incomingToolCalls =
+          choice?.message?.tool_calls ??
+          delta?.tool_calls ??
+          json?.message?.tool_calls ??
+          json?.tool_calls ??
+          [];
+        if (Array.isArray(incomingToolCalls) && incomingToolCalls.length) {
+          toolCalls = mergeMcpToolCallChunks(toolCalls, incomingToolCalls);
+          if (Number.isInteger(targetIndex)) {
+            updateAssistantToolCalls(targetIndex, toolCalls);
+          }
+        }
+        const chunkContent = contentToText(delta.content);
+        const chunkReasoning =
+          typeof delta.reasoning_content === 'string'
+            ? delta.reasoning_content
+            : typeof delta.reasoning === 'string'
+              ? delta.reasoning
+              : '';
+        answer += chunkContent;
+        reasoning += chunkReasoning;
+        updateLastAssistantMessage(answer, reasoning, model, timings, targetIndex);
+        return null;
+      };
 
       while (true) {
         const { value, done } = await reader.read();
@@ -3455,57 +3509,23 @@
         buffer = lines.pop() || '';
 
         for (const rawLine of lines) {
-          const line = rawLine.trim();
-          if (!line.startsWith('data:')) {
-            continue;
+          const result = processSseLine(rawLine);
+          if (result) {
+            return result;
           }
-          const data = line.slice(5).trim();
-          if (!data) {
-            continue;
-          }
-          if (data === '[DONE]') {
-            return { content: answer, reasoning, model, timings, toolCalls: finalizeMcpToolCalls(toolCalls) };
-          }
-          let json;
-          try {
-            json = JSON.parse(data);
-          } catch (error) {
-            continue;
-          }
-          if (!model && typeof json?.model === 'string' && json.model.trim()) {
-            model = json.model.trim();
-          }
-          const extractedTimings = normalizeTimings(json?.timings);
-          if (extractedTimings) {
-            timings = extractedTimings;
-          }
-          const choice = Array.isArray(json.choices) ? json.choices[0] : null;
-          const delta = choice?.delta || {};
-          const incomingToolCalls =
-            choice?.message?.tool_calls ??
-            delta?.tool_calls ??
-            json?.message?.tool_calls ??
-            json?.tool_calls ??
-            [];
-          if (Array.isArray(incomingToolCalls) && incomingToolCalls.length) {
-            toolCalls = mergeMcpToolCallChunks(toolCalls, incomingToolCalls);
-            if (Number.isInteger(targetIndex)) {
-              updateAssistantToolCalls(targetIndex, toolCalls);
-            }
-          }
-          const chunkContent = contentToText(delta.content);
-          const chunkReasoning =
-            typeof delta.reasoning_content === 'string'
-              ? delta.reasoning_content
-              : typeof delta.reasoning === 'string'
-                ? delta.reasoning
-                : '';
-          answer += chunkContent;
-          reasoning += chunkReasoning;
-          updateLastAssistantMessage(answer, reasoning, model, timings, targetIndex);
         }
       }
-      return { content: answer, reasoning, model, timings, toolCalls: finalizeMcpToolCalls(toolCalls) };
+      if (buffer) {
+        const tailLines = buffer.split(/\r?\n/);
+        buffer = '';
+        for (const rawLine of tailLines) {
+          const result = processSseLine(rawLine);
+          if (result) {
+            return result;
+          }
+        }
+      }
+      return finalizeResult();
     }
 
     async function refreshModels() {

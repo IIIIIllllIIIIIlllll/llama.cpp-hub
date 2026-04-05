@@ -103,7 +103,6 @@ public class DefaultMcpServiceImpl implements McpProtocolHandler {
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceListTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceGetTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceMatchTool());
-		this.registerTool(DEFAULT_SERVICE_KEY, new WriteTextFileTool());
 		
 		// 写本地文件的
 		this.registerTool(FILE_SERVICE_KEY, new WriteTextFileTool());
