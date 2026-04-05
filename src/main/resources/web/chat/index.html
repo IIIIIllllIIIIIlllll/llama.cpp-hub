@@ -147,13 +147,13 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             通用
           </button>
-          <button class="settings-tab" data-settings-tab="assistant" role="tab" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
-            助手
-          </button>
           <button class="settings-tab" data-settings-tab="sampling" role="tab" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
             采样参数
+          </button>
+          <button class="settings-tab" data-settings-tab="mcp" role="tab" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><path d="M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            MCP
           </button>
         </nav>
 
@@ -161,6 +161,40 @@
           <div class="settings-section active" data-settings-section="general">
             <div class="settings-group">
               <div class="settings-group-title">当前助手设置</div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label for="settingsConversationAssistantSelect">当前会话使用的助手</label>
+                </div>
+                <p class="settings-field-desc">切换后，本会话会立即改用所选助手的模型、提示词和采样参数</p>
+                <select id="settingsConversationAssistantSelect" class="drawer-input" aria-label="设置面板中的当前会话助手"></select>
+              </div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label for="assistantNameInput">助手名称</label>
+                </div>
+                <p class="settings-field-desc">用于区分不同任务助手，例如“代码评审”“翻译”“写作”</p>
+                <div class="assistant-name-row">
+                  <div class="settings-inline-actions assistant-inline-actions">
+                    <button id="newAssistantBtn" class="icon-button assistant-action-button" type="button" aria-label="新建助手" title="新建助手">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 5v14"/>
+                        <path d="M5 12h14"/>
+                      </svg>
+                    </button>
+                    <button id="deleteAssistantBtn" class="icon-button assistant-action-button" type="button" aria-label="删除当前助手" title="删除当前助手">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 6h18"/>
+                        <path d="M8 6V4h8v2"/>
+                        <path d="M19 6l-1 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
+                        <path d="M10 11v6"/>
+                        <path d="M14 11v6"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <input id="assistantNameInput" class="drawer-input" type="text" maxlength="40" placeholder="例如：代码助手">
+                </div>
+                <p id="assistantUsageHint" class="settings-field-desc"></p>
+              </div>
               <div class="settings-field">
                 <div class="settings-field-header">
                   <label for="systemPromptInput">系统提示词</label>
@@ -182,33 +216,6 @@
                     <span class="toggle-slider"></span>
                   </span>
                 </label>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-section" data-settings-section="assistant">
-            <div class="settings-group">
-              <div class="settings-group-title">助手管理</div>
-              <div class="settings-field">
-                <div class="settings-field-header">
-                  <label for="settingsConversationAssistantSelect">当前会话使用的助手</label>
-                </div>
-                <p class="settings-field-desc">切换后，本会话会立即改用所选助手的模型、提示词和采样参数</p>
-                <select id="settingsConversationAssistantSelect" class="drawer-input" aria-label="设置面板中的当前会话助手"></select>
-              </div>
-              <div class="settings-field">
-                <div class="settings-inline-actions">
-                  <button id="newAssistantBtn" class="ghost-button" type="button">新建助手</button>
-                  <button id="deleteAssistantBtn" class="ghost-button" type="button">删除当前助手</button>
-                </div>
-              </div>
-              <div class="settings-field">
-                <div class="settings-field-header">
-                  <label for="assistantNameInput">助手名称</label>
-                </div>
-                <p class="settings-field-desc">用于区分不同任务助手，例如“代码评审”“翻译”“写作”</p>
-                <input id="assistantNameInput" class="drawer-input" type="text" maxlength="40" placeholder="例如：代码助手">
-                <p id="assistantUsageHint" class="settings-field-desc"></p>
               </div>
             </div>
           </div>
@@ -281,6 +288,34 @@
               </div>
             </div>
           </div>
+
+          <div class="settings-section" data-settings-section="mcp">
+            <div class="settings-group">
+              <div class="settings-group-title">MCP</div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label for="mcpUrlInput">MCP 服务地址</label>
+                </div>
+                <p class="settings-field-desc">支持 SSE 与 Streamable HTTP，连接后可将该服务的工具暴露给当前助手使用</p>
+                <div class="mcp-connect-row">
+                  <select id="mcpTransportSelect" class="drawer-input mcp-transport-select" aria-label="MCP 传输类型">
+                    <option value="sse">SSE</option>
+                    <option value="streamable-http">Streamable HTTP</option>
+                  </select>
+                  <input id="mcpUrlInput" class="drawer-input" type="url" placeholder="https://example.com/mcp">
+                  <button id="mcpAddBtn" class="primary-button" type="button">连接</button>
+                  <button id="mcpRefreshBtn" class="ghost-button" type="button">刷新</button>
+                </div>
+              </div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label>MCP 工具</label>
+                </div>
+                <p id="mcpSummary" class="settings-field-desc">当前助手未启用 MCP 工具</p>
+                <div id="mcpServerList" class="mcp-server-list"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -295,6 +330,7 @@
   <script src="/js/marked.min.js"></script>
   <script src="/js/highlight.min.js"></script>
   <script src="/js/completion-markdown.js"></script>
+  <script src="./chat-mcp.js"></script>
   <script>
 
     const CHAT_ENDPOINT = '/v1/chat/completions';
@@ -328,6 +364,7 @@
       stream: true,
       enableThinking: false,
       systemPrompt: '',
+      mcpServerUrls: [],
       search: '',
       privacyMode: false,
       conversations: [],
@@ -390,8 +427,16 @@
       assistantNameInput: document.getElementById('assistantNameInput'),
       assistantUsageHint: document.getElementById('assistantUsageHint'),
       settingsStorageHint: document.getElementById('settingsStorageHint'),
-      saveSettingsBtn: document.getElementById('saveSettingsBtn')
+      saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+      mcpTransportSelect: document.getElementById('mcpTransportSelect'),
+      mcpUrlInput: document.getElementById('mcpUrlInput'),
+      mcpAddBtn: document.getElementById('mcpAddBtn'),
+      mcpRefreshBtn: document.getElementById('mcpRefreshBtn'),
+      mcpSummary: document.getElementById('mcpSummary'),
+      mcpServerList: document.getElementById('mcpServerList')
     };
+
+    let mcpModule = null;
 
     function isChatNearBottom() {
       if (!els.chatScroll) {
@@ -796,6 +841,60 @@
       return String(fallbackName || '默认助手');
     }
 
+    function normalizeMcpAssistantUrls(assistant, fallback = {}) {
+      if (window.ChatMcpModule?.normalizeAssistantUrls) {
+        return window.ChatMcpModule.normalizeAssistantUrls(assistant, fallback);
+      }
+      const source = Array.isArray(assistant?.mcpServerUrls)
+        ? assistant.mcpServerUrls
+        : Array.isArray(fallback?.mcpServerUrls)
+          ? fallback.mcpServerUrls
+          : [];
+      return Array.from(new Set(source
+        .filter(item => typeof item === 'string' && item.trim())
+        .map(item => item.trim())));
+    }
+
+    function normalizeMcpToolStates(assistant, fallback = {}) {
+      const source = assistant?.mcpToolStates && typeof assistant.mcpToolStates === 'object'
+        ? assistant.mcpToolStates
+        : fallback?.mcpToolStates && typeof fallback.mcpToolStates === 'object'
+          ? fallback.mcpToolStates
+          : {};
+      const result = {};
+      Object.keys(source).forEach(key => {
+        const normalizedKey = typeof key === 'string' ? key.trim() : '';
+        if (!normalizedKey) {
+          return;
+        }
+        if (source[key] === false) {
+          result[normalizedKey] = false;
+        }
+      });
+      return result;
+    }
+
+    function normalizeMcpToolCalls(toolCalls) {
+      if (window.ChatMcpModule?.normalizeToolCalls) {
+        return window.ChatMcpModule.normalizeToolCalls(toolCalls);
+      }
+      return Array.isArray(toolCalls) ? toolCalls : [];
+    }
+
+    function mergeMcpToolCallChunks(existing, incoming) {
+      if (window.ChatMcpModule?.mergeToolCallChunks) {
+        return window.ChatMcpModule.mergeToolCallChunks(existing, incoming);
+      }
+      return normalizeMcpToolCalls(incoming);
+    }
+
+    function finalizeMcpToolCalls(toolCalls) {
+      if (window.ChatMcpModule?.finalizeToolCalls) {
+        return window.ChatMcpModule.finalizeToolCalls(toolCalls);
+      }
+      return normalizeMcpToolCalls(toolCalls);
+    }
+
     function normalizeAssistant(assistant, fallback = {}) {
       return {
         id: typeof assistant?.id === 'string' && assistant.id.trim() ? assistant.id.trim() : makeId(),
@@ -812,7 +911,9 @@
         stopSequences: typeof assistant?.stopSequences === 'string' ? assistant.stopSequences : typeof fallback?.stopSequences === 'string' ? fallback.stopSequences : '',
         stream: typeof assistant?.stream === 'boolean' ? assistant.stream : typeof fallback?.stream === 'boolean' ? fallback.stream : true,
         enableThinking: typeof assistant?.enableThinking === 'boolean' ? assistant.enableThinking : typeof fallback?.enableThinking === 'boolean' ? fallback.enableThinking : false,
-        systemPrompt: typeof assistant?.systemPrompt === 'string' ? assistant.systemPrompt : typeof fallback?.systemPrompt === 'string' ? fallback.systemPrompt : ''
+        systemPrompt: typeof assistant?.systemPrompt === 'string' ? assistant.systemPrompt : typeof fallback?.systemPrompt === 'string' ? fallback.systemPrompt : '',
+        mcpServerUrls: normalizeMcpAssistantUrls(assistant, fallback),
+        mcpToolStates: normalizeMcpToolStates(assistant, fallback)
       };
     }
 
@@ -1192,6 +1293,7 @@
       state.stream = typeof assistant?.stream === 'boolean' ? assistant.stream : true;
       state.enableThinking = !!assistant?.enableThinking;
       state.systemPrompt = assistant?.systemPrompt || '';
+      state.mcpServerUrls = normalizeMcpAssistantUrls(assistant);
       syncModelSelectControl();
       renderThinkingMenu();
     }
@@ -1217,6 +1319,7 @@
       assistant.stream = !!state.stream;
       assistant.enableThinking = !!state.enableThinking;
       assistant.systemPrompt = state.systemPrompt;
+      assistant.mcpServerUrls = normalizeMcpAssistantUrls({ mcpServerUrls: state.mcpServerUrls });
     }
 
     function ensureAssistants() {
@@ -1427,7 +1530,13 @@
         performanceText: typeof message?.performanceText === 'string' ? message.performanceText : '',
         reasoning: typeof message?.reasoning === 'string' ? message.reasoning : '',
         time: typeof message?.time === 'string' ? message.time : nowTime(),
-        reasoningCollapsed: typeof message?.reasoningCollapsed === 'boolean' ? message.reasoningCollapsed : true
+        reasoningCollapsed: typeof message?.reasoningCollapsed === 'boolean' ? message.reasoningCollapsed : true,
+        toolCalls: normalizeMcpToolCalls(message?.toolCalls),
+        toolCallsCollapsed: typeof message?.toolCallsCollapsed === 'boolean' ? message.toolCallsCollapsed : true,
+        toolCallId: typeof message?.toolCallId === 'string' ? message.toolCallId : '',
+        toolName: typeof message?.toolName === 'string' ? message.toolName : '',
+        toolResultCollapsed: typeof message?.toolResultCollapsed === 'boolean' ? message.toolResultCollapsed : true,
+        isError: !!message?.isError
       };
       if (base.role !== 'assistant') {
         return base;
@@ -1451,7 +1560,8 @@
         performanceText: activeResponse.performanceText,
         reasoning: activeResponse.reasoning,
         time: activeResponse.time,
-        reasoningCollapsed: activeResponse.reasoningCollapsed
+        reasoningCollapsed: activeResponse.reasoningCollapsed,
+        toolCalls: normalizeMcpToolCalls(message?.toolCalls)
       };
     }
 
@@ -1545,6 +1655,144 @@
       bubble.appendChild(performanceDiv);
     }
 
+    function hasAssistantToolCalls(message) {
+      return message?.role === 'assistant' && Array.isArray(message.toolCalls) && message.toolCalls.length > 0;
+    }
+
+    function hasToolResultContent(message) {
+      return message?.role === 'tool' && String(message.content || '').trim().length > 0;
+    }
+
+    function formatToolCallArguments(argumentsText) {
+      const raw = typeof argumentsText === 'string' ? argumentsText.trim() : '';
+      if (!raw) {
+        return '{}';
+      }
+      try {
+        return JSON.stringify(JSON.parse(raw), null, 2);
+      } catch (error) {
+        return raw;
+      }
+    }
+
+    function createAssistantToolCallsElement(message, index) {
+      if (!hasAssistantToolCalls(message)) {
+        return null;
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'tool-call-box';
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'tool-call-head';
+      toggle.dataset.toolCallsToggle = 'true';
+      toggle.dataset.index = String(index);
+      toggle.setAttribute('aria-expanded', message.toolCallsCollapsed ? 'false' : 'true');
+
+      const toggleMeta = document.createElement('div');
+      toggleMeta.className = 'tool-call-meta';
+      toggleMeta.innerHTML =
+        '<span class="tool-call-list-title">工具调用</span>' +
+        '<span class="tool-call-list-state">' + (message.toolCallsCollapsed ? '点击展开' : '点击收起') + ' ' + message.toolCalls.length + ' 个请求</span>';
+
+      const toggleCaret = document.createElement('span');
+      toggleCaret.className = 'tool-call-caret';
+      toggleCaret.setAttribute('aria-hidden', 'true');
+      toggleCaret.textContent = '›';
+
+      const body = document.createElement('div');
+      body.className = 'tool-call-body' + (message.toolCallsCollapsed ? ' hidden' : '');
+
+      toggle.appendChild(toggleMeta);
+      toggle.appendChild(toggleCaret);
+      wrap.appendChild(toggle);
+      wrap.appendChild(body);
+
+      for (const toolCall of message.toolCalls) {
+        const item = document.createElement('div');
+        item.className = 'tool-call-item';
+
+        const itemHead = document.createElement('div');
+        itemHead.className = 'tool-call-item-head';
+        itemHead.innerHTML =
+          '<strong>' + escapeHtml(toolCall?.function?.name || '未命名工具') + '</strong>' +
+          '<span>' + escapeHtml(toolCall?.id || '') + '</span>';
+
+        const args = document.createElement('pre');
+        args.className = 'tool-call-item-args';
+        args.textContent = formatToolCallArguments(toolCall?.function?.arguments || '');
+
+        item.appendChild(itemHead);
+        item.appendChild(args);
+        body.appendChild(item);
+      }
+      return wrap;
+    }
+
+    function upsertAssistantToolCallsElement(bubble, message, index) {
+      if (!bubble) {
+        return;
+      }
+      const existing = bubble.querySelector(':scope > .tool-call-box, :scope > .tool-call-list');
+      const next = createAssistantToolCallsElement(message, index);
+      if (!next) {
+        if (existing) {
+          existing.remove();
+        }
+        return;
+      }
+      if (existing) {
+        existing.replaceWith(next);
+      } else {
+        bubble.appendChild(next);
+      }
+    }
+
+    function createToolResultElement(message, index) {
+      if (!hasToolResultContent(message)) {
+        return null;
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'tool-result-box' + (message.isError ? ' is-error' : '');
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'tool-result-head';
+      toggle.dataset.toolResultToggle = 'true';
+      toggle.dataset.index = String(index);
+      toggle.setAttribute('aria-expanded', message.toolResultCollapsed ? 'false' : 'true');
+
+      const toggleMeta = document.createElement('div');
+      toggleMeta.className = 'tool-result-meta';
+      toggleMeta.innerHTML =
+        '<span class="tool-result-label">' + escapeHtml(message.toolName || '工具结果') + '</span>' +
+        '<span class="tool-result-state">' + (message.toolResultCollapsed ? '点击展开结果' : '点击收起结果') + '</span>';
+
+      const toggleCaret = document.createElement('span');
+      toggleCaret.className = 'tool-result-caret';
+      toggleCaret.setAttribute('aria-hidden', 'true');
+      toggleCaret.textContent = '›';
+
+      const body = document.createElement('div');
+      body.className = 'tool-result-body' + (message.toolResultCollapsed ? ' hidden' : '');
+      renderRichText(body, message.content || '');
+
+      toggle.appendChild(toggleMeta);
+      toggle.appendChild(toggleCaret);
+      wrap.appendChild(toggle);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    function resizeSystemPromptInput() {
+      if (!els.systemPromptInput) {
+        return;
+      }
+      els.systemPromptInput.style.height = 'auto';
+      const nextHeight = Math.max(340, els.systemPromptInput.scrollHeight || 0);
+      els.systemPromptInput.style.height = nextHeight + 'px';
+    }
+
     function syncSettingsInputs() {
       syncRuntimeStateFromCurrentAssistant();
       els.temperatureInput.value = state.temperature;
@@ -1558,6 +1806,7 @@
       els.stopSequencesInput.value = state.stopSequences;
       els.streamToggle.checked = !!state.stream;
       els.systemPromptInput.value = state.systemPrompt;
+      resizeSystemPromptInput();
       els.searchInput.value = state.search;
       const currentAssistant = getCurrentAssistant();
       const assistantSelects = [els.conversationAssistantSelect, els.settingsConversationAssistantSelect].filter(Boolean);
@@ -1584,6 +1833,9 @@
       els.deleteAssistantBtn.disabled = state.assistants.length <= 1;
       syncModelSelectControl();
       renderThinkingMenu();
+      if (mcpModule) {
+        mcpModule.render();
+      }
     }
 
     function applySettingsInputsToState() {
@@ -2043,17 +2295,23 @@
         syncAssistantMessageState(message);
       }
       const article = document.createElement('article');
-      article.className = 'message ' + (message.role === 'user' ? 'user' : 'assistant');
+      article.className = 'message ' + (message.role === 'user' ? 'user' : 'assistant') + (message.role === 'tool' ? ' tool-message' : '');
       article.dataset.index = String(index);
       const assistantDisplayName = message.role === 'assistant'
         ? getAssistantDisplayName(message)
         : '';
+      const messageTitle = message.role === 'user'
+        ? '用户'
+        : message.role === 'tool'
+          ? (message.toolName ? '工具 · ' + message.toolName : '工具')
+          : assistantDisplayName;
+      const avatarLabel = message.role === 'user' ? '你' : (message.role === 'tool' ? '工' : 'AI');
 
       const head = document.createElement('div');
       head.className = 'message-head';
       head.innerHTML =
-        '<span class="avatar">' + (message.role === 'user' ? '你' : 'AI') + '</span>' +
-        '<strong>' + escapeHtml(message.role === 'user' ? '用户' : assistantDisplayName) + '</strong>' +
+        '<span class="avatar">' + avatarLabel + '</span>' +
+        '<strong>' + escapeHtml(messageTitle) + '</strong>' +
         '<span>' + escapeHtml(message.time || nowTime()) + '</span>';
 
       const bubble = document.createElement('div');
@@ -2158,7 +2416,7 @@
           bubble.appendChild(gallery);
         }
 
-        if (String(message.content || '').trim()) {
+        if (String(message.content || '').trim() && message.role !== 'tool') {
           const content = document.createElement('div');
           content.className = 'message-content';
           renderRichText(content, message.content || '');
@@ -2166,14 +2424,20 @@
         }
 
         if (message.role === 'assistant') {
+          upsertAssistantToolCallsElement(bubble, message, index);
           upsertAssistantPerformanceElement(bubble, message);
+        } else if (message.role === 'tool') {
+          const toolResult = createToolResultElement(message, index);
+          if (toolResult) {
+            bubble.appendChild(toolResult);
+          }
         }
       }
 
       article.appendChild(head);
       article.appendChild(bubble);
 
-      if (!isEditing && (message.content || message.reasoning || getMessageImages(message).length || getAssistantPerformanceText(message))) {
+      if (!isEditing && (message.content || message.reasoning || getMessageImages(message).length || getAssistantPerformanceText(message) || hasAssistantToolCalls(message))) {
         const actions = document.createElement('div');
         actions.className = 'message-actions';
 
@@ -2381,7 +2645,7 @@
       }
 
       let contentDiv = bubble.querySelector(':scope > .message-content');
-      if (String(message.content || '').trim()) {
+      if (message.role !== 'tool' && String(message.content || '').trim()) {
         if (!contentDiv) {
           contentDiv = document.createElement('div');
           contentDiv.className = 'message-content';
@@ -2392,9 +2656,24 @@
         contentDiv.remove();
       }
 
-      upsertAssistantPerformanceElement(bubble, message);
+      if (message.role === 'assistant') {
+        upsertAssistantToolCallsElement(bubble, message, index);
+        upsertAssistantPerformanceElement(bubble, message);
+      }
 
-      const shouldShowActions = !!(message.content || message.reasoning || getAssistantPerformanceText(message));
+      const existingToolResult = bubble.querySelector(':scope > .tool-result-box');
+      const nextToolResult = createToolResultElement(message, index);
+      if (nextToolResult) {
+        if (existingToolResult) {
+          existingToolResult.replaceWith(nextToolResult);
+        } else {
+          bubble.appendChild(nextToolResult);
+        }
+      } else if (existingToolResult) {
+        existingToolResult.remove();
+      }
+
+      const shouldShowActions = !!(message.content || message.reasoning || getAssistantPerformanceText(message) || hasAssistantToolCalls(message) || hasToolResultContent(message));
       let actions = article.querySelector('.message-actions');
       if (!actions && shouldShowActions) {
         return false;
@@ -2433,7 +2712,13 @@
         performanceText: typeof extra.performanceText === 'string' ? extra.performanceText : '',
         reasoning: extra.reasoning || '',
         time: extra.time || nowTime(),
-        reasoningCollapsed: typeof extra.reasoningCollapsed === 'boolean' ? extra.reasoningCollapsed : true
+        reasoningCollapsed: typeof extra.reasoningCollapsed === 'boolean' ? extra.reasoningCollapsed : true,
+        toolCalls: normalizeMcpToolCalls(extra.toolCalls),
+        toolCallsCollapsed: typeof extra.toolCallsCollapsed === 'boolean' ? extra.toolCallsCollapsed : true,
+        toolCallId: typeof extra.toolCallId === 'string' ? extra.toolCallId : '',
+        toolName: typeof extra.toolName === 'string' ? extra.toolName : '',
+        toolResultCollapsed: typeof extra.toolResultCollapsed === 'boolean' ? extra.toolResultCollapsed : true,
+        isError: !!extra.isError
       };
       if (role === 'assistant') {
         nextMessage.responses = [createAssistantResponseDraft({
@@ -2540,6 +2825,29 @@
       }
     }
 
+    function updateAssistantToolCalls(index, toolCalls) {
+      const conversation = getCurrentConversation();
+      const message = conversation?.messages?.[index];
+      if (!message || message.role !== 'assistant') {
+        return;
+      }
+      message.toolCalls = finalizeMcpToolCalls(toolCalls);
+      conversation.updatedAt = Date.now();
+      const article = els.messages.querySelector('article[data-index="' + index + '"]');
+      if (article) {
+        const updated = updateAssistantMessageElement(article, message, index);
+        if (!updated) {
+          renderMessages();
+        } else {
+          updateMessageActionStates();
+          scrollChatToBottom();
+        }
+      } else {
+        renderMessages();
+      }
+      persistState({ skipServer: true, localDelay: 0 });
+    }
+
     function showTypingIndicator(modelName) {
       removeTypingIndicator();
       const indicator = document.createElement('div');
@@ -2586,6 +2894,34 @@
           return;
         }
       }
+      renderMessages();
+    }
+
+    function toggleAssistantToolCalls(index) {
+      const conversation = getCurrentConversation();
+      const message = conversation?.messages?.[index];
+      if (!message || !hasAssistantToolCalls(message)) {
+        return;
+      }
+      message.toolCallsCollapsed = !message.toolCallsCollapsed;
+      const article = els.messages.querySelector('article[data-index="' + index + '"]');
+      if (article) {
+        const updated = updateAssistantMessageElement(article, message, index);
+        if (updated) {
+          updateMessageActionStates();
+          return;
+        }
+      }
+      renderMessages();
+    }
+
+    function toggleToolResult(index) {
+      const conversation = getCurrentConversation();
+      const message = conversation?.messages?.[index];
+      if (!message || !hasToolResultContent(message)) {
+        return;
+      }
+      message.toolResultCollapsed = !message.toolResultCollapsed;
       renderMessages();
     }
 
@@ -2727,56 +3063,88 @@
       state.editingMessageIndex = null;
       syncSendButtonState();
       updateMessageActionStates();
-
-      const payload = buildPayload(options.historyMessages);
-      const requestModel = payload.model;
-      showTypingIndicator(requestModel);
-      els.statusDot.classList.add('loading');
-      updateStatus('ready', '正在生成回复…', '生成中');
+      let historyMessages = Array.isArray(options.historyMessages) ? options.historyMessages : null;
+      let nextAssistantIndex = Number.isInteger(options.targetAssistantIndex) ? options.targetAssistantIndex : null;
+      let requestModel = getCurrentAssistant()?.model || state.model;
+      let currentAssistantIndex = nextAssistantIndex;
+      let remainingToolRounds = Number.isFinite(Number(options.toolRoundsRemaining)) ? Number(options.toolRoundsRemaining) : 6;
 
       try {
-        const response = await fetch(CHAT_ENDPOINT, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify(payload),
-          signal: state.abortController.signal
-        });
-        if (!response.ok) {
+        while (true) {
+          const payload = buildPayload(historyMessages);
+          requestModel = payload.model;
+          const enabledTools = mcpModule ? mcpModule.getEnabledTools(getCurrentAssistant()) : [];
+          showTypingIndicator(requestModel);
+          els.statusDot.classList.add('loading');
+          updateStatus('ready', '正在生成回复…', '生成中');
+
+          const response = await fetch(CHAT_ENDPOINT, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+            signal: state.abortController.signal
+          });
+          if (!response.ok) {
+            removeTypingIndicator();
+            const text = await response.text();
+            throw new Error(text || '请求失败：' + response.status);
+          }
+
+          const contentType = response.headers.get('content-type') || '';
           removeTypingIndicator();
-          const text = await response.text();
-          throw new Error(text || '请求失败：' + response.status);
-        }
+          currentAssistantIndex = Number.isInteger(nextAssistantIndex) ? nextAssistantIndex : null;
+          if (!Number.isInteger(currentAssistantIndex)) {
+            pushMessage('assistant', '', { model: requestModel }, { incremental: true, persist: false });
+            const conversation = getCurrentConversation();
+            currentAssistantIndex = conversation ? conversation.messages.length - 1 : null;
+          }
+          let result;
+          if (payload.stream && contentType.includes('text/event-stream')) {
+            result = await consumeSse(response, currentAssistantIndex);
+          } else {
+            result = extractTextFromJson(await response.json());
+            updateLastAssistantMessage(result.content || '', result.reasoning || '', result.model || requestModel, result.timings, currentAssistantIndex);
+          }
 
-        const contentType = response.headers.get('content-type') || '';
-        removeTypingIndicator();
-        let assistantIndex = Number.isInteger(options.targetAssistantIndex) ? options.targetAssistantIndex : null;
-        if (!Number.isInteger(assistantIndex)) {
-          pushMessage('assistant', '', { model: requestModel }, { incremental: true, persist: false });
-          const conversation = getCurrentConversation();
-          assistantIndex = conversation ? conversation.messages.length - 1 : null;
-        }
-        let result;
-        if (payload.stream && contentType.includes('text/event-stream')) {
-          result = await consumeSse(response, assistantIndex);
-        } else {
-          result = extractTextFromJson(await response.json());
-          updateLastAssistantMessage(result.content || '', result.reasoning || '', result.model || requestModel, result.timings, assistantIndex);
-        }
+          if (Array.isArray(result.toolCalls) && result.toolCalls.length) {
+            updateAssistantToolCalls(currentAssistantIndex, result.toolCalls);
+          }
+          if (!(result.content || result.reasoning || (Array.isArray(result.toolCalls) && result.toolCalls.length))) {
+            updateLastAssistantMessage('模型返回了空内容。', '', result.model || requestModel, result.timings, currentAssistantIndex);
+          }
 
-        if (!(result.content || result.reasoning)) {
-          updateLastAssistantMessage('模型返回了空内容。', '', result.model || requestModel, result.timings, assistantIndex);
+          if (Array.isArray(result.toolCalls) && result.toolCalls.length && mcpModule && remainingToolRounds > 0) {
+            updateStatus('ready', '正在执行 MCP 工具…', '工具中');
+            const toolMessages = await mcpModule.executeToolCalls(result.toolCalls, enabledTools, {
+              preparedQuery: ''
+            });
+            for (const toolMessage of toolMessages) {
+              pushMessage('tool', toolMessage.content || '', toolMessage, { incremental: true, persist: false });
+            }
+            await persistState({ immediate: true, showErrorToast: true, localImmediate: true });
+            historyMessages = getCurrentConversation()?.messages || [];
+            nextAssistantIndex = null;
+            currentAssistantIndex = null;
+            remainingToolRounds -= 1;
+            continue;
+          }
+
+          if (Array.isArray(result.toolCalls) && result.toolCalls.length && remainingToolRounds <= 0) {
+            showToast('error', '工具调用轮次过多，已停止自动继续');
+          }
+          updateStatus('ready', '回复生成完成', '已完成');
+          break;
         }
-        updateStatus('ready', '回复生成完成', '已完成');
       } catch (error) {
         removeTypingIndicator();
         const conversation = getCurrentConversation();
-        const targetAssistant = Number.isInteger(options.targetAssistantIndex)
-          ? conversation?.messages?.[options.targetAssistantIndex]
+        const targetAssistant = Number.isInteger(currentAssistantIndex)
+          ? conversation?.messages?.[currentAssistantIndex]
           : null;
         const hasEmptyAssistant = targetAssistant?.role === 'assistant' ||
           (conversation?.messages?.length && conversation.messages[conversation.messages.length - 1].role === 'assistant');
-        let assistantIndex = Number.isInteger(options.targetAssistantIndex)
-          ? options.targetAssistantIndex
+        let assistantIndex = Number.isInteger(currentAssistantIndex)
+          ? currentAssistantIndex
           : conversation?.messages?.length - 1;
         if (!hasEmptyAssistant) {
           pushMessage('assistant', '', { model: requestModel }, { incremental: true, persist: false });
@@ -2938,6 +3306,7 @@
     function buildPayload(historyOverride) {
       const conversation = getCurrentConversation();
       const assistant = getCurrentAssistant();
+      const enabledTools = mcpModule ? mcpModule.getEnabledTools(assistant) : [];
       const messages = [];
       if (assistant?.systemPrompt.trim()) {
         messages.push({ role: 'system', content: assistant.systemPrompt.trim() });
@@ -2952,8 +3321,26 @@
         const images = getMessageImages(item);
         if (item.role === 'user' && (content.trim() || images.length)) {
           messages.push({ role: 'user', content: buildUserContent(item) });
-        } else if (item.role === 'assistant' && content.trim()) {
-          messages.push({ role: 'assistant', content });
+        } else if (item.role === 'assistant' && (content.trim() || hasAssistantToolCalls(item))) {
+          const assistantMessage = { role: 'assistant', content };
+          if (hasAssistantToolCalls(item)) {
+            assistantMessage.tool_calls = finalizeMcpToolCalls(item.toolCalls).map(toolCall => ({
+              id: toolCall.id,
+              type: toolCall.type || 'function',
+              function: {
+                name: toolCall.function?.name || '',
+                arguments: toolCall.function?.arguments || '{}'
+              }
+            }));
+          }
+          messages.push(assistantMessage);
+        } else if (item.role === 'tool' && content.trim() && item.toolCallId) {
+          messages.push({
+            role: 'tool',
+            content,
+            tool_call_id: item.toolCallId,
+            name: item.toolName || ''
+          });
         }
       }
       const payload = {
@@ -2962,6 +3349,9 @@
         stream: !!assistant?.stream,
         enable_thinking: !!assistant?.enableThinking
       };
+      if (enabledTools.length && mcpModule) {
+        payload.tools = enabledTools.map(tool => mcpModule.toModelTool(tool));
+      }
       const rawTemperature = String(assistant?.temperature || '').trim();
       const temperature = rawTemperature ? Number(rawTemperature) : NaN;
       if (Number.isFinite(temperature)) {
@@ -3034,7 +3424,14 @@
           message?.reasoning ??
           delta?.reasoning_content ??
           delta?.reasoning ??
-          ''
+          '',
+        toolCalls: normalizeMcpToolCalls(
+          message?.tool_calls ??
+          delta?.tool_calls ??
+          json?.message?.tool_calls ??
+          json?.tool_calls ??
+          []
+        )
       };
     }
 
@@ -3046,6 +3443,7 @@
       let reasoning = '';
       let model = '';
       let timings = null;
+      let toolCalls = [];
 
       while (true) {
         const { value, done } = await reader.read();
@@ -3066,7 +3464,7 @@
             continue;
           }
           if (data === '[DONE]') {
-            return { content: answer, reasoning, model, timings };
+            return { content: answer, reasoning, model, timings, toolCalls: finalizeMcpToolCalls(toolCalls) };
           }
           let json;
           try {
@@ -3083,6 +3481,18 @@
           }
           const choice = Array.isArray(json.choices) ? json.choices[0] : null;
           const delta = choice?.delta || {};
+          const incomingToolCalls =
+            choice?.message?.tool_calls ??
+            delta?.tool_calls ??
+            json?.message?.tool_calls ??
+            json?.tool_calls ??
+            [];
+          if (Array.isArray(incomingToolCalls) && incomingToolCalls.length) {
+            toolCalls = mergeMcpToolCallChunks(toolCalls, incomingToolCalls);
+            if (Number.isInteger(targetIndex)) {
+              updateAssistantToolCalls(targetIndex, toolCalls);
+            }
+          }
           const chunkContent = contentToText(delta.content);
           const chunkReasoning =
             typeof delta.reasoning_content === 'string'
@@ -3095,7 +3505,7 @@
           updateLastAssistantMessage(answer, reasoning, model, timings, targetIndex);
         }
       }
-      return { content: answer, reasoning, model, timings };
+      return { content: answer, reasoning, model, timings, toolCalls: finalizeMcpToolCalls(toolCalls) };
     }
 
     async function refreshModels() {
@@ -3446,6 +3856,9 @@
         await saveSettings();
         closeSettings();
       });
+      if (mcpModule) {
+        mcpModule.bindEvents();
+      }
       els.conversationAssistantSelect.addEventListener('change', async () => {
         await switchConversationAssistant(els.conversationAssistantSelect.value);
       });
@@ -3472,6 +3885,9 @@
         syncCurrentAssistantFromRuntimeState();
         syncSettingsInputs();
         persistState();
+      });
+      els.systemPromptInput.addEventListener('input', () => {
+        resizeSystemPromptInput();
       });
       els.chatScroll.addEventListener('wheel', event => {
         if (event.deltaY < 0) {
@@ -3504,6 +3920,16 @@
         const button = event.target.closest('button[data-reasoning-toggle]');
         if (button) {
           toggleReasoning(Number(button.dataset.index));
+          return;
+        }
+        const toolCallsButton = event.target.closest('button[data-tool-calls-toggle]');
+        if (toolCallsButton) {
+          toggleAssistantToolCalls(Number(toolCallsButton.dataset.index));
+          return;
+        }
+        const toolResultButton = event.target.closest('button[data-tool-result-toggle]');
+        if (toolResultButton) {
+          toggleToolResult(Number(toolResultButton.dataset.index));
           return;
         }
         const actionButton = event.target.closest('button[data-message-action]');
@@ -3639,7 +4065,26 @@
 
     async function init() {
       ensureMathJax();
+      if (window.ChatMcpModule?.create) {
+        mcpModule = window.ChatMcpModule.create({
+          state,
+          els,
+          fetchJson,
+          getHeaders,
+          showToast,
+          persistState,
+          nowTime,
+          getCurrentAssistant
+        });
+      }
       await loadState();
+      if (mcpModule) {
+        try {
+          await mcpModule.refreshRegistry({ silentToast: true });
+        } catch (error) {
+          updateStorageHint('MCP 服务列表加载失败');
+        }
+      }
       renderConversationList();
       renderMessages();
       renderDraftImages();

@@ -19,6 +19,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,6 +45,9 @@ public class McpClientService {
 	private static final int DEFAULT_CALL_TIMEOUT_SECONDS = 120;
 	/** 服务就绪默认超时时间（秒） */
 	private static final int DEFAULT_READY_TIMEOUT_SECONDS = 30;
+	private static final String TRANSPORT_SSE = "sse";
+	private static final String TRANSPORT_STREAMABLE_HTTP = "streamable-http";
+	private static final String SESSION_HEADER = "MCP-Session-Id";
 
 	private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) CherryStudio/1.7.13 Chrome/140.0.7339.249 Electron/38.7.0 Safari/537.36";
 	private static final String HEADER_ACCEPT = "Accept";
@@ -66,6 +70,18 @@ public class McpClientService {
 	/** 每个服务器对应的自定义请求头 */
 	private final Map<String, JsonObject> headersByUrl = new ConcurrentHashMap<>();
 
+	private static final class JsonRpcHttpResponse {
+		private final int statusCode;
+		private final String sessionId;
+		private final JsonObject body;
+		
+		private JsonRpcHttpResponse(int statusCode, String sessionId, JsonObject body) {
+			this.statusCode = statusCode;
+			this.sessionId = sessionId;
+			this.body = body;
+		}
+	}
+
 	private McpClientService(Path registryPath) {
 		this.registryPath = registryPath;
 	}
@@ -86,10 +102,6 @@ public class McpClientService {
 			if (url == null || url.isBlank() || server == null) {
 				continue;
 			}
-			String type = getString(server, "type");
-			if (type == null || !type.equalsIgnoreCase("sse")) {
-				continue;
-			}
 			// 仅处理激活状态的服务
 			if (!getBoolean(server, "isActive", true)) {
 				continue;
@@ -105,11 +117,6 @@ public class McpClientService {
 			String url = entry.getKey();
 			JsonObject server = entry.getValue();
 			if (!activeUrls.contains(url)) {
-				continue;
-			}
-
-			String type = getString(server, "type");
-			if (type == null || !type.equalsIgnoreCase("sse")) {
 				continue;
 			}
 
@@ -147,22 +154,21 @@ public class McpClientService {
 			}
 			Boolean activeValue = cfg.has("isActive") ? Boolean.valueOf(active) : null;
 
-			String type = getString(cfg, "type");
+			String type = normalizeTransportType(getString(cfg, "type"));
 			String url = firstNonBlank(getString(cfg, "baseUrl"), getString(cfg, "url"));
 			if (url == null || url.isBlank()) {
 				continue;
 			}
 			String normalizedUrl = url.trim();
-			if (type == null || !type.equalsIgnoreCase("sse")) {
+			if (type == null) {
 				continue;
 			}
 
 			JsonObject headers = extractHeaders(cfg.get("headers"));
-			// 预先从 SSE 获取工具列表，以验证连接并保存
-			JsonElement tools = fetchToolsFromSse(normalizedUrl, headers);
+			JsonElement tools = fetchToolsByTransport(normalizedUrl, type, headers);
 			String displayName = getString(cfg, "name");
 			String description = getString(cfg, "description");
-			upsertServer(serverId, displayName, description, activeValue, "sse", normalizedUrl, headers, tools);
+			upsertServer(serverId, displayName, description, activeValue, type, normalizedUrl, headers, tools);
 		}
 
 		// 更新后重新初始化
@@ -333,8 +339,17 @@ public class McpClientService {
 			throw new IllegalStateException("该MCP服务未记录此工具: url=" + url.trim() + ", tool=" + toolName.trim());
 		}
 
+		JsonObject server = getServerConfig(url.trim());
+		String transportType = normalizeTransportType(getString(server, "type"));
 		JsonObject argsObj = parseArgsObject(toolArguments);
-		return callToolShortLived(url.trim(), toolName.trim(), argsObj, headersByUrl.get(url.trim()));
+		return callToolByTransport(url.trim(), transportType, toolName.trim(), argsObj, headersByUrl.get(url.trim()));
+	}
+
+	private JsonObject callToolByTransport(String url, String transportType, String toolName, JsonObject args, JsonObject headers) throws Exception {
+		if (isStreamableTransport(transportType)) {
+			return callToolStreamableHttp(url, toolName, args, headers);
+		}
+		return callToolShortLived(url, toolName, args, headers);
 	}
 	
 	private JsonObject callToolShortLived(String sseUrl, String toolName, JsonObject args, JsonObject headers) throws Exception {
@@ -485,6 +500,93 @@ public class McpClientService {
 		throw new IOException("未收到 tools/list 响应");
 	}
 
+	private JsonElement fetchToolsByTransport(String url, String transportType, JsonObject headers) throws Exception {
+		if (isStreamableTransport(transportType)) {
+			return fetchToolsFromStreamableHttp(url, headers);
+		}
+		return fetchToolsFromSse(url, headers);
+	}
+
+	private JsonElement fetchToolsFromStreamableHttp(String url, JsonObject headers) throws Exception {
+		String sessionId = null;
+		try {
+			sessionId = initializeStreamableSession(url, headers);
+			JsonObject listTools = new JsonObject();
+			listTools.addProperty("jsonrpc", JSONRPC_VERSION);
+			listTools.addProperty("id", 2);
+			listTools.addProperty("method", "tools/list");
+			JsonRpcHttpResponse response = sendJsonRpcPost(URI.create(url), listTools, headers, sessionId);
+			JsonObject body = response.body;
+			if (body != null && body.has("result") && body.get("result").isJsonObject()) {
+				JsonObject result = body.getAsJsonObject("result");
+				if (result.has("tools")) {
+					return result.get("tools");
+				}
+			}
+			throw new IOException("未收到 tools/list 响应: " + url);
+		} finally {
+			closeStreamableSession(url, headers, sessionId);
+		}
+	}
+
+	private JsonObject callToolStreamableHttp(String url, String toolName, JsonObject args, JsonObject headers) throws Exception {
+		String sessionId = null;
+		try {
+			sessionId = initializeStreamableSession(url, headers);
+			JsonObject call = new JsonObject();
+			call.addProperty("jsonrpc", JSONRPC_VERSION);
+			call.addProperty("id", 3);
+			call.addProperty("method", "tools/call");
+			JsonObject params = new JsonObject();
+			params.addProperty("name", toolName);
+			params.add("arguments", args == null ? new JsonObject() : args);
+			call.add("params", params);
+			JsonRpcHttpResponse response = sendJsonRpcPost(URI.create(url), call, headers, sessionId);
+			if (response.body != null && response.body.size() > 0) {
+				return response.body;
+			}
+			throw new IOException("未收到 tools/call 响应: " + url);
+		} finally {
+			closeStreamableSession(url, headers, sessionId);
+		}
+	}
+
+	private String initializeStreamableSession(String url, JsonObject headers) throws IOException {
+		URI uri = URI.create(url);
+		JsonObject initMsg = new JsonObject();
+		initMsg.addProperty("jsonrpc", JSONRPC_VERSION);
+		initMsg.addProperty("id", 1);
+		initMsg.addProperty("method", "initialize");
+		JsonObject initParams = new JsonObject();
+		initParams.addProperty("protocolVersion", MCP_PROTOCOL_VERSION);
+		JsonObject clientInfo = new JsonObject();
+		clientInfo.addProperty("name", "JavaMcpClient");
+		clientInfo.addProperty("version", "1.0.0");
+		initParams.add("clientInfo", clientInfo);
+		JsonObject capabilities = new JsonObject();
+		capabilities.add("roots", new JsonObject());
+		initParams.add("capabilities", capabilities);
+		initMsg.add("params", initParams);
+
+		JsonRpcHttpResponse initResponse = sendJsonRpcPost(uri, initMsg, headers, null);
+		String sessionId = initResponse.sessionId;
+		JsonObject initializedMsg = new JsonObject();
+		initializedMsg.addProperty("jsonrpc", JSONRPC_VERSION);
+		initializedMsg.addProperty("method", "notifications/initialized");
+		sendJsonRpcPost(uri, initializedMsg, headers, sessionId);
+		return sessionId;
+	}
+
+	private void closeStreamableSession(String url, JsonObject headers, String sessionId) {
+		if (sessionId == null || sessionId.isBlank()) {
+			return;
+		}
+		try {
+			sendDelete(URI.create(url), headers, sessionId);
+		} catch (Exception ignore) {
+		}
+	}
+
 	/**
 	 * 创建到 SSE 服务器的 HTTP 连接。
 	 */
@@ -593,7 +695,7 @@ public class McpClientService {
 		if (isActive != null) {
 			server.addProperty("isActive", isActive.booleanValue());
 		}
-		server.addProperty("type", type);
+		server.addProperty("type", normalizeTransportType(type));
 		server.addProperty("url", normalizedUrl);
 		server.addProperty("savedAt", System.currentTimeMillis());
 		if (headers != null && headers.size() > 0) {
@@ -696,10 +798,20 @@ public class McpClientService {
 	}
 
 	private void sendPost(URI uri, JsonObject json, JsonObject headers) throws IOException {
+		sendJsonRpcPost(uri, json, headers, null);
+	}
+
+	private JsonRpcHttpResponse sendJsonRpcPost(URI uri, JsonObject json, JsonObject headers, String sessionId) throws IOException {
 		HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
 		conn.setRequestMethod("POST");
+		conn.setConnectTimeout(DEFAULT_READY_TIMEOUT_SECONDS * 1000);
+		conn.setReadTimeout(DEFAULT_CALL_TIMEOUT_SECONDS * 1000);
 		conn.setRequestProperty("Content-Type", "application/json");
-		conn.setRequestProperty("User-Agent", "JavaMcpClient");
+		conn.setRequestProperty(HEADER_ACCEPT, "application/json, text/event-stream");
+		conn.setRequestProperty(HEADER_USER_AGENT, "JavaMcpClient");
+		if (sessionId != null && !sessionId.isBlank()) {
+			conn.setRequestProperty(SESSION_HEADER, sessionId);
+		}
 		applyResolvedHeaders(conn, headers);
 		conn.setDoOutput(true);
 
@@ -708,10 +820,41 @@ public class McpClientService {
 			os.write(input, 0, input.length);
 		}
 
-		int code = conn.getResponseCode();
-		InputStream stream = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
-		readAll(stream);
-		conn.disconnect();
+		try {
+			int code = conn.getResponseCode();
+			String responseSessionId = conn.getHeaderField(SESSION_HEADER);
+			InputStream stream = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+			String body = readAll(stream);
+			if (code < 200 || code >= 300) {
+				throw new IOException("MCP请求失败，状态码=" + code + ", body=" + (body == null ? "" : body));
+			}
+			return new JsonRpcHttpResponse(code, responseSessionId, parseObject(body));
+		} finally {
+			conn.disconnect();
+		}
+	}
+
+	private void sendDelete(URI uri, JsonObject headers, String sessionId) throws IOException {
+		HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
+		conn.setRequestMethod("DELETE");
+		conn.setConnectTimeout(DEFAULT_READY_TIMEOUT_SECONDS * 1000);
+		conn.setReadTimeout(DEFAULT_READY_TIMEOUT_SECONDS * 1000);
+		conn.setRequestProperty(HEADER_ACCEPT, "application/json");
+		conn.setRequestProperty(HEADER_USER_AGENT, "JavaMcpClient");
+		if (sessionId != null && !sessionId.isBlank()) {
+			conn.setRequestProperty(SESSION_HEADER, sessionId);
+		}
+		applyResolvedHeaders(conn, headers);
+		try {
+			int code = conn.getResponseCode();
+			if (code < 200 || code >= 300) {
+				String body = readAll(conn.getErrorStream());
+				throw new IOException("MCP会话关闭失败，状态码=" + code + ", body=" + (body == null ? "" : body));
+			}
+			readAll(conn.getInputStream());
+		} finally {
+			conn.disconnect();
+		}
 	}
 
 	private static String readAll(InputStream is) throws IOException {
@@ -966,6 +1109,18 @@ public class McpClientService {
 		return findToolInfoInServer(servers.getAsJsonObject(url), toolName);
 	}
 
+	private JsonObject getServerConfig(String url) throws IOException {
+		if (url == null || url.isBlank()) {
+			return null;
+		}
+		JsonObject registry = loadRegistry();
+		JsonObject servers = registry.getAsJsonObject("servers");
+		if (servers == null || !servers.has(url) || !servers.get(url).isJsonObject()) {
+			return null;
+		}
+		return servers.getAsJsonObject(url);
+	}
+
 	/**
 	 * 在给定的服务器 JSON 对象中查找指定名称的工具。
 	 */
@@ -993,5 +1148,23 @@ public class McpClientService {
 			}
 		}
 		return null;
+	}
+
+	private static boolean isStreamableTransport(String type) {
+		return TRANSPORT_STREAMABLE_HTTP.equals(normalizeTransportType(type));
+	}
+
+	private static String normalizeTransportType(String type) {
+		if (type == null || type.isBlank()) {
+			return TRANSPORT_SSE;
+		}
+		String normalized = type.trim().toLowerCase(Locale.ROOT);
+		if ("streamable".equals(normalized) || "streamable_http".equals(normalized) || "streamable-http".equals(normalized)) {
+			return TRANSPORT_STREAMABLE_HTTP;
+		}
+		if ("sse".equals(normalized)) {
+			return TRANSPORT_SSE;
+		}
+		return normalized;
 	}
 }
