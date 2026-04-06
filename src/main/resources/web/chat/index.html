@@ -165,7 +165,7 @@
                 <div class="settings-field-header">
                   <label for="settingsConversationAssistantSelect">当前会话使用的助手</label>
                 </div>
-                <p class="settings-field-desc">切换后，本会话会立即改用所选助手的模型、提示词和采样参数</p>
+                <p class="settings-field-desc">切换后，本会话会立即改用所选助手的提示词和采样参数，模型选择保持全局不变</p>
                 <select id="settingsConversationAssistantSelect" class="drawer-input" aria-label="设置面板中的当前会话助手"></select>
               </div>
               <div class="settings-field">
@@ -1271,7 +1271,7 @@
       if (value && !Array.from(els.modelSelect.options).some(option => option.value === value)) {
         const option = document.createElement('option');
         option.value = value;
-        option.textContent = value + ' (当前助手)';
+        option.textContent = value + ' (当前模型)';
         option.dataset.tempModel = 'true';
         els.modelSelect.insertBefore(option, els.modelSelect.firstChild);
       }
@@ -1280,7 +1280,6 @@
 
     function syncRuntimeStateFromCurrentAssistant() {
       const assistant = getCurrentAssistant();
-      state.model = assistant?.model || '';
       state.temperature = assistant?.temperature || '';
       state.maxTokens = assistant?.maxTokens || '';
       state.topP = assistant?.topP || '';
@@ -1306,7 +1305,6 @@
       if (!state.privacyMode) {
         assistant.name = normalizeAssistantName(els.assistantNameInput?.value, assistant.name);
       }
-      assistant.model = state.model;
       assistant.temperature = state.temperature;
       assistant.maxTokens = state.maxTokens;
       assistant.topP = state.topP;
@@ -1375,8 +1373,8 @@
         ? message.model.trim()
         : typeof fallbackModel === 'string' && fallbackModel.trim()
           ? fallbackModel.trim()
-          : typeof getCurrentAssistant()?.model === 'string' && getCurrentAssistant().model.trim()
-            ? getCurrentAssistant().model.trim()
+          : typeof state.model === 'string' && state.model.trim()
+            ? state.model.trim()
             : '模型';
       return modelName;
     }
@@ -1422,8 +1420,14 @@
         return '';
       }
       const parts = [];
+      const totalTokens = normalized.prompt_n !== undefined || normalized.predicted_n !== undefined
+        ? (normalized.prompt_n ?? 0) + (normalized.predicted_n ?? 0)
+        : null;
       if (normalized.prompt_ms !== undefined) {
         parts.push('首字延迟 ' + formatTimingValue(normalized.prompt_ms, 3) + ' ms');
+      }
+      if (totalTokens !== null) {
+        parts.push('累计 ' + formatTimingValue(totalTokens, 0) + ' token');
       }
       if (normalized.predicted_per_second !== undefined) {
         parts.push('速度 ' + formatTimingValue(normalized.predicted_per_second, 2) + ' token/s');
@@ -1510,6 +1514,11 @@
         model: typeof response?.model === 'string' ? response.model : typeof fallback.model === 'string' ? fallback.model : '',
         timings: normalizedTimings,
         performanceText,
+        isStreaming: typeof response?.isStreaming === 'boolean'
+          ? response.isStreaming
+          : typeof fallback.isStreaming === 'boolean'
+            ? fallback.isStreaming
+            : false,
         reasoning: typeof response?.reasoning === 'string' ? response.reasoning : typeof fallback.reasoning === 'string' ? fallback.reasoning : '',
         time: typeof response?.time === 'string' ? response.time : typeof fallback.time === 'string' ? fallback.time : nowTime(),
         reasoningCollapsed: typeof response?.reasoningCollapsed === 'boolean'
@@ -1558,6 +1567,7 @@
         model: activeResponse.model,
         timings: activeResponse.timings,
         performanceText: activeResponse.performanceText,
+        isStreaming: !!activeResponse.isStreaming,
         reasoning: activeResponse.reasoning,
         time: activeResponse.time,
         reasoningCollapsed: activeResponse.reasoningCollapsed,
@@ -1593,6 +1603,7 @@
       message.model = normalized.model;
       message.timings = normalized.timings;
       message.performanceText = normalized.performanceText;
+      message.isStreaming = !!normalized.isStreaming;
       message.reasoning = normalized.reasoning;
       message.time = normalized.time;
       message.reasoningCollapsed = normalized.reasoningCollapsed;
@@ -1605,6 +1616,7 @@
         model: typeof extra.model === 'string' ? extra.model : '',
         timings: normalizeTimings(extra.timings),
         performanceText: typeof extra.performanceText === 'string' ? extra.performanceText : '',
+        isStreaming: !!extra.isStreaming,
         reasoning: typeof extra.reasoning === 'string' ? extra.reasoning : '',
         time: typeof extra.time === 'string' ? extra.time : nowTime(),
         reasoningCollapsed: typeof extra.reasoningCollapsed === 'boolean' ? extra.reasoningCollapsed : true
@@ -1613,6 +1625,9 @@
 
     function getAssistantPerformanceText(message) {
       if (!message || message.role !== 'assistant') {
+        return '';
+      }
+      if (message.isStreaming) {
         return '';
       }
       if (message.timings) {
@@ -2079,6 +2094,7 @@
 
     function buildPersistedState() {
       return {
+        model: state.model,
         sidebarCollapsed: state.sidebarCollapsed,
         search: state.search,
         privacyMode: state.privacyMode,
@@ -2117,6 +2133,13 @@
                 : []
             }))
         : [];
+      state.model = typeof saved?.model === 'string'
+        ? saved.model
+        : typeof getCurrentAssistant()?.model === 'string' && getCurrentAssistant().model.trim()
+          ? getCurrentAssistant().model.trim()
+          : typeof getFallbackAssistant()?.model === 'string'
+            ? getFallbackAssistant().model
+            : '';
     }
 
     async function writeStateToServer(payload, options = {}) {
@@ -2808,6 +2831,38 @@
       }
     }
 
+    function setAssistantResponseStreaming(index, isStreaming) {
+      const conversation = getCurrentConversation();
+      const message = conversation?.messages?.[index];
+      if (!message || message.role !== 'assistant') {
+        return;
+      }
+      syncAssistantMessageState(message);
+      const activeResponse = getActiveAssistantResponse(message);
+      if (!activeResponse) {
+        return;
+      }
+      const nextStreaming = !!isStreaming;
+      if (activeResponse.isStreaming === nextStreaming && !!message.isStreaming === nextStreaming) {
+        return;
+      }
+      activeResponse.isStreaming = nextStreaming;
+      syncAssistantMessageState(message);
+      conversation.updatedAt = Date.now();
+      const article = els.messages.querySelector('article[data-index="' + index + '"]');
+      if (article) {
+        const updated = updateAssistantMessageElement(article, message, index);
+        if (!updated) {
+          renderMessages();
+          return;
+        }
+        updateMessageActionStates();
+        scrollChatToBottom();
+        return;
+      }
+      renderMessages();
+    }
+
     function updateLastAssistantMessage(content, reasoning, model, timings, targetIndex) {
       const conversation = getCurrentConversation();
       if (!conversation) {
@@ -3053,7 +3108,7 @@
         return;
       }
       syncRuntimeStateFromCurrentAssistant();
-      if (!getCurrentAssistant()?.model) {
+      if (!state.model) {
         updateStatus('error', '请先选择模型', '未选择模型');
         return;
       }
@@ -3065,7 +3120,7 @@
       updateMessageActionStates();
       let historyMessages = Array.isArray(options.historyMessages) ? options.historyMessages : null;
       let nextAssistantIndex = Number.isInteger(options.targetAssistantIndex) ? options.targetAssistantIndex : null;
-      let requestModel = getCurrentAssistant()?.model || state.model;
+      let requestModel = state.model;
       let currentAssistantIndex = nextAssistantIndex;
       let remainingToolRounds = Number.isFinite(Number(options.toolRoundsRemaining)) ? Number(options.toolRoundsRemaining) : 6;
 
@@ -3098,12 +3153,18 @@
             const conversation = getCurrentConversation();
             currentAssistantIndex = conversation ? conversation.messages.length - 1 : null;
           }
+          if (Number.isInteger(currentAssistantIndex)) {
+            setAssistantResponseStreaming(currentAssistantIndex, true);
+          }
           let result;
           if (payload.stream && contentType.includes('text/event-stream')) {
             result = await consumeSse(response, currentAssistantIndex);
           } else {
             result = extractTextFromJson(await response.json());
             updateLastAssistantMessage(result.content || '', result.reasoning || '', result.model || requestModel, result.timings, currentAssistantIndex);
+          }
+          if (Number.isInteger(currentAssistantIndex)) {
+            setAssistantResponseStreaming(currentAssistantIndex, false);
           }
 
           if (Array.isArray(result.toolCalls) && result.toolCalls.length) {
@@ -3152,9 +3213,15 @@
         }
         if (error.name === 'AbortError') {
           updateLastAssistantMessage('响应已中断。', '', requestModel, null, assistantIndex);
+          if (Number.isInteger(assistantIndex)) {
+            setAssistantResponseStreaming(assistantIndex, false);
+          }
           updateStatus('error', '生成已停止', '已停止');
         } else {
           updateLastAssistantMessage('请求失败：' + (error.message || '未知错误'), '', requestModel, null, assistantIndex);
+          if (Number.isInteger(assistantIndex)) {
+            setAssistantResponseStreaming(assistantIndex, false);
+          }
           updateStatus('error', error.message || '请求失败', '请求失败');
           showToast('error', '请求失败');
         }
@@ -3189,7 +3256,8 @@
       }
       syncAssistantMessageState(message);
       message.responses.push(createAssistantResponseDraft({
-        model: getCurrentAssistant()?.model || message.model,
+        model: state.model || message.model,
+        isStreaming: true,
         time: nowTime()
       }));
       message.activeResponseIndex = message.responses.length - 1;
@@ -3344,7 +3412,7 @@
         }
       }
       const payload = {
-        model: assistant?.model || '',
+        model: state.model || '',
         messages,
         stream: !!assistant?.stream,
         enable_thinking: !!assistant?.enableThinking
@@ -3902,7 +3970,6 @@
       });
       els.modelSelect.addEventListener('change', () => {
         state.model = els.modelSelect.value;
-        syncCurrentAssistantFromRuntimeState();
         syncSettingsInputs();
         persistState();
       });
