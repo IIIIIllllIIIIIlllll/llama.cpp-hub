@@ -649,7 +649,43 @@
     }
 
     function normalizeQuotedEmphasis(text) {
-      return String(text ?? '');
+      const source = String(text ?? '');
+      const pattern = /(\*\*([^\n]+?)\*\*)|(\*([^\n]+?)\*)/g;
+      let result = '';
+      let cursor = 0;
+      let changed = false;
+      let match;
+
+      while ((match = pattern.exec(source)) !== null) {
+        const raw = match[0];
+        const inner = match[2] ?? match[4] ?? '';
+        const isStrong = !!match[1];
+        const start = match.index;
+        const end = start + raw.length;
+        const prevChar = start > 0 ? source[start - 1] : '';
+        const nextChar = end < source.length ? source[end] : '';
+        const hasBoundaryConflict = prevChar === '*' || nextChar === '*';
+        const hasOuterWhitespace = !inner || /^\s/.test(inner) || /\s$/.test(inner);
+        const hasNestedMarkdown = /[`[\]<>]/.test(inner) || /\[[^\]]*\]\([^)]*\)/.test(inner);
+
+        if (hasBoundaryConflict || hasOuterWhitespace || hasNestedMarkdown) {
+          continue;
+        }
+
+        result += source.slice(cursor, start);
+        result += isStrong
+          ? '<strong>' + escapeHtml(inner) + '</strong>'
+          : '<em>' + escapeHtml(inner) + '</em>';
+        cursor = end;
+        changed = true;
+      }
+
+      if (!changed) {
+        return source;
+      }
+
+      result += source.slice(cursor);
+      return result;
     }
 
     function protectMathSegments(text) {
