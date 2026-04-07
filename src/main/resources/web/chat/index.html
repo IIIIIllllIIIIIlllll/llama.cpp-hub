@@ -1409,9 +1409,25 @@
       return Object.keys(next).length ? next : null;
     }
 
+    function mergeTimings(...values) {
+      const next = {};
+      for (const value of values) {
+        const normalized = normalizeTimings(value);
+        if (!normalized) {
+          continue;
+        }
+        Object.assign(next, normalized);
+      }
+      return Object.keys(next).length ? next : null;
+    }
+
     function formatTimingValue(value, digits = 2) {
       const number = normalizeTimingNumber(value);
-      return number === null ? '' : number.toFixed(digits).replace(/\.?0+$/, '');
+      if (number === null) {
+        return '';
+      }
+      const fixed = number.toFixed(digits);
+      return digits > 0 ? fixed.replace(/\.?0+$/, '') : fixed;
     }
 
     function formatAssistantPerformanceText(timings) {
@@ -1420,8 +1436,8 @@
         return '';
       }
       const parts = [];
-      const totalTokens = normalized.prompt_n !== undefined || normalized.predicted_n !== undefined
-        ? (normalized.prompt_n ?? 0) + (normalized.predicted_n ?? 0)
+      const totalTokens = normalized.cache_n !== undefined || normalized.prompt_n !== undefined || normalized.predicted_n !== undefined
+        ? (normalized.cache_n ?? 0) + (normalized.prompt_n ?? 0) + (normalized.predicted_n ?? 0)
         : null;
       if (normalized.prompt_ms !== undefined) {
         parts.push('首字延迟 ' + formatTimingValue(normalized.prompt_ms, 3) + ' ms');
@@ -3159,6 +3175,13 @@
           let result;
           if (payload.stream && contentType.includes('text/event-stream')) {
             result = await consumeSse(response, currentAssistantIndex);
+            updateLastAssistantMessage(
+              result.content || '',
+              result.reasoning || '',
+              result.model || requestModel,
+              result.timings,
+              currentAssistantIndex
+            );
           } else {
             result = extractTextFromJson(await response.json());
             updateLastAssistantMessage(result.content || '', result.reasoning || '', result.model || requestModel, result.timings, currentAssistantIndex);
@@ -3538,7 +3561,7 @@
         }
         const extractedTimings = normalizeTimings(json?.timings);
         if (extractedTimings) {
-          timings = extractedTimings;
+          timings = mergeTimings(timings, extractedTimings);
         }
         const choice = Array.isArray(json.choices) ? json.choices[0] : null;
         const delta = choice?.delta || {};
