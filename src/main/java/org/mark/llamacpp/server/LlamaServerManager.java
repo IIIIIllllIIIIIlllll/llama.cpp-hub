@@ -1564,6 +1564,13 @@ public class LlamaServerManager {
 	 */
 	public List<String> handleListDevices(String llamaBinPath) {
 		List<String> list = new ArrayList<>(8);
+		// TEMP: 固定返回 4 张同型号 GPU，便于验证前端是否会错误合并同名设备。
+		//list.add("CUDA0: NVIDIA GeForce RTX 4090 (24111 MiB, 23718 MiB free)");
+		//list.add("CUDA1: NVIDIA GeForce RTX 4090 (24111 MiB, 23718 MiB free)");
+		//list.add("CUDA2: NVIDIA GeForce RTX 4090 (24111 MiB, 23718 MiB free)");
+		//list.add("CUDA3: NVIDIA GeForce RTX 4090 (24111 MiB, 23718 MiB free)");
+		//if(true)
+			//return list;
 		
 		String executableName = "llama-bench";
 		// 拼接完整命令路径

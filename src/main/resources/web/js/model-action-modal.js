@@ -1413,8 +1413,13 @@ function renderMainGpuSelect(devices, selectedKeys) {
 function deviceKeyFromLabel(label) {
     if (label === null || label === undefined) return '';
     const s = String(label).trim();
-    const match = s.match(/^([^\s:\-]+)/);
-    return match ? match[1].toLowerCase() : s.toLowerCase();
+    if (!s) return '';
+    const colonIndex = s.indexOf(':');
+    if (colonIndex > 0) {
+        const explicitKey = s.slice(0, colonIndex).trim();
+        if (explicitKey) return explicitKey.toLowerCase();
+    }
+    return s.toLowerCase();
 }
 
 function deviceMatchesSelection(deviceLabel, selectedEntries) {
@@ -1428,8 +1433,7 @@ function deviceMatchesSelection(deviceLabel, selectedEntries) {
         const s = String(raw).trim().toLowerCase();
         if (!s || s === 'all' || s === '-1') continue;
         if (s === key) return true;
-        if (labelLower.startsWith(s)) return true;
-        if (key && s.startsWith(key)) return true;
+        if (s === labelLower) return true;
     }
     return false;
 }
@@ -1481,6 +1485,8 @@ function syncMainGpuSelectWithChecklist() {
 function loadDeviceList() {
     const modal = getLoadModelModal();
     const list = findById(modal, 'deviceChecklist');
+    const requestToken = (window.__loadDeviceListRequestToken || 0) + 1;
+    window.__loadDeviceListRequestToken = requestToken;
     const allowReadFromChecklist = !window.__loadModelSelectionFromConfig;
     if (allowReadFromChecklist && list && list.querySelector('input[type="checkbox"][data-device-key]')) {
         updateSelectedDevicesCacheFromChecklist();
@@ -1501,6 +1507,9 @@ function loadDeviceList() {
     fetch(`/api/model/device/list?llamaBinPath=${encodeURIComponent(llamaBinPath)}`)
         .then(response => response.json())
         .then(data => {
+            if (window.__loadDeviceListRequestToken !== requestToken) {
+                return;
+            }
             if (!list) return;
             if (!(data && data.success && data.data && Array.isArray(data.data.devices))) {
                 list.innerHTML = `<div class="settings-empty">${t('common.devices_load_failed', '获取设备列表失败')}</div>`;
@@ -1536,6 +1545,9 @@ function loadDeviceList() {
             syncMainGpuSelectWithChecklist();
         })
         .catch(error => {
+            if (window.__loadDeviceListRequestToken !== requestToken) {
+                return;
+            }
             if (list) list.innerHTML = `<div class="settings-empty">${t('common.devices_load_failed', '获取设备列表失败')}：${escapeHtml(error && error.message ? error.message : '')}</div>`;
             renderMainGpuSelect([], window.__loadModelSelectedDevices || []);
         });
