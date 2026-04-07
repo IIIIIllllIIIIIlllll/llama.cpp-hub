@@ -649,10 +649,7 @@
     }
 
     function normalizeQuotedEmphasis(text) {
-      const source = String(text ?? '');
-      return source
-        .replace(/\*\*([^\p{L}\p{N}\s][^*\n]+?[^\p{L}\p{N}\s])\*\*/gu, '<strong>$1</strong>')
-        .replace(/(^|[^\*])\*([^\p{L}\p{N}\s][^*\n]+?[^\p{L}\p{N}\s])\*(?!\*)/gu, '$1<em>$2</em>');
+      return String(text ?? '');
     }
 
     function protectMathSegments(text) {
