@@ -20,6 +20,7 @@ import org.mark.test.mcp.tools.experience.ExperienceListTool;
 import org.mark.test.mcp.tools.experience.ExperienceLogTool;
 import org.mark.test.mcp.tools.experience.ExperienceMatchTool;
 import org.mark.test.mcp.tools.file.WriteTextFileTool;
+import org.mark.test.mcp.tools.others.GetTimeTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,6 +104,8 @@ public class DefaultMcpServiceImpl implements McpProtocolHandler {
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceListTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceGetTool());
 		this.registerTool(DEFAULT_SERVICE_KEY, new ExperienceMatchTool());
+		
+		this.registerTool(DEFAULT_SERVICE_KEY, new GetTimeTool());
 		
 		// 写本地文件的
 		this.registerTool(FILE_SERVICE_KEY, new WriteTextFileTool());
