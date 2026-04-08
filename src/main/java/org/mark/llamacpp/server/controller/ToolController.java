@@ -2,9 +2,6 @@ package org.mark.llamacpp.server.controller;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -12,8 +9,6 @@ import java.util.concurrent.Future;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.mcp.McpClientService;
-import org.mark.llamacpp.server.mcp.TimeServer;
-import org.mark.llamacpp.server.service.ToolExecutionService;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
@@ -34,14 +29,12 @@ import io.netty.util.CharsetUtil;
 public class ToolController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(ToolController.class);
-
-	/** 工具执行服务，用于处理内置工具（如网页搜索） */
-	private static final ToolExecutionService toolExecutionService = new ToolExecutionService();
+				
 	/** MCP 客户端服务，用于管理 MCP 服务器和调用 MCP 工具 */
 	private static final McpClientService mcpClientService = McpClientService.getInstance();
 	private static final ExecutorService ioExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
-	/** 工具执行 API 路径 */
+
 	private static final String PATH_TOOL_EXECUTE = "/api/tools/execute";
 	/** 添加 MCP 服务 API 路径 */
 	private static final String PATH_MCP_ADD = "/api/mcp/add";
@@ -52,18 +45,6 @@ public class ToolController implements BaseController {
 	/** 修改 MCP 服务名称 API 路径 */
 	private static final String PATH_MCP_RENAME = "/api/mcp/rename";
 
-	private static final String TOOL_BUILTIN_WEB_SEARCH = "builtin_web_search";
-	private static final String TOOL_GET_CURRENT_TIME = "get_current_time";
-	private static final String TOOL_CONVERT_TIME = "convert_time";
-	private static final Map<String, Function<BuiltinToolRequest, String>> SPECIAL_TOOL_EXECUTORS = Map.of(
-			TOOL_BUILTIN_WEB_SEARCH, ToolController::executeBuiltinWebSearchToText,
-			TOOL_GET_CURRENT_TIME, ToolController::executeTimeToolToText,
-			TOOL_CONVERT_TIME, ToolController::executeTimeToolToText
-	);
-	private static final Set<String> SPECIAL_TOOL_NAMES = SPECIAL_TOOL_EXECUTORS.keySet();
-
-	private record BuiltinToolRequest(String toolName, String toolArguments, String preparedQuery) {}
-	
 	/**
 	 * 实现 BaseController 的 handleRequest 方法，分发不同的工具相关请求。
 	 * 
@@ -96,7 +77,7 @@ public class ToolController implements BaseController {
 	}
 
 	/**
-	 * 处理工具执行请求。支持内置工具和 MCP 工具。
+	 * 处理工具执行请求。支持 MCP 工具。
 	 */
 	private void handleToolExecute(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		if (handleCorsOptions(ctx, request)) {
@@ -129,13 +110,7 @@ public class ToolController implements BaseController {
 
 			String toolArguments = extractToolArguments(obj);
 
-			// 5. 特殊处理内置工具
-			if (isSpecialBuiltinTool(toolName)) {
-				dispatchSpecialBuiltinTool(ctx, toolName, toolArguments, preparedQuery);
-				return;
-			}
-
-			// 6. 处理 MCP 工具调用
+			// 5. 处理 MCP 工具调用
 			String url = extractMcpUrl(obj);
 
 			String tn = toolName;
@@ -163,55 +138,11 @@ public class ToolController implements BaseController {
 		}
 	}
 
-	private static boolean isSpecialBuiltinTool(String toolName) {
-		return toolName != null && SPECIAL_TOOL_NAMES.contains(toolName);
-	}
-
-	private static void dispatchSpecialBuiltinTool(ChannelHandlerContext ctx, String toolName, String toolArguments, String preparedQuery) {
-		String tn = toolName;
-		String ta = toolArguments;
-		String pq = preparedQuery;
-		Future<?> fut = ioExecutor.submit(() -> {
-			try {
-				String out = executeSpecialBuiltinToolToText(tn, ta, pq);
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(contentData(out == null ? "" : out)));
-			} catch (Exception e) {
-				if (Thread.currentThread().isInterrupted() || e instanceof java.io.InterruptedIOException || e instanceof InterruptedException) {
-					return;
-				}
-				logger.info("执行工具失败", e);
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行工具失败: " + e.getMessage()));
-			}
-		});
-		ctx.channel().closeFuture().addListener(ignored -> fut.cancel(true));
-	}
-
-	private static String executeSpecialBuiltinToolToText(String toolName, String toolArguments, String preparedQuery) {
-		String tn = trimToNull(toolName);
-		if (tn == null) {
-			throw new IllegalArgumentException("toolName不能为空");
-		}
-		Function<BuiltinToolRequest, String> executor = SPECIAL_TOOL_EXECUTORS.get(tn);
-		if (executor == null) {
-			throw new IllegalStateException("未找到内置工具执行器: " + tn);
-		}
-		return executor.apply(new BuiltinToolRequest(tn, toolArguments, preparedQuery));
-	}
-
-	private static String executeBuiltinWebSearchToText(BuiltinToolRequest req) {
-		Objects.requireNonNull(req);
-		return toolExecutionService.executeToText(req.toolName(), req.toolArguments(), req.preparedQuery());
-	}
-
-	private static String executeTimeToolToText(BuiltinToolRequest req) {
-		Objects.requireNonNull(req);
-		return TimeServer.executeToText(req.toolName(), req.toolArguments());
-	}
-
 	/**
 	 * 处理添加 MCP 服务的请求。
 	 */
 	private void handleMcpAdd(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+
 		if (handleCorsOptions(ctx, request)) {
 			return;
 		}

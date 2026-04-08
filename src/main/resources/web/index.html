@@ -478,21 +478,6 @@
                             </div>
                         </div>
 
-                        <div class="model-list-container" style="margin-top: 1rem;">
-                            <div class="model-list-header">
-                                <h2 data-i18n="page.settings.search.title">page.settings.search.title</h2>
-                            </div>
-                            <div class="settings-panel-body">
-                                <div class="form-group" style="margin: 0;">
-                                    <label class="form-label" for="zhipuSearchApiKeyInput" data-i18n="page.settings.search.zhipu_api_key">page.settings.search.zhipu_api_key</label>
-                                    <input type="password" class="form-control" id="zhipuSearchApiKeyInput" placeholder="page.settings.search.zhipu_api_key_placeholder" data-i18n="page.settings.search.zhipu_api_key_placeholder" data-i18n-attr="placeholder">
-                                    <small class="form-text" data-i18n="page.settings.search.zhipu_desc">page.settings.search.zhipu_desc</small>
-                                </div>
-                                <div class="settings-actions-row">
-                                    <button class="btn btn-primary" type="button" id="saveZhipuSearchApiKeyBtn" data-i18n="common.save">common.save</button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="settings-panel" data-tab-panel="stress" style="display: none;">
@@ -2080,26 +2065,6 @@
             }
         }
 
-        async function saveZhipuSearchApiKey() {
-            const el = document.getElementById('zhipuSearchApiKeyInput');
-            const apiKey = el ? (el.value || '').trim() : '';
-            try {
-                const response = await fetch('/api/search/setting', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ zhipu_search_apikey: apiKey })
-                });
-                const data = await response.json();
-                if (!data || !data.success) {
-                    showToast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
-                    return;
-                }
-                showToast(t('toast.success', '成功'), t('toast.saved', '已保存'), 'success');
-                if (el) el.value = '';
-            } catch (e) {
-                showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
-            }
-        }
 
         async function setMcpServerEnabled(enable, toggleEl) {
             const prev = !enable;
