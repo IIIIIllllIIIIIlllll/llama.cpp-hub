@@ -832,6 +832,12 @@
       }
     }
 
+    function fixEmphasisSpacing(text) {
+      text = text.replace(/(\*\*[^*\n]+?\*\*)(?=[^\s*])/g, '$1 ');
+      text = text.replace(/([^\s*])(\*\*[^*\n]+?\*\*)/g, '$1 $2');
+      return text;
+    }
+
     function renderMarkdown(text) {
       const source = String(text ?? '');
       if (!window.marked || typeof window.marked.parse !== 'function') {
@@ -840,7 +846,7 @@
       const protectedMath = protectMathSegments(source);
       let rendered = '';
       try {
-        rendered = window.marked.parse(protectedMath.text, {
+        rendered = window.marked.parse(fixEmphasisSpacing(protectedMath.text), {
           gfm: true,
           breaks: true,
           mangle: false,
