@@ -71,12 +71,10 @@ public class McpClientService {
 	private final Map<String, JsonObject> headersByUrl = new ConcurrentHashMap<>();
 
 	private static final class JsonRpcHttpResponse {
-		private final int statusCode;
 		private final String sessionId;
 		private final JsonObject body;
 		
 		private JsonRpcHttpResponse(int statusCode, String sessionId, JsonObject body) {
-			this.statusCode = statusCode;
 			this.sessionId = sessionId;
 			this.body = body;
 		}
