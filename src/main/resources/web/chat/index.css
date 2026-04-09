@@ -752,6 +752,54 @@ button { cursor: pointer; }
   text-overflow: ellipsis;
 }
 
+/* ── Image lightbox ── */
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, #000 75%, transparent);
+  backdrop-filter: blur(4px);
+  padding: 24px;
+}
+
+.image-lightbox.open {
+  display: flex;
+}
+
+.image-lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  user-select: none;
+}
+
+.image-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease;
+  line-height: 1;
+}
+
+.image-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* ── Message actions ── */
 .message-actions {
   display: flex;
@@ -817,7 +865,8 @@ button { cursor: pointer; }
 
 .message-edit-input {
   width: 100%;
-  min-height: 100px;
+  min-height: 80px;
+  max-height: 60vh;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -827,7 +876,9 @@ button { cursor: pointer; }
   color: var(--fg);
   line-height: 1.6;
   font-size: 14px;
+  font-family: inherit;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow-y: auto;
 }
 
 .message-edit-input:focus {
@@ -840,6 +891,12 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.message-edit-hint {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* ── Reasoning ── */
@@ -1025,6 +1082,54 @@ button { cursor: pointer; }
   background: var(--muted-bg);
   border: 1px solid var(--border);
   font-size: 0.88em;
+}
+
+/* ── Code copy button ── */
+.code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--bg);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.bubble pre:hover .code-copy-btn,
+.reasoning-body pre:hover .code-copy-btn {
+  opacity: 1;
+}
+
+.code-copy-btn:hover {
+  background: var(--secondary);
+  color: var(--fg);
+}
+
+.code-copy-btn.copied {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.code-copy-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+pre:has(code[data-lang]) .code-copy-btn {
+  top: 6px;
 }
 
 .bubble hr,

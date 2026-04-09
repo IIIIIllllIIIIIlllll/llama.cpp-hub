@@ -349,6 +349,10 @@
       </div>
     </div>
   </div>
+  <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-label="图片预览">
+    <button class="image-lightbox-close" id="imageLightboxClose" type="button" aria-label="关闭">&times;</button>
+    <img class="image-lightbox-img" id="imageLightboxImg" src="" alt="预览">
+  </div>
   <script src="/js/marked.umd.js"></script>
   <script src="/js/highlight.min.js"></script>
   <script src="./chat-mcp.js"></script>
@@ -875,6 +879,31 @@
           window.hljs.highlightElement(block);
         }
       }
+      if (!isStreaming) {
+        const pres = target.querySelectorAll('pre');
+        for (const pre of pres) {
+          if (pre.querySelector('.code-copy-btn')) continue;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'code-copy-btn';
+          btn.setAttribute('aria-label', '复制代码');
+          btn.title = '复制代码';
+          btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M6 15V6a2 2 0 0 1 2-2h9"></path></svg>';
+          btn.addEventListener('click', () => {
+            const code = pre.querySelector('code');
+            const text = code ? code.textContent : pre.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+              btn.classList.add('copied');
+              btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>';
+              setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M6 15V6a2 2 0 0 1 2-2h9"></path></svg>';
+              }, 1500);
+            });
+          });
+          pre.appendChild(btn);
+        }
+      }
       if (!isStreaming && /[\\$]/.test(source)) {
         requestMathTypeset(target);
       }
@@ -1037,17 +1066,10 @@
     }
 
     function createMessageImageCard(image) {
-      const link = document.createElement('a');
-      link.className = 'message-image-link';
-      link.href = image.dataUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.style.width = '160px';
-      link.style.maxWidth = '160px';
-      link.style.minWidth = '160px';
-      link.style.overflow = 'hidden';
-      link.style.display = 'grid';
-      link.style.gridTemplateRows = '160px auto';
+      const card = document.createElement('div');
+      card.className = 'message-image-link';
+      card.style.cursor = 'pointer';
+      card.dataset.imagePreview = image.dataUrl;
 
       const preview = document.createElement('img');
       preview.className = 'message-image';
@@ -1057,21 +1079,32 @@
       preview.height = 160;
       preview.loading = 'lazy';
       preview.decoding = 'async';
-      preview.style.width = '160px';
-      preview.style.height = '160px';
-      preview.style.maxWidth = '160px';
-      preview.style.maxHeight = '160px';
-      preview.style.objectFit = 'cover';
-      preview.style.display = 'block';
 
       const caption = document.createElement('span');
       caption.className = 'message-image-caption';
       caption.textContent = image.name || '图片';
-      caption.style.maxWidth = '160px';
 
-      link.appendChild(preview);
-      link.appendChild(caption);
-      return link;
+      card.appendChild(preview);
+      card.appendChild(caption);
+      return card;
+    }
+
+    function openImageLightbox(src) {
+      const backdrop = document.getElementById('imageLightbox');
+      const img = document.getElementById('imageLightboxImg');
+      if (!backdrop || !img) return;
+      img.src = src;
+      backdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeImageLightbox() {
+      const backdrop = document.getElementById('imageLightbox');
+      const img = document.getElementById('imageLightboxImg');
+      if (!backdrop) return;
+      backdrop.classList.remove('open');
+      document.body.style.overflow = '';
+      if (img) img.src = '';
     }
 
     function escapeAttribute(value) {
@@ -1085,6 +1118,12 @@
     function resizePromptInput() {
       els.promptInput.style.height = 'auto';
       els.promptInput.style.height = Math.min(els.promptInput.scrollHeight, 220) + 'px';
+    }
+
+    function autoResizeTextarea(textarea) {
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
     }
 
     function syncSendButtonState() {
@@ -2339,9 +2378,14 @@
         editInput.value = message.content || '';
         editInput.dataset.editInput = 'true';
         editInput.dataset.index = String(index);
+        editInput.addEventListener('input', () => autoResizeTextarea(editInput));
 
         const editActions = document.createElement('div');
         editActions.className = 'message-edit-actions';
+
+        const editHint = document.createElement('span');
+        editHint.className = 'message-edit-hint';
+        editHint.textContent = 'Ctrl+Enter 保存 · Esc 取消';
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
@@ -2357,6 +2401,7 @@
         saveBtn.dataset.index = String(index);
         saveBtn.textContent = '保存';
 
+        editActions.appendChild(editHint);
         editActions.appendChild(cancelBtn);
         editActions.appendChild(saveBtn);
         editWrap.appendChild(editInput);
@@ -2461,6 +2506,7 @@
       requestAnimationFrame(() => {
         const activeEditor = els.messages.querySelector('textarea[data-edit-input]');
         if (activeEditor) {
+          autoResizeTextarea(activeEditor);
           activeEditor.focus();
           activeEditor.setSelectionRange(activeEditor.value.length, activeEditor.value.length);
         }
@@ -3851,10 +3897,24 @@
       });
       window.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+          const lightbox = document.getElementById('imageLightbox');
+          if (lightbox?.classList.contains('open')) {
+            closeImageLightbox();
+            return;
+          }
+          if (state.editingMessageIndex !== null) {
+            cancelEditingMessage();
+            return;
+          }
           closeConversationMenu();
           setSidebarOpen(false);
           closeThinkingMenu();
           closeSettings();
+        }
+      });
+      document.getElementById('imageLightbox')?.addEventListener('click', event => {
+        if (event.target === event.currentTarget || event.target.id === 'imageLightboxClose') {
+          closeImageLightbox();
         }
       });
       window.addEventListener('click', event => {
@@ -3953,6 +4013,11 @@
         }
       });
       els.messages.addEventListener('click', event => {
+        const imageCard = event.target.closest('[data-image-preview]');
+        if (imageCard) {
+          openImageLightbox(imageCard.dataset.imagePreview);
+          return;
+        }
         const button = event.target.closest('button[data-reasoning-toggle]');
         if (button) {
           toggleReasoning(Number(button.dataset.index));
