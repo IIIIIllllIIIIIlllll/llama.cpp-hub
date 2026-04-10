@@ -556,7 +556,7 @@
   "fullName": "--split-mode",
   "abbreviation": "-sm",
   "type": "STRING",
-  "defaultValue": "none",
+  "defaultValue": "layer",
   "values": [
     "none",
     "layer",
