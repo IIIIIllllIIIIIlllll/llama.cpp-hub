@@ -678,6 +678,8 @@
   "param.server.reasoning_budget.desc": "--reasoning-budget: Controls the allowed amount of reasoning; -1 indicates an unlimited reasoning budget, or 0 indicates disabling thinking. Any other value specifies the maximum length of the reasoning chain, though this may not always be fully effective (default: -1).",
   "param.server.no_mmproj_offload.name": "no mmproj offload",
   "param.server.no_mmproj_offload.desc": "--no-mmproj-offload: Offload mmproj projection to CPU. You can enable this option when GPU VRAM is insufficient, but CPU image processing performance is typically inferior to that of the GPU.",
+  "param.server.ctx_checkpoints.name": "CTX Checkpoints",
+  "param.server.ctx_checkpoints.desc": "max number of context checkpoints to create per slot. If there is insufficient video memory (some models may have vram leak issues, such as Gemma-4, see issue #21690 in llama.cpp), please reduce this value or set it to 0. (default: 8)",
   "page.params.group.basic": "Basic Parameters",
   "page.params.group.sampling": "Sampling Parameters",
   "page.params.group.performance": "Performance & Cache",

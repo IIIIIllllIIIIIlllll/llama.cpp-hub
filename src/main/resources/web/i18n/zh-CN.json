@@ -678,6 +678,8 @@
   "param.server.reasoning_budget.desc": "--reasoning-budget：控制允许的思考量；-1 表示无限制思考预算，或 0 表示禁用思考，其它任意参数：思维链的最大长度，但是未必一定有效（默认：-1）。",
   "param.server.no_mmproj_offload.name": "禁用mmproj卸载",
   "param.server.no_mmproj_offload.desc": "--no-mmproj-offload：卸载mmproj投影到CPU，当GPU显存不足时，可以开启该选项，但是CPU处理图片的性能往往不如GPU。",
+  "param.server.ctx_checkpoints.name": "上下文检查点数量",
+  "param.server.ctx_checkpoints.desc": "每个插槽创建的最大上下文检查点数量，如果显存不足（某些模型可能有显存泄露的问题，如Gemma-4，见llama.cpp的issue：#21690 ），请减少该值或者设置为0。（默认值：8）",
   "page.params.group.basic": "基础参数",
   "page.params.group.sampling": "采样参数",
   "page.params.group.performance": "性能与缓存",

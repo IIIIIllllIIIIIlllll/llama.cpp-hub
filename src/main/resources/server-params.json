@@ -327,7 +327,7 @@
       "q5_1",
       "turbo3"
     ],
-    "sort": 21,
+    "sort": 22,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -351,7 +351,7 @@
       "q5_1",
       "turbo3"
     ],
-    "sort": 22,
+    "sort": 23,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -538,5 +538,17 @@
     "group": "page.params.group.multimodal",
     "groupOrder": 60,
     "groupCollapsed": true
+  },
+  {
+	"name": "param.server.ctx_checkpoints.name",
+	"fullName": "--ctx-checkpoints",
+	"abbreviation": "--ctx-checkpoints",
+	"type": "INTEGER",
+	"defaultValue": "8",
+	"description": "param.server.ctx_checkpoints.desc",
+	"sort": 21,
+	"group": "page.params.group.performance",
+	"groupOrder": 30,
+	"groupCollapsed": true
   }
 ]
