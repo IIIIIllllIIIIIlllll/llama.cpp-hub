@@ -2344,9 +2344,12 @@
       return false;
     }
 
-    async function ensureServerStateReadyForRequest() {
+    async function ensureServerStateReady(options = {}) {
+      const operationName = String(options?.operationName || '操作');
+      const showNetworkToast = options?.showNetworkToast !== false;
+      const showConflictToast = options?.showConflictToast !== false;
       if (!ensureStateReadyForOperation()) {
-        return false;
+        return { ok: false, reason: 'not_ready' };
       }
       try {
         const json = await fetchJson(EASY_CHAT_STATE_ENDPOINT, {
@@ -2359,23 +2362,27 @@
         const serverRevision = normalizeRevision(json?.data?.revision);
         if (serverRevision && stateRevision && serverRevision !== stateRevision) {
           updateStatus('error', '检测到会话已在其他页面更新，正在同步最新状态', '状态冲突');
-          showToast('error', '检测到会话状态变化，已先同步服务端数据，请重试发送');
+          if (showConflictToast) {
+            showToast('error', '检测到会话状态变化，已先同步服务端数据，请重试' + operationName);
+          }
           await loadState();
           renderConversationList();
           renderMessages();
           renderDraftImages();
           syncPrivacyModeButton();
           syncSendButtonState();
-          return false;
+          return { ok: false, reason: 'conflict' };
         }
         if (!stateRevision && serverRevision) {
           stateRevision = serverRevision;
         }
-        return true;
+        return { ok: true, reason: '' };
       } catch (error) {
-        updateStatus('error', '发送前状态校验失败：' + (error?.message || '网络错误'), '校验失败');
-        showToast('error', '发送前无法确认服务端状态，请检查网络后重试');
-        return false;
+        updateStatus('error', operationName + '前状态校验失败：' + (error?.message || '网络错误'), '校验失败');
+        if (showNetworkToast) {
+          showToast('error', operationName + '前无法确认服务端状态，请检查网络后重试');
+        }
+        return { ok: false, reason: 'network' };
       }
     }
 
@@ -2473,6 +2480,23 @@
       stateSaveInFlight = true;
       let saved = false;
       try {
+        const precheck = await ensureServerStateReady({
+          operationName: '保存',
+          showNetworkToast: options.showErrorToast !== false,
+          showConflictToast: options.showErrorToast !== false
+        });
+        if (!precheck.ok) {
+          if (precheck.reason === 'conflict') {
+            pendingStatePayload = null;
+            clearStateSaveRetryTimer();
+            updateStorageHint('检测到服务端状态变化，已同步最新状态，本地修改请重新操作后再保存');
+          } else {
+            pendingStatePayload = payload;
+            scheduleStateSaveRetry(typeof options.retryDelay === 'number' ? options.retryDelay : 2000);
+          }
+          return false;
+        }
+        pendingStatePayload = null;
         saved = await writeStateToServer(payload, options);
         clearStateSaveRetryTimer();
         return true;
@@ -3624,8 +3648,8 @@
         return;
       }
       if (!options?.preflightChecked) {
-        const preflightReady = await ensureServerStateReadyForRequest();
-        if (!preflightReady) {
+        const precheck = await ensureServerStateReady({ operationName: '发送请求' });
+        if (!precheck.ok) {
           return;
         }
       }
@@ -4201,8 +4225,8 @@
       if (!ensureStateReadyForOperation()) {
         return;
       }
-      const preflightReady = await ensureServerStateReadyForRequest();
-      if (!preflightReady) {
+      const precheck = await ensureServerStateReady({ operationName: '发送请求' });
+      if (!precheck.ok) {
         return;
       }
       if (state.isSending) {
