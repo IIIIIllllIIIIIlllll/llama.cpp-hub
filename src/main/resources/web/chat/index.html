@@ -366,6 +366,9 @@
     const CHAT_ENDPOINT = '/v1/chat/completions';
     const MODELS_ENDPOINT = '/v1/models';
     const EASY_CHAT_STATE_ENDPOINT = '/api/easy-chat/state';
+    const EASY_CHAT_STATE_REVISION_ENDPOINT = '/api/easy-chat/state/revision';
+    const EASY_CHAT_CONVERSATION_ENDPOINT = '/api/easy-chat/conversation';
+    const EASY_CHAT_SYNC_ENDPOINT = '/api/easy-chat/sync';
     const STATE_REVISION_CONFLICT_CODE = 'STATE_REVISION_CONFLICT';
     const STATE_LOAD_TIMEOUT_MS = 30000;
     const STATE_SAVE_TIMEOUT_MS = 20000;
@@ -380,6 +383,7 @@
     let stateRevision = '';
     let stateLoadedFromServer = false;
     let stateLoadInProgress = false;
+    let conversationLoadInProgress = false;
 
     const state = {
       model: '',
@@ -1472,6 +1476,84 @@
       return state.conversations.find(item => item.id === state.currentConversationId) || null;
     }
 
+    function isConversationLoaded(conversation) {
+      return !!conversation?.messagesLoaded;
+    }
+
+    function getConversationMessageCount(conversation) {
+      if (!conversation) {
+        return 0;
+      }
+      if (isConversationLoaded(conversation) && Array.isArray(conversation.messages)) {
+        return conversation.messages.length;
+      }
+      const count = Number(conversation.messageCount || 0);
+      return Number.isFinite(count) && count >= 0 ? count : 0;
+    }
+
+    function normalizeConversationSummary(item, fallbackAssistantId) {
+      const summary = item && typeof item === 'object' ? item : {};
+      const messages = Array.isArray(summary.messages)
+        ? summary.messages
+            .filter(message => message && typeof message.role === 'string')
+            .map(message => normalizeConversationMessage(message))
+        : [];
+      const messagesLoaded = Array.isArray(summary.messages);
+      return {
+        id: typeof summary.id === 'string' ? summary.id : makeId(),
+        title: typeof summary.title === 'string' ? normalizeConversationTitle(summary.title) : '新对话',
+        createdAt: Number(summary.createdAt || Date.now()),
+        updatedAt: Number(summary.updatedAt || Date.now()),
+        assistantId: typeof summary.assistantId === 'string' && getAssistantById(summary.assistantId) ? summary.assistantId : fallbackAssistantId,
+        messageCount: messagesLoaded ? messages.length : Math.max(0, Number(summary.messageCount || 0)),
+        messages,
+        messagesLoaded
+      };
+    }
+
+    function createConversationSummary(extra = {}) {
+      const assistant = getCurrentAssistant() || getFallbackAssistant();
+      const fallbackAssistantId = getFallbackAssistant()?.id || '';
+      const now = Date.now();
+      return normalizeConversationSummary({
+        id: typeof extra.id === 'string' && extra.id.trim() ? extra.id.trim() : makeId(),
+        title: typeof extra.title === 'string' ? extra.title : '新对话',
+        createdAt: Number(extra.createdAt || now),
+        updatedAt: Number(extra.updatedAt || now),
+        assistantId: typeof extra.assistantId === 'string' && extra.assistantId.trim()
+          ? extra.assistantId.trim()
+          : (assistant?.id || fallbackAssistantId),
+        messageCount: Number(extra.messageCount || 0),
+        messages: Array.isArray(extra.messages) ? extra.messages : []
+      }, fallbackAssistantId);
+    }
+
+    function setConversationLoadedMessages(conversation, messages, options = {}) {
+      if (!conversation) {
+        return null;
+      }
+      conversation.messages = Array.isArray(messages)
+        ? messages.map(item => normalizeConversationMessage(item))
+        : [];
+      conversation.messagesLoaded = true;
+      conversation.messageCount = conversation.messages.length;
+      if (options.touchUpdatedAt) {
+        conversation.updatedAt = Date.now();
+      }
+      return conversation;
+    }
+
+    function buildConversationSummaryPayload(conversation) {
+      return {
+        id: conversation?.id || makeId(),
+        title: typeof conversation?.title === 'string' ? normalizeConversationTitle(conversation.title) : '新对话',
+        createdAt: Number(conversation?.createdAt || Date.now()),
+        updatedAt: Number(conversation?.updatedAt || Date.now()),
+        assistantId: typeof conversation?.assistantId === 'string' ? conversation.assistantId : '',
+        messageCount: getConversationMessageCount(conversation)
+      };
+    }
+
     function getAssistantById(id) {
       return state.assistants.find(item => item.id === id) || null;
     }
@@ -1618,17 +1700,9 @@
     function ensureConversation() {
       ensureAssistants();
       if (!state.conversations.length) {
-        const assistant = getCurrentAssistant() || getFallbackAssistant();
-        const id = makeId();
-        state.conversations.push({
-          id,
-          title: '新对话',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          assistantId: assistant?.id || '',
-          messages: []
-        });
-        state.currentConversationId = id;
+        const conversation = createConversationSummary({ messages: [] });
+        state.conversations.push(conversation);
+        state.currentConversationId = conversation.id;
       }
       if (!getCurrentConversation()) {
         state.currentConversationId = state.conversations[0].id;
@@ -1638,6 +1712,13 @@
         if (!getAssistantById(conversation.assistantId)) {
           conversation.assistantId = fallbackAssistantId;
         }
+        if (!Array.isArray(conversation.messages)) {
+          conversation.messages = [];
+        }
+        if (typeof conversation.messagesLoaded !== 'boolean') {
+          conversation.messagesLoaded = false;
+        }
+        conversation.messageCount = getConversationMessageCount(conversation);
       }
     }
 
@@ -2254,9 +2335,7 @@
           Number(conversation?.updatedAt || 0),
           Number(conversation?.createdAt || 0)
         );
-        if (Array.isArray(conversation?.messages)) {
-          messageCount += conversation.messages.length;
-        }
+        messageCount += getConversationMessageCount(conversation);
       }
       return {
         latestUpdatedAt,
@@ -2287,14 +2366,31 @@
 
     function buildPersistedState() {
       return {
-        baseRevision: stateRevision,
         model: state.model,
         sidebarCollapsed: state.sidebarCollapsed,
         search: state.search,
         privacyMode: state.privacyMode,
         assistants: state.assistants,
-        conversations: state.conversations,
+        conversations: state.conversations.map(conversation => buildConversationSummaryPayload(conversation)),
         currentConversationId: state.currentConversationId
+      };
+    }
+
+    function buildSyncPayload() {
+      const currentConversation = getCurrentConversation();
+      return {
+        baseRevision: stateRevision,
+        state: buildPersistedState(),
+        currentConversation: currentConversation && isConversationLoaded(currentConversation)
+          ? {
+              id: currentConversation.id,
+              title: typeof currentConversation.title === 'string' ? currentConversation.title : '新对话',
+              createdAt: Number(currentConversation.createdAt || Date.now()),
+              updatedAt: Number(currentConversation.updatedAt || Date.now()),
+              assistantId: typeof currentConversation.assistantId === 'string' ? currentConversation.assistantId : '',
+              messages: Array.isArray(currentConversation.messages) ? currentConversation.messages : []
+            }
+          : null
       };
     }
 
@@ -2303,7 +2399,7 @@
     }
 
     function updateInteractionLockState() {
-      const locked = stateLoadInProgress || !stateLoadedFromServer;
+      const locked = stateLoadInProgress || conversationLoadInProgress || !stateLoadedFromServer;
       const elements = document.querySelectorAll('button, input, textarea, select');
       for (const element of elements) {
         if (!(element instanceof HTMLButtonElement || element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) {
@@ -2337,11 +2433,19 @@
       updateInteractionLockState();
     }
 
+    function setConversationLoadGuard(loading, statusText) {
+      conversationLoadInProgress = !!loading;
+      if (loading) {
+        updateStatus('', statusText || '正在加载会话内容，请稍候…', '加载中');
+      }
+      updateInteractionLockState();
+    }
+
     function ensureStateReadyForOperation() {
-      if (!stateLoadInProgress && stateLoadedFromServer) {
+      if (!stateLoadInProgress && !conversationLoadInProgress && stateLoadedFromServer) {
         return true;
       }
-      if (stateLoadInProgress) {
+      if (stateLoadInProgress || conversationLoadInProgress) {
         showToast('info', '正在同步会话数据，请等待完成后再操作');
       } else {
         showToast('error', '网络错误：无法连接服务器加载会话数据，请先恢复连接');
@@ -2357,7 +2461,7 @@
         return { ok: false, reason: 'not_ready' };
       }
       try {
-        const json = await fetchJson(EASY_CHAT_STATE_ENDPOINT, {
+        const json = await fetchJson(EASY_CHAT_STATE_REVISION_ENDPOINT, {
           headers: getHeaders(),
           timeoutMs: STATE_LOAD_TIMEOUT_MS
         });
@@ -2426,18 +2530,7 @@
       state.conversations = Array.isArray(saved?.conversations)
         ? saved.conversations
             .filter(item => item && typeof item.id === 'string')
-            .map(item => ({
-              id: item.id,
-              title: typeof item.title === 'string' ? normalizeConversationTitle(item.title) : '新对话',
-              createdAt: Number(item.createdAt || Date.now()),
-              updatedAt: Number(item.updatedAt || Date.now()),
-              assistantId: typeof item.assistantId === 'string' && getAssistantById(item.assistantId) ? item.assistantId : fallbackAssistantId,
-              messages: Array.isArray(item.messages)
-                ? item.messages
-                    .filter(message => message && typeof message.role === 'string')
-                    .map(message => normalizeConversationMessage(message))
-                : []
-            }))
+            .map(item => normalizeConversationSummary(item, fallbackAssistantId))
         : [];
       state.model = typeof saved?.model === 'string'
         ? saved.model
@@ -2448,8 +2541,61 @@
             : '';
     }
 
+    async function loadConversationById(id, options = {}) {
+      const conversation = state.conversations.find(item => item.id === id);
+      if (!conversation) {
+        return null;
+      }
+      if (isConversationLoaded(conversation)) {
+        return conversation;
+      }
+      setConversationLoadGuard(true, '正在从服务端加载当前会话…');
+      try {
+        const json = await fetchJson(EASY_CHAT_CONVERSATION_ENDPOINT + '?id=' + encodeURIComponent(id), {
+          headers: getHeaders(),
+          timeoutMs: STATE_LOAD_TIMEOUT_MS
+        });
+        if (!json?.success) {
+          throw new Error(json?.error || '加载会话失败');
+        }
+        const loadedConversation = json?.data?.conversation || {};
+        setConversationLoadedMessages(conversation, loadedConversation.messages);
+        conversation.title = typeof loadedConversation.title === 'string'
+          ? normalizeConversationTitle(loadedConversation.title)
+          : conversation.title;
+        conversation.createdAt = Number(loadedConversation.createdAt || conversation.createdAt || Date.now());
+        conversation.updatedAt = Number(loadedConversation.updatedAt || conversation.updatedAt || Date.now());
+        if (typeof loadedConversation.assistantId === 'string' && getAssistantById(loadedConversation.assistantId)) {
+          conversation.assistantId = loadedConversation.assistantId;
+        }
+        const serverRevision = normalizeRevision(json?.data?.revision);
+        if (serverRevision) {
+          stateRevision = serverRevision;
+        }
+        return conversation;
+      } catch (error) {
+        if (options.showErrorToast !== false) {
+          showToast('error', '加载会话失败：' + (error?.message || '网络错误'));
+        }
+        throw error;
+      } finally {
+        setConversationLoadGuard(false, '');
+      }
+    }
+
+    async function ensureCurrentConversationLoaded(options = {}) {
+      const conversation = getCurrentConversation();
+      if (!conversation) {
+        return null;
+      }
+      if (isConversationLoaded(conversation)) {
+        return conversation;
+      }
+      return loadConversationById(conversation.id, options);
+    }
+
     async function writeStateToServer(payload, options = {}) {
-      const json = await fetchJson(EASY_CHAT_STATE_ENDPOINT, {
+      const json = await fetchJson(EASY_CHAT_SYNC_ENDPOINT, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(payload),
@@ -2541,7 +2687,7 @@
         updateStorageHint('服务端状态未加载，已禁止写回以保护历史记录');
         return Promise.resolve(false);
       }
-      const payload = clonePersistedPayload(buildPersistedState());
+      const payload = clonePersistedPayload(buildSyncPayload());
       pendingStatePayload = payload;
       clearStateSaveRetryTimer();
       if (stateSaveTimer) {
@@ -2583,12 +2729,21 @@
       }
       stateLoadedFromServer = loadedFromServer;
       if (loadedFromServer) {
-        applyLoadedState(remoteState || {});
-        updateStorageHint('');
-        ensureConversation();
-        syncRuntimeStateFromCurrentAssistant();
-        syncSettingsInputs();
-        setStateLoadGuard(false, '');
+        try {
+          applyLoadedState(remoteState || {});
+          updateStorageHint('');
+          ensureConversation();
+          await ensureCurrentConversationLoaded({ showErrorToast: false });
+          syncRuntimeStateFromCurrentAssistant();
+          syncSettingsInputs();
+          setStateLoadGuard(false, '');
+        } catch (error) {
+          console.error(error);
+          stateLoadedFromServer = false;
+          loadErrorMessage = error?.message || '加载会话失败';
+          updateStorageHint('网络错误：无法连接服务器加载会话数据，已禁止本地操作');
+          setStateLoadGuard(false, loadErrorMessage);
+        }
       } else {
         setStateLoadGuard(false, loadErrorMessage || '网络错误：无法连接服务器加载会话数据');
       }
@@ -2628,7 +2783,7 @@
         li.innerHTML =
           '<button type="button" class="conversation-item' + (item.id === state.currentConversationId ? ' active' : '') + '" data-id="' + escapeHtml(item.id) + '">' +
             '<div class="conversation-title">' + escapeHtml(getConversationDisplayTitle(item)) + '</div>' +
-            '<div class="conversation-meta"><span>' + formatMessageCount(Array.isArray(item.messages) ? item.messages.length : 0) + '</span><span>' + escapeHtml(formatConversationTime(item.updatedAt)) + '</span></div>' +
+            '<div class="conversation-meta"><span>' + formatMessageCount(getConversationMessageCount(item)) + '</span><span>' + escapeHtml(formatConversationTime(item.updatedAt)) + '</span></div>' +
           '</button>' +
           '<button type="button" class="conversation-more-btn' + (state.conversationMenuId === item.id ? ' active' : '') + '" data-conversation-menu-toggle="' + escapeHtml(item.id) + '" aria-label="会话操作" aria-haspopup="menu" aria-expanded="' + (state.conversationMenuId === item.id ? 'true' : 'false') + '" title="会话操作">⋯</button>' +
           '<div class="conversation-menu' + (state.conversationMenuId === item.id ? ' open' : '') + '" data-conversation-menu="' + escapeHtml(item.id) + '" role="menu" aria-hidden="' + (state.conversationMenuId === item.id ? 'false' : 'true') + '">' +
@@ -2861,15 +3016,10 @@
             '<path d="M19 3v5h-5"></path>'
           ].join('')));
         } else if (message.role === 'user') {
-          const currentConversation = getCurrentConversation();
-          const nextMessage = currentConversation?.messages?.[index + 1];
-          const canRegenerate = nextMessage?.role === 'assistant' || state.isSending;
-          if (canRegenerate) {
-            actions.appendChild(createMessageActionButton('regenerate', index, '重新生成', [
-              '<path d="M19 8a7 7 0 1 0 2 5"></path>',
-              '<path d="M19 3v5h-5"></path>'
-            ].join('')));
-          }
+          actions.appendChild(createMessageActionButton('regenerate', index, '重新生成', [
+            '<path d="M19 8a7 7 0 1 0 2 5"></path>',
+            '<path d="M19 3v5h-5"></path>'
+          ].join('')));
         }
 
         const deleteLabel = message.role === 'assistant' && Array.isArray(message.responses) && message.responses.length > 1
@@ -2889,7 +3039,7 @@
 
     function renderMessages() {
       const conversation = getCurrentConversation();
-      const messages = conversation ? conversation.messages : [];
+      const messages = conversation && isConversationLoaded(conversation) ? conversation.messages : [];
       els.messages.innerHTML = '';
 
       if (!messages.length) {
@@ -2917,9 +3067,8 @@
 
     function syncConversationMeta() {
       const conversation = getCurrentConversation();
-      const messages = conversation ? conversation.messages : [];
       els.conversationTitle.textContent = getConversationDisplayTitle(conversation);
-      els.messageCountChip.textContent = formatMessageCount(messages.length);
+      els.messageCountChip.textContent = formatMessageCount(getConversationMessageCount(conversation));
     }
 
     function updateMessageActionStates() {
@@ -3111,7 +3260,7 @@
 
     function pushMessage(role, content, extra = {}, options = {}) {
       const conversation = getCurrentConversation();
-      if (!conversation) {
+      if (!conversation || !isConversationLoaded(conversation)) {
         return;
       }
       const nextMessage = {
@@ -3146,6 +3295,7 @@
         syncAssistantMessageState(nextMessage);
       }
       conversation.messages.push(nextMessage);
+      conversation.messageCount = conversation.messages.length;
       conversation.updatedAt = Date.now();
       updateConversationTitle(conversation);
       renderConversationList();
@@ -3164,9 +3314,7 @@
       if (!conversation) {
         return null;
       }
-      conversation.messages = Array.isArray(messages)
-        ? messages.map(item => normalizeConversationMessage(item))
-        : [];
+      setConversationLoadedMessages(conversation, messages, { touchUpdatedAt: true });
       conversation.updatedAt = Date.now();
       state.editingMessageIndex = null;
       state.editingMessageDraft = null;
@@ -3827,8 +3975,7 @@
         } else if (state.isSending) {
           assistantMessageIndex = conversation.messages.length;
         } else {
-          showToast('info', '暂无 AI 回复可重新生成');
-          return;
+          assistantMessageIndex = conversation.messages.length;
         }
       } else if (message.role === 'assistant') {
         userMessageIndex = index - 1;
@@ -4275,6 +4422,11 @@
       if (!ensureStateReadyForOperation()) {
         return;
       }
+      try {
+        await ensureCurrentConversationLoaded({ showErrorToast: true });
+      } catch (error) {
+        return;
+      }
       const precheck = await ensureServerStateReady({ operationName: '发送请求' });
       if (!precheck.ok) {
         return;
@@ -4317,16 +4469,12 @@
       state.draftImages = [];
       state.draftTextFiles = [];
       const assistant = getCurrentAssistant() || getFallbackAssistant();
-      const id = makeId();
-      state.conversations.unshift({
-        id,
-        title: '新对话',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+      const conversation = createConversationSummary({
         assistantId: assistant?.id || '',
         messages: []
       });
-      state.currentConversationId = id;
+      state.conversations.unshift(conversation);
+      state.currentConversationId = conversation.id;
       state.chatAutoScroll = true;
       syncRuntimeStateFromCurrentAssistant();
       renderConversationList();
@@ -4339,7 +4487,7 @@
       updateStatus('ready', '已创建新对话', '新对话');
     }
 
-    function openConversation(id) {
+    async function openConversation(id) {
       if (!ensureStateReadyForOperation()) {
         return;
       }
@@ -4352,6 +4500,11 @@
       state.draftImages = [];
       state.draftTextFiles = [];
       state.chatAutoScroll = true;
+      try {
+        await ensureCurrentConversationLoaded({ showErrorToast: true });
+      } catch (error) {
+        return;
+      }
       syncRuntimeStateFromCurrentAssistant();
       renderConversationList();
       renderMessages();
@@ -4368,7 +4521,7 @@
       if (!conversation) {
         return;
       }
-      conversation.messages = [];
+      setConversationLoadedMessages(conversation, []);
       conversation.updatedAt = Date.now();
       conversation.title = '新对话';
       state.editingMessageIndex = null;
@@ -4421,6 +4574,7 @@
         state.draftImages = [];
         state.draftTextFiles = [];
         state.chatAutoScroll = true;
+        await ensureCurrentConversationLoaded({ showErrorToast: true });
         syncRuntimeStateFromCurrentAssistant();
         renderConversationList();
         renderMessages();
@@ -4433,9 +4587,14 @@
       showToast('success', '会话已删除');
     }
 
-    function exportConversation() {
+    async function exportConversation() {
       const conversation = getCurrentConversation();
       if (!conversation) {
+        return;
+      }
+      try {
+        await ensureCurrentConversationLoaded({ showErrorToast: true });
+      } catch (error) {
         return;
       }
       const blob = new Blob([JSON.stringify({
@@ -4689,7 +4848,7 @@
         const button = event.target.closest('button[data-id]');
         if (button) {
           closeConversationMenu();
-          openConversation(button.dataset.id);
+          void openConversation(button.dataset.id);
         }
       });
       els.messages.addEventListener('click', event => {
