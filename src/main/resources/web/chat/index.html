@@ -2860,6 +2860,16 @@
             '<path d="M19 8a7 7 0 1 0 2 5"></path>',
             '<path d="M19 3v5h-5"></path>'
           ].join('')));
+        } else if (message.role === 'user') {
+          const currentConversation = getCurrentConversation();
+          const nextMessage = currentConversation?.messages?.[index + 1];
+          const canRegenerate = nextMessage?.role === 'assistant' || state.isSending;
+          if (canRegenerate) {
+            actions.appendChild(createMessageActionButton('regenerate', index, '重新生成', [
+              '<path d="M19 8a7 7 0 1 0 2 5"></path>',
+              '<path d="M19 3v5h-5"></path>'
+            ].join('')));
+          }
         }
 
         const deleteLabel = message.role === 'assistant' && Array.isArray(message.responses) && message.responses.length > 1
@@ -3771,7 +3781,6 @@
           assistantIndex = getCurrentConversation()?.messages?.length - 1;
         }
         if (error.name === 'AbortError') {
-          updateLastAssistantMessage('响应已中断。', '', requestModel, null, assistantIndex);
           if (Number.isInteger(assistantIndex)) {
             setAssistantResponseStreaming(assistantIndex, false);
           }
@@ -3804,30 +3813,66 @@
       }
       const conversation = getCurrentConversation();
       const message = conversation?.messages?.[index];
-      if (!message || message.role !== 'assistant') {
+      if (!message) {
         return;
       }
-      const nextMessages = conversation.messages.slice(0, index);
+
+      let userMessageIndex = index;
+      let assistantMessageIndex = index;
+
+      if (message.role === 'user') {
+        const nextMessage = conversation.messages[index + 1];
+        if (nextMessage?.role === 'assistant') {
+          assistantMessageIndex = index + 1;
+        } else if (state.isSending) {
+          assistantMessageIndex = conversation.messages.length;
+        } else {
+          showToast('info', '暂无 AI 回复可重新生成');
+          return;
+        }
+      } else if (message.role === 'assistant') {
+        userMessageIndex = index - 1;
+        if (conversation.messages[userMessageIndex]?.role !== 'user') {
+          showToast('info', '未找到对应的用户消息');
+          return;
+        }
+      } else {
+        return;
+      }
+
+      const nextMessages = conversation.messages.slice(0, assistantMessageIndex);
       const hasUserPrompt = nextMessages.some(item => item.role === 'user' && hasMessageBody(item));
       if (!hasUserPrompt) {
         updateStatus('error', '没有可用于重试的用户消息', '无法重试');
         return;
       }
-      syncAssistantMessageState(message);
-      message.responses.push(createAssistantResponseDraft({
-        model: state.model || message.model,
-        isStreaming: true,
-        time: nowTime()
-      }));
-      message.activeResponseIndex = message.responses.length - 1;
-      syncAssistantMessageState(message);
+
+      if (assistantMessageIndex < conversation.messages.length) {
+        const assistantMessage = conversation.messages[assistantMessageIndex];
+        syncAssistantMessageState(assistantMessage);
+        assistantMessage.responses.push(createAssistantResponseDraft({
+          model: state.model || assistantMessage.model,
+          isStreaming: true,
+          time: nowTime()
+        }));
+        assistantMessage.activeResponseIndex = assistantMessage.responses.length - 1;
+        syncAssistantMessageState(assistantMessage);
+      } else {
+        pushMessage('assistant', '', {
+          model: state.model,
+          isStreaming: true,
+          time: nowTime()
+        }, { incremental: true, persist: false });
+        assistantMessageIndex = conversation.messages.length - 1;
+      }
+
       conversation.updatedAt = Date.now();
       renderConversationList();
       renderMessages();
       persistState();
       await requestAssistantResponse({
         historyMessages: nextMessages,
-        targetAssistantIndex: index
+        targetAssistantIndex: assistantMessageIndex
       });
     }
 
