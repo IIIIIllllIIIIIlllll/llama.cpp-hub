@@ -102,6 +102,11 @@ public class OpenAIRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 				this.openAIServerHandler.handleOpenAIRerankRequest(ctx, request);
 				return;
 			}
+			// 音频
+			if(uri.startsWith("/v1/audio/transcriptions")) {
+				this.openAIServerHandler.handleOpenAIAudioTranscriptionsRequest(ctx, request);
+				return;
+			}
 			
 			this.sendJsonResponse(ctx, ApiResponse.error("404 Not Found"));
 		} catch (Exception e) {

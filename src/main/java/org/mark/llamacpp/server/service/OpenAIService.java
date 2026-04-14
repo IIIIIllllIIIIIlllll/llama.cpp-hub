@@ -47,6 +47,10 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.multipart.Attribute;
+import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
 import io.netty.util.CharsetUtil;
 
 /**
@@ -511,6 +515,11 @@ public class OpenAIService {
 	 * @param requestBody
 	 */
 	private void forwardRequestToLlamaCpp(ChannelHandlerContext ctx, FullHttpRequest request, String modelName, int port, String endpoint, boolean isStream, String requestBody) {
+		byte[] requestBodyBytes = requestBody == null ? new byte[0] : requestBody.getBytes(StandardCharsets.UTF_8);
+		this.forwardRequestToLlamaCpp(ctx, request, modelName, port, endpoint, isStream, requestBodyBytes);
+	}
+	
+	private void forwardRequestToLlamaCpp(ChannelHandlerContext ctx, FullHttpRequest request, String modelName, int port, String endpoint, boolean isStream, byte[] requestBodyBytes) {
 		// 在异步执行前先读取请求体，避免ByteBuf引用计数问题
 		HttpMethod method = request.method();
 		// 复制请求头，避免在异步任务中访问已释放的请求对象
@@ -519,7 +528,7 @@ public class OpenAIService {
 			headers.put(entry.getKey(), entry.getValue());
 		}
 
-		int requestBodyLength = requestBody == null ? 0 : requestBody.length();
+		int requestBodyLength = requestBodyBytes == null ? 0 : requestBodyBytes.length;
 		logger.info("转发请求到llama.cpp进程: {} {} 端口: {} 请求体长度: {}", method.name(), endpoint, port, requestBodyLength);
 		
 		worker.execute(() -> {
@@ -532,11 +541,10 @@ public class OpenAIService {
 				connection = this.openTrackedConnection(ctx, targetUrl, method, headers, false);
 				
 				// 对于POST请求，设置请求体
-				if (method == HttpMethod.POST && requestBody != null && !requestBody.isEmpty()) {
+				if (method == HttpMethod.POST && requestBodyBytes != null && requestBodyBytes.length > 0) {
 					try (OutputStream os = connection.getOutputStream()) {
-						byte[] input = requestBody.getBytes(StandardCharsets.UTF_8);
-						os.write(input, 0, input.length);
-						logger.info("已发送请求体到llama.cpp进程，大小: {} 字节", input.length);
+						os.write(requestBodyBytes, 0, requestBodyBytes.length);
+						logger.info("已发送请求体到llama.cpp进程，大小: {} 字节", requestBodyBytes.length);
 					}
 				}
 				long t = System.currentTimeMillis();
@@ -556,6 +564,107 @@ public class OpenAIService {
 			}
 		});
 	}
+	
+	
+	/**
+	 * 	
+	 * @param ctx
+	 * @param request
+	 */
+	public void handleOpenAIAudioTranscriptionsRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+		try {
+			if (request.method() != HttpMethod.POST) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
+				return;
+			}
+			
+			ByteBuf requestContent = request.content();
+			if (requestContent == null || !requestContent.isReadable()) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "file");
+				return;
+			}
+			
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			String modelName = this.resolveAudioTranscriptionModel(request);
+			if (modelName == null || modelName.isBlank()) {
+				modelName = manager.getFirstModelName();
+			}
+			if (modelName == null || modelName.isBlank()) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "No models are currently loaded", "model");
+				return;
+			}
+			if (!manager.getLoadedProcesses().containsKey(modelName)) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "Model not found: " + modelName, "model");
+				return;
+			}
+			
+			Integer modelPort = manager.getModelPort(modelName);
+			if (modelPort == null) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, "Model port not found: " + modelName, null);
+				return;
+			}
+			
+			byte[] bodyBytes = new byte[requestContent.readableBytes()];
+			requestContent.getBytes(requestContent.readerIndex(), bodyBytes);
+			
+			String endpoint = request.uri();
+			if (endpoint != null && endpoint.startsWith("/audio/transcriptions")) {
+				endpoint = "/v1" + endpoint;
+			}
+			if (endpoint == null || endpoint.isBlank()) {
+				endpoint = "/v1/audio/transcriptions";
+			}
+			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, endpoint, false, bodyBytes);
+		} catch (Exception e) {
+			logger.info("处理OpenAI音频转录请求时发生错误", e);
+			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
+		}
+	}
+	
+	private String resolveAudioTranscriptionModel(FullHttpRequest request) {
+		String contentType = request.headers().get(HttpHeaderNames.CONTENT_TYPE);
+		if (contentType == null) {
+			return null;
+		}
+		String lowered = contentType.toLowerCase(Locale.ROOT);
+		if (!lowered.startsWith("multipart/form-data")) {
+			return null;
+		}
+		
+		HttpPostRequestDecoder decoder = null;
+		try {
+			decoder = new HttpPostRequestDecoder(new DefaultHttpDataFactory(false), request);
+			for (InterfaceHttpData data : decoder.getBodyHttpDatas()) {
+				if (data == null || data.getHttpDataType() != InterfaceHttpData.HttpDataType.Attribute) {
+					continue;
+				}
+				Attribute attribute = (Attribute) data;
+				if (!"model".equals(attribute.getName())) {
+					continue;
+				}
+				String model = attribute.getValue();
+				if (model != null) {
+					model = model.trim();
+				}
+				if (model != null && !model.isBlank()) {
+					return model;
+				}
+			}
+		} catch (Exception e) {
+			logger.info("解析audio/transcriptions表单模型参数失败，尝试回退默认模型", e);
+		} finally {
+			if (decoder != null) {
+				try {
+					decoder.destroy();
+				} catch (Exception ignore) {
+				}
+			}
+		}
+		return null;
+	}
+	
+	
+	
 
 	public HttpURLConnection openTrackedConnection(ChannelHandlerContext ctx, String targetUrl, HttpMethod method, Map<String, String> headers, boolean chunkedStreaming) throws IOException {
 		URL url = URI.create(targetUrl).toURL();
