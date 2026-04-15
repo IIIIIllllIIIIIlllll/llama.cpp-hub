@@ -25,6 +25,7 @@ import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
 import org.mark.llamacpp.server.io.ConsoleBufferLogAppender;
 import org.mark.llamacpp.server.mcp.McpClientService;
 import org.mark.llamacpp.server.service.ModelSamplingService;
+import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.struct.LlamaCppConfig;
 import org.mark.llamacpp.server.struct.LlamaCppDataStruct;
 import org.mark.llamacpp.server.struct.ModelPathConfig;
@@ -72,6 +73,7 @@ import io.netty.util.CharsetUtil;
  */
 public class LlamaServer {
 	
+	@SuppressWarnings("unchecked")
 	public static void main(String[] args) {
 		// 这里重定向输出流
 		try {
@@ -160,6 +162,63 @@ public class LlamaServer {
 
 		// 尝试创建系统托盘
 		createWindowsSystemTray();
+		
+		// 检查命令行参数，如果提供了模型名称，则启动该模型（这部分比较奇葩 & 危险，慎用）
+		if (args != null && args.length > 0) {
+			String modelName = args[0];
+			logger.info("检测到命令行参数，尝试启动模型：{}", modelName);
+
+			// 查找模型
+			GGUFModel model = serverManager.findModelById(modelName);
+			if (model == null) {
+				logger.error("错误：未找到名为 '{}' 的模型。请使用 /api/models 接口查看可用的模型列表。", modelName);
+				return;
+			}
+			// 获取启动配置
+			Map<String, Object> launchConfig = configManager.getModelLaunchConfigBundle(modelName);
+			if (launchConfig == null || launchConfig.isEmpty()) {
+				logger.error("错误：模型 '{}' 没有可用的启动配置。请先配置启动参数。", modelName);
+				return;
+			}
+			// 解析嵌套配置结构：configs -> selectedConfig
+			Map<String, Object> actualConfig = null;
+			Object configsObj = launchConfig.get("configs");
+			if (configsObj instanceof Map) {
+				Map<String, Object> configs = (Map<String, Object>) configsObj;
+				String selectedConfig = (String) launchConfig.getOrDefault("selectedConfig", "默认配置");
+				actualConfig = (Map<String, Object>) configs.get(selectedConfig);
+			}
+
+			if (actualConfig == null || actualConfig.isEmpty()) {
+				logger.error("错误：模型 '{}' 没有可用的启动配置。请先配置启动参数。", modelName);
+			} else {
+				// 提取启动参数
+				String llamaBinPath = (String) actualConfig.getOrDefault("llamaBinPath", "");
+				Object deviceObj = actualConfig.getOrDefault("device", new ArrayList<String>());
+				List<String> device = (deviceObj instanceof List) ? (List<String>) deviceObj : new ArrayList<String>();
+				Integer mg = null;
+				Object mgObj = actualConfig.get("mg");
+				if (mgObj instanceof Number) {
+					mg = ((Number) mgObj).intValue();
+				}
+				boolean enableVision = Boolean.parseBoolean(String.valueOf(actualConfig.getOrDefault("enableVision", false)));
+				String cmd = (String) actualConfig.getOrDefault("cmd", "");
+				String extraParams = (String) actualConfig.getOrDefault("extraParams", "");
+				String chatTemplateFilePath = (String) actualConfig.getOrDefault("chatTemplateFile", "");
+
+				if (llamaBinPath.isEmpty()) {
+					logger.error("错误：模型 '{}' 的启动配置中缺少 llamaBinPath 参数。", modelName);
+				} else {
+					// 启动模型
+					boolean started = serverManager.loadModelAsyncFromCmd(modelName, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+					if (started) {
+						logger.info("模型启动请求已提交");
+					} else {
+						logger.error("启动模型 '{}' 失败，请查看日志获取详细信息。", modelName);
+					}
+				}
+			}
+		}
 	}
 	
 	/**
