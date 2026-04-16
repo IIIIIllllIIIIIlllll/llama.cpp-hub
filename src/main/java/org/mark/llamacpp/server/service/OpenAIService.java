@@ -832,11 +832,14 @@ public class OpenAIService {
 				// 处理SSE格式的数据行
 				if (line.startsWith("data: ")) {
 					String data = line.substring(6); // 去掉 "data: " 前缀
-					
 					// 检查是否为结束标记
 					if (data.equals("[DONE]")) {
 						logger.info("收到流式响应结束标记");
 						break;
+					}
+					// 统计生成信息
+					if(data.contains("\"finish_reason\":\"stop\"")) {
+						LlamaRecordService.getInstance().handleStream(data);
 					}
 					
 					String outLine = line;
