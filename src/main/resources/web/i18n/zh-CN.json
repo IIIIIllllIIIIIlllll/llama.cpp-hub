@@ -793,5 +793,6 @@
   "model_detail.usage.cumulative_prompt": "累计处理",
   "model_detail.usage.cumulative_predict": "累计生成",
   "model_detail.usage.no_records": "无记录",
-  "modal.model_detail.tab.props": "Props"
+  "modal.model_detail.tab.props": "Props", 
+  "modal.model_detail.label.usage": "用量"
 }

@@ -793,5 +793,6 @@
   "model_detail.usage.cumulative_prompt": "Cumulative prompt",
   "model_detail.usage.cumulative_predict": "Cumulative predict",
   "model_detail.usage.no_records": "No records",
-  "modal.model_detail.tab.props": "Props"
+  "modal.model_detail.tab.props": "Props", 
+  "modal.model_detail.label.usage": "Usage"
 }
