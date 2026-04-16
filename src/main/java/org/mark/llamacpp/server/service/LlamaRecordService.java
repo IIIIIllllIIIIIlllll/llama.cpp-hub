@@ -5,53 +5,122 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.mark.llamacpp.server.struct.Timing;
 
-
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import java.util.stream.Stream;
 
 /**
- * 	处理llama.cpp响应中的timings性能参数，并持久化记录。（未完成）
+ * 处理 llama.cpp 响应中的 timings 性能参数，并持久化累计记录。
  */
 public class LlamaRecordService {
 	
-	/**
-	 * 	
-	 */
 	private static final LlamaRecordService INSTANCE = new LlamaRecordService();
-	
-	/**
-	 * 	
-	 * @return
-	 */
+	private final Gson gson = new Gson();
+	private static final String RECORD_DIR = "cache/record/";
+	private final Map<String, Timing> recordMap = new ConcurrentHashMap<>();
+
 	public static LlamaRecordService getInstance() {
 		return INSTANCE;
 	}
-	
-	/**
-	 * 	
-	 */
-	private final Gson gson = new Gson();
-	
-	
-	/**
-	 * 	
-	 */
+
 	public LlamaRecordService() {
-		
-	}
- 
-	/**
-	 * 	{"choices":[{"finish_reason":"stop","index":0,"delta":{}}],"created":1776325491,"id":"chatcmpl-6S2MNBmiAoyxhGHSmona59U0GtUhx6UX","model":"Qwen3-0.6B-GGUF","system_fingerprint":"b8267-1a5631bea","object":"chat.completion.chunk","timings":{"cache_n":0,"prompt_n":15,"prompt_ms":28.295,"prompt_per_token_ms":1.8863333333333334,"prompt_per_second":530.1289980561936,"predicted_n":44,"predicted_ms":387.788,"predicted_per_token_ms":8.813363636363636,"predicted_per_second":113.46405768100095}}
-	 * @param json
-	 */
-	public Timing handleStream(String json) {
 		try {
-			JsonObject root = JsonParser.parseString(json).getAsJsonObject();
-			if (root.has("timings")) {
-				return this.gson.fromJson(root.get("timings"), Timing.class);
-			}
-		} catch (Exception e) {
+			Files.createDirectories(Paths.get(RECORD_DIR));
+			loadRecords();
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		return null;
 	}
 
+	/**
+	 * 从本地目录加载所有已保存的 JSON 记录。
+	 */
+	private void loadRecords() {
+		try (Stream<java.nio.file.Path> paths = Files.list(Paths.get(RECORD_DIR))) {
+			paths.filter(path -> path.toString().endsWith(".json"))
+				 .forEach(path -> {
+					try {
+						String content = new String(Files.readAllBytes(path));
+						Timing timing = this.gson.fromJson(content, Timing.class);
+						String fileName = path.getFileName().toString().replace(".json", "");
+						this.recordMap.put(fileName, timing);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * 处理流式响应中的 timings 数据，将其累加到对应模型的记录中并持久化。
+	 * 
+	 * @param modelId 模型唯一标识
+	 * @param json    包含 timings 数据的 JSON 字符串
+	 * @return 解析出的本次 Timing 数据
+	 */
+	public Timing handleStream(String modelId, String json) {
+		synchronized (this) {
+			Timing timing = this.recordMap.computeIfAbsent(modelId, k -> new Timing());
+			Timing data = null;
+			try {
+				JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+				if (root.has("timings")) {
+					data = this.gson.fromJson(root.get("timings"), Timing.class);
+					
+					timing.setCache_n(timing.getCache_n() + data.getCache_n());
+					timing.setPrompt_n(timing.getPrompt_n() + data.getPrompt_n());
+					timing.setPrompt_ms(timing.getPrompt_ms() + data.getPrompt_ms());
+					timing.setPrompt_per_token_ms(timing.getPrompt_per_token_ms() + data.getPrompt_per_token_ms());
+					timing.setPrompt_per_second(timing.getPrompt_per_second() + data.getPrompt_per_second());
+					timing.setPredicted_n(timing.getPredicted_n() + data.getPredicted_n());
+					timing.setPredicted_ms(timing.getPredicted_ms() + data.getPredicted_ms());
+					timing.setPredicted_per_token_ms(timing.getPredicted_per_token_ms() + data.getPredicted_per_token_ms());
+					timing.setPredicted_per_second(timing.getPredicted_per_second() + data.getPredicted_per_second());
+					
+					this.recordTiming(modelId, timing);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			return data;
+		}
+	}
+
+	/**
+	 * 根据模型ID获取累计性能记录。
+	 * 
+	 * @param modelId 模型ID
+	 * @return 累计的 Timing 记录，不存在则返回 null
+	 */
+	public Timing getRecord(String modelId) {
+		return this.recordMap.get(modelId);
+	}
+
+	/**
+	 * 将累积的 timings 数据以 JSON 格式覆盖写入本地文件。
+	 * 
+	 * @param modelId 模型ID，用作文件名
+	 * @param timing  需要保存的性能数据
+	 */
+	private void recordTiming(String modelId, Timing timing) {
+		if (modelId == null || timing == null) {
+			return;
+		}
+		
+		String filePath = RECORD_DIR + modelId + ".json";
+		String content = this.gson.toJson(timing);
+		
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, false))) {
+			writer.write(content);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 }

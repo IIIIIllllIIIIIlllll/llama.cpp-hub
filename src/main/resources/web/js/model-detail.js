@@ -1,10 +1,21 @@
 function viewModelDetails(modelId) {
-    fetch(`/api/models/details?modelId=${modelId}`).then(r => r.json()).then(data => {
-        if (data.success) {
-            const model = data.model;
+    Promise.all([
+        fetch(`/api/models/details?modelId=${modelId}`).then(r => r.json()),
+        fetch(`/api/models/record?modelId=${modelId}`).then(r => r.json())
+    ]).then(([detailsData, recordData]) => {
+        if (detailsData.success) {
+            const model = detailsData.model;
+            if (recordData && recordData.success && recordData.data) {
+                const record = recordData.data;
+                model.usage = `累计处理: ${record.prompt_n || 0} tokens; 累计生成: ${record.predicted_n || 0} tokens`;
+            } else {
+                model.usage = '无记录';
+            }
             window.__modelDetailModelId = modelId;
             showModelDetailModal(model);
-        } else { showToast(t('toast.error', '错误'), data.error, 'error'); }
+        } else { showToast(t('toast.error', '错误'), detailsData.error, 'error'); }
+    }).catch(e => {
+        showToast(t('toast.error', '错误'), '获取模型详情失败: ' + e.message, 'error');
     });
 }
 
@@ -34,6 +45,7 @@ function showModelDetailModal(model) {
                     `<div><strong>${t('modal.model_detail.label.name', '名称:')}</strong></div><div>${model.name}</div>` +
                     `<div><strong>${t('modal.model_detail.label.path', '路径:')}</strong></div><div style="word-break:break-all;">${model.path}</div>` +
                     `<div><strong>${t('modal.model_detail.label.size', '大小:')}</strong></div><div>${formatFileSize(model.size)}</div>` +
+                    `<div><strong>${t('modal.model_detail.label.usage', '用量:')}</strong></div><div>${model.usage || 'null'}</div>` +
                     `${model.isLoaded ? `<div><strong>${t('modal.model_detail.label.status', '状态:')}</strong></div><div>${t('modal.model_detail.status.running', '已启动')}${model.port ? `${t('modal.model_detail.status.port_prefix', '（端口 ')}${model.port}${t('modal.model_detail.status.port_suffix', '）')}` : ''}</div>` : `<div><strong>${t('modal.model_detail.label.status', '状态:')}</strong></div><div>${t('modal.model_detail.status.stopped', '未启动')}</div>`}` +
                     `${model.startCmd ? `<div><strong>${t('modal.model_detail.label.start_cmd', '启动命令:')}</strong></div><div style="word-break:break-all; font-family: monospace;">${model.startCmd}</div>` : ``}` +
                     `${(() => { let s=''; if (model.metadata) { for (const [k,v] of Object.entries(model.metadata)) { s += `<div><strong>${k}:</strong></div><div style="word-break:break-all;">${v}</div>`; } } return s; })()}` +

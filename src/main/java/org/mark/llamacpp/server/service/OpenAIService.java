@@ -698,7 +698,7 @@ public class OpenAIService {
 			this.handleStreamResponse(ctx, connection, responseCode, modelName);
 			return;
 		}
-		this.handleNonStreamResponse(ctx, connection, responseCode);
+		this.handleNonStreamResponse(ctx, connection, responseCode, modelName);
 	}
 
 	public void cleanupTrackedConnection(ChannelHandlerContext ctx, HttpURLConnection connection) {
@@ -721,9 +721,10 @@ public class OpenAIService {
 	 * @param ctx
 	 * @param connection
 	 * @param responseCode
+	 * @param modelName
 	 * @throws IOException
 	 */
-	private void handleNonStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode) throws IOException {
+	private void handleNonStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName) throws IOException {
 		// 读取响应
 		String responseBody;
 		if (responseCode >= 200 && responseCode < 300) {
@@ -783,6 +784,8 @@ public class OpenAIService {
 				ctx.close();
 			}
 		});
+		// 缓存生成信息。
+		LlamaRecordService.getInstance().handleStream(modelName, responseBody);
 	}
 	
 	/**
@@ -839,7 +842,7 @@ public class OpenAIService {
 					}
 					// 统计生成信息
 					if(data.contains("\"finish_reason\":\"stop\"")) {
-						LlamaRecordService.getInstance().handleStream(data);
+						LlamaRecordService.getInstance().handleStream(modelName, data);
 					}
 					
 					String outLine = line;

@@ -14,6 +14,7 @@ import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
+import org.mark.llamacpp.server.service.LlamaRecordService;
 import org.mark.llamacpp.server.service.ModelSamplingService;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.ChatTemplateFileTool;
@@ -119,6 +120,11 @@ public class ModelInfoController implements BaseController {
 			this.handleModelTemplateDefaultRequest(ctx, request);
 			return true;
 		}
+		// 查询对应模型的用量记录
+		if (uri.startsWith("/api/models/record")) {
+			this.handleModelRecordRequest(ctx, request);
+			return true;
+		}
 		//============================运行时信息============================
 		// 查询对应模型的/solts的API
 		if (uri.startsWith("/api/models/slots/get")) {
@@ -140,6 +146,29 @@ public class ModelInfoController implements BaseController {
 		return false;
 	}
 	
+	/**
+	 * 获取模型用量记录
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleModelRecordRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		try {
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String modelId = params.get("modelId");
+			if (modelId == null || modelId.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				return;
+			}
+			Object record = LlamaRecordService.getInstance().getRecord(modelId);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(record));
+		} catch (Exception e) {
+			logger.info("获取模型用量记录时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型用量记录失败: " + e.getMessage()));
+		}
+	}
+
 	/**
 	 * 	模型的能力设定
 	 * @param ctx
