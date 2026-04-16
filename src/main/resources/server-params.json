@@ -325,7 +325,9 @@
       "iq4_nl",
       "q5_0",
       "q5_1",
-      "turbo3"
+	  "turbo4",
+      "turbo3",
+	  "turbo2"
     ],
     "sort": 22,
     "group": "page.params.group.performance",
@@ -349,7 +351,9 @@
       "iq4_nl",
       "q5_0",
       "q5_1",
-      "turbo3"
+	  "turbo4",
+	  "turbo3",
+	  "turbo2"
     ],
     "sort": 23,
     "group": "page.params.group.performance",
