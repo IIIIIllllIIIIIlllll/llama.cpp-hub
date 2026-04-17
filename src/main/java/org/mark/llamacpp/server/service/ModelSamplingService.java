@@ -81,9 +81,14 @@ public class ModelSamplingService {
 			return;
 		}
 		injectSampling(requestJson, sampling);
-		applyThinkingBySampling(requestJson, sampling);
+		this.applyThinkingBySampling(requestJson, sampling);
 	}
-
+	
+	/**
+	 * 	查询指定模型的采样配置。
+	 * @param modelId
+	 * @return
+	 */
 	public JsonObject getOpenAISampling(String modelId) {
 		if (modelId == null) {
 			return null;
@@ -372,30 +377,35 @@ public class ModelSamplingService {
 	
 	private JsonObject extractOpenAISampling(JsonObject configObj) {
 		JsonObject out = new JsonObject();
-		setIntFromKeys(out, "seed", configObj, "seed");
-		setDoubleFromKeys(out, "temperature", configObj, "temperature", "temp");
-		setStringArrayFromKeys(out, "samplers", configObj, true, "samplers");
-		setDoubleFromKeys(out, "top_p", configObj, "top_p", "topP", "top-p");
-		setDoubleFromKeys(out, "min_p", configObj, "min_p", "minP", "min-p");
-		setDoubleFromKeys(out, "top_n_sigma", configObj, "top_n_sigma", "topNSigma", "top-n-sigma");
-		setDoubleFromKeys(out, "repeat_penalty", configObj, "repeat_penalty", "repeatPenalty", "repeat-penalty");
-		setIntFromKeys(out, "top_k", configObj, "top_k", "topK", "top-k");
-		setDoubleFromKeys(out, "presence_penalty", configObj, "presence_penalty", "presencePenalty", "presence-penalty");
-		setDoubleFromKeys(out, "frequency_penalty", configObj, "frequency_penalty", "frequencyPenalty", "frequency-penalty");
-		setDoubleFromKeys(out, "dry_multiplier", configObj, "dry_multiplier", "dryMultiplier", "dry-multiplier");
-		setDoubleFromKeys(out, "dry_base", configObj, "dry_base", "dryBase", "dry-base");
-		setIntFromKeys(out, "dry_allowed_length", configObj, "dry_allowed_length", "dryAllowedLength", "dry-allowed-length");
-		setIntFromKeys(out, "dry_penalty_last_n", configObj, "dry_penalty_last_n", "dryPenaltyLastN", "dry-penalty-last-n");
-		setStringArrayFromKeys(out, "dry_sequence_breakers", configObj, false, "dry_sequence_breakers", "drySequenceBreakers", "dry-sequence-breakers");
-		setBooleanFromKeys(out, "force_enable_thinking", configObj, "force_enable_thinking", "forceEnableThinking");
-		setBooleanFromKeys(out, "enable_thinking", configObj, "enable_thinking");
-		applySamplingFromCmd(out, JsonUtil.getJsonString(configObj, "cmd", null));
+		this.setIntFromKeys(out, "seed", configObj, "seed");
+		this.setDoubleFromKeys(out, "temperature", configObj, "temperature", "temp");
+		this.setStringArrayFromKeys(out, "samplers", configObj, true, "samplers");
+		this.setDoubleFromKeys(out, "top_p", configObj, "top_p", "topP", "top-p");
+		this.setDoubleFromKeys(out, "min_p", configObj, "min_p", "minP", "min-p");
+		this.setDoubleFromKeys(out, "top_n_sigma", configObj, "top_n_sigma", "topNSigma", "top-n-sigma");
+		this.setDoubleFromKeys(out, "repeat_penalty", configObj, "repeat_penalty", "repeatPenalty", "repeat-penalty");
+		this.setIntFromKeys(out, "top_k", configObj, "top_k", "topK", "top-k");
+		this.setDoubleFromKeys(out, "presence_penalty", configObj, "presence_penalty", "presencePenalty", "presence-penalty");
+		this.setDoubleFromKeys(out, "frequency_penalty", configObj, "frequency_penalty", "frequencyPenalty", "frequency-penalty");
+		this.setDoubleFromKeys(out, "dry_multiplier", configObj, "dry_multiplier", "dryMultiplier", "dry-multiplier");
+		this.setDoubleFromKeys(out, "dry_base", configObj, "dry_base", "dryBase", "dry-base");
+		this.setIntFromKeys(out, "dry_allowed_length", configObj, "dry_allowed_length", "dryAllowedLength", "dry-allowed-length");
+		this.setIntFromKeys(out, "dry_penalty_last_n", configObj, "dry_penalty_last_n", "dryPenaltyLastN", "dry-penalty-last-n");
+		this.setStringArrayFromKeys(out, "dry_sequence_breakers", configObj, false, "dry_sequence_breakers", "drySequenceBreakers", "dry-sequence-breakers");
+		this.setBooleanFromKeys(out, "force_enable_thinking", configObj, "force_enable_thinking", "forceEnableThinking");
+		this.setBooleanFromKeys(out, "enable_thinking", configObj, "enable_thinking");
+		this.applySamplingFromCmd(out, JsonUtil.getJsonString(configObj, "cmd", null));
 		if (out.has("enable_thinking") && !out.has("force_enable_thinking")) {
 			out.addProperty("force_enable_thinking", true);
 		}
 		return out;
 	}
 	
+	/**
+	 * 	有点意义不明。
+	 * @param out
+	 * @param cmd
+	 */
 	private void applySamplingFromCmd(JsonObject out, String cmd) {
 		if (out == null || cmd == null || cmd.trim().isEmpty()) {
 			return;
@@ -540,7 +550,12 @@ public class ModelSamplingService {
 			requestJson.add(key, value.deepCopy());
 		}
 	}
-
+	
+	/**
+	 * 	加入enable_thinking的参数。
+	 * @param requestJson
+	 * @param sampling
+	 */
 	private void applyThinkingBySampling(JsonObject requestJson, JsonObject sampling) {
 		if (requestJson == null || sampling == null) {
 			return;
@@ -556,20 +571,30 @@ public class ModelSamplingService {
 		ParamTool.handleOpenAIChatThinking(requestJson);
 		requestJson.remove("enable_thinking");
 	}
-
+	
+	/**
+	 * 	读取思维链开关的值。
+	 * @param sampling
+	 * @return
+	 */
 	private Boolean readThinkingToggle(JsonObject sampling) {
 		if (sampling == null) {
 			return null;
 		}
 		for (String key : new String[] {"enable_thinking"}) {
-			Boolean value = readBoolean(sampling, key);
+			Boolean value = this.readBoolean(sampling, key);
 			if (value != null) {
 				return value;
 			}
 		}
 		return null;
 	}
-
+	
+	/**
+	 * 	读取强制思维链开关的值。
+	 * @param sampling
+	 * @return
+	 */
 	private boolean readForceThinkingToggle(JsonObject sampling) {
 		if (sampling == null) {
 			return false;
@@ -578,7 +603,7 @@ public class ModelSamplingService {
 		if (force != null) {
 			return force;
 		}
-		return readThinkingToggle(sampling) != null;
+		return this.readThinkingToggle(sampling) != null;
 	}
 
 	private boolean isThinkingToggleKey(String key) {
