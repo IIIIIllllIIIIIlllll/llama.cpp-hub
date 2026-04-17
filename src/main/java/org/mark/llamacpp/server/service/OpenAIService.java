@@ -282,7 +282,6 @@ public class OpenAIService {
 	 */
 	private void applyChatTemplateKwargsInjection(JsonObject requestJson) {
 		ChatTemplateKwargsService.getInstance().handleOpenAI(requestJson);
-		System.err.println(requestJson);
 	}
 	
 	
