@@ -46,12 +46,18 @@
             <span id="statusShortText">未连接</span>
           </div>
           <div id="messageCountChip" class="meta-chip">0 条消息</div>
-          <button id="privacyModeBtn" class="icon-button privacy-mode-btn" type="button" aria-label="开启隐私模式" aria-pressed="false" title="隐私模式">
+         <button id="privacyModeBtn" class="icon-button privacy-mode-btn" type="button" aria-label="开启隐私模式" aria-pressed="false" title="隐私模式">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3l7 3v5c0 5-3.2 8.7-7 10-3.8-1.3-7-5-7-10V6l7-3z"/>
               <path d="M9 12h6"/>
               <path d="M10 9.5h4"/>
             </svg>
+          </button>
+          <button id="exportBtn" class="ghost-button toolbar-icon-button" type="button" aria-label="导出对话" title="导出对话">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+          <button id="clearBtn" class="ghost-button toolbar-icon-button" type="button" aria-label="清空对话" title="清空对话">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           </button>
           <button id="settingsBtn" class="icon-button" type="button" aria-label="设置">⚙</button>
         </div>
@@ -116,11 +122,8 @@
                   <button class="thinking-menu-item" type="button" data-thinking-value="false" role="menuitemradio">关闭</button>
                 </div>
               </div>
-              <button id="exportBtn" class="ghost-button toolbar-icon-button" type="button" aria-label="导出对话" title="导出对话">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </button>
-              <button id="clearBtn" class="ghost-button toolbar-icon-button" type="button" aria-label="清空对话" title="清空对话">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              <button id="micRecorderBtn" class="icon-button toolbar-icon-button" type="button" aria-label="录音" title="录音">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
               </button>
               <button id="sendBtn" class="icon-button send-toggle-button" type="button" aria-label="发送" title="发送">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -135,6 +138,26 @@
   <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <div id="audioRecorderModal" class="audio-recorder-modal" aria-hidden="true">
+    <div class="audio-recorder-panel">
+      <div class="audio-recorder-head">
+        <span>🎤 录音</span>
+        <button id="audioRecorderCloseBtn" type="button" aria-label="关闭" class="audio-recorder-close">&times;</button>
+      </div>
+      <div class="audio-recorder-body">
+        <!-- audio-recorder-idle placeholder -->
+        <div id="audioRecorderStartBtn" class="audio-recorder-record-btn" type="button">开始录音</div>
+        <!-- audio-recorder-recording -->
+        <div id="audioRecorderStatus" class="audio-recorder-status">正在录音…</div>
+        <!-- audio-recorder-complete -->
+        <div id="audioRecorderComplete" class="audio-recorder-complete">
+          <button id="audioRecorderDoneBtn" class="audio-recorder-action-btn audio-recorder-confirm" type="button">完成</button>
+        </div>
+        <div class="audio-recorder-hint">点击"开始录音"后，点击"停止录音"结束。支持 WAV / MP3 / M4A / OGG / FLAC 格式</div>
+      </div>
+    </div>
+  </div>
 
   <div id="settingsDrawer" class="drawer" aria-hidden="true">
     <div class="drawer-panel settings-dialog">
@@ -361,6 +384,7 @@
   <script src="/js/marked.umd.js"></script>
   <script src="/js/highlight.min.js"></script>
   <script src="./chat-mcp.js"></script>
+  <script src="./audio-recorder.js"></script>
   <script>
 
     const CHAT_ENDPOINT = '/v1/chat/completions';
@@ -408,6 +432,7 @@
       assistants: [],
       abortController: null,
       isSending: false,
+      isRecording: false,
       editingMessageIndex: null,
       editingMessageDraft: null,
       draftImages: [],
@@ -442,6 +467,13 @@
       exportBtn: document.getElementById('exportBtn'),
       clearBtn: document.getElementById('clearBtn'),
       sendBtn: document.getElementById('sendBtn'),
+      micRecorderBtn: document.getElementById('micRecorderBtn'),
+      audioRecorderModal: document.getElementById('audioRecorderModal'),
+      audioRecorderCloseBtn: document.getElementById('audioRecorderCloseBtn'),
+    audioRecorderStartBtn: document.getElementById('audioRecorderStartBtn'),
+    audioRecorderStatus: document.getElementById('audioRecorderStatus'),
+      audioRecorderComplete: document.getElementById('audioRecorderComplete'),
+      audioRecorderDoneBtn: document.getElementById('audioRecorderDoneBtn'),
       chatScroll: document.getElementById('chatScroll'),
       settingsDrawer: document.getElementById('settingsDrawer'),
       closeSettingsBtn: document.getElementById('closeSettingsBtn'),
@@ -5026,6 +5058,274 @@
       els.imageInput.addEventListener('change', async () => {
         await addDraftFiles(els.imageInput.files);
       });
+
+      // ── Audio Recorder ──
+
+     let audioRecorderBlobUrl = null;
+      let audioRecorderMediaRecorder = null;
+      let audioRecorderChunks = [];
+      let audioRecorderStream = null;
+      let audioRecorderPromise = null;
+      let audioRecorderPendingStream = null;
+      let audioRecorderStreamRequested = false;
+
+      function openAudioRecorderModal() {
+        const modal = els.audioRecorderModal;
+        if (!modal) return;
+        resetAudioRecorderUI();
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        if (!audioRecorderStreamRequested && !audioRecorderPendingStream) {
+          audioRecorderStreamRequested = true;
+          navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+            audioRecorderPendingStream = stream;
+          }).catch((err) => {
+            console.error('[AudioRecorder] Failed to pre-request stream:', err);
+            audioRecorderPendingStream = null;
+            audioRecorderStreamRequested = false;
+          });
+        }
+      }
+
+     function closeAudioRecorderModal() {
+        const modal = els.audioRecorderModal;
+        if (!modal) return;
+        if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
+          audioRecorderMediaRecorder.stop();
+        }
+        if (audioRecorderStream) {
+          audioRecorderStream.getTracks().forEach((t) => t.stop());
+          audioRecorderStream = null;
+        }
+        if (audioRecorderPendingStream) {
+          audioRecorderPendingStream.getTracks().forEach((t) => t.stop());
+          audioRecorderPendingStream = null;
+          audioRecorderStreamRequested = false;
+        }
+        audioRecorderChunks = [];
+        if (audioRecorderBlobUrl) {
+          URL.revokeObjectURL(audioRecorderBlobUrl);
+          audioRecorderBlobUrl = null;
+        }
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+ function resetAudioRecorderUI() {
+        if (audioRecorderBlobUrl) {
+          URL.revokeObjectURL(audioRecorderBlobUrl);
+          audioRecorderBlobUrl = null;
+        }
+        if (els.audioRecorderStatus) {
+          els.audioRecorderStatus.classList.remove('visible');
+        }
+      if (els.audioRecorderStartBtn) {
+          els.audioRecorderStartBtn.textContent = '开始录音';
+          els.audioRecorderStartBtn.classList.remove('is-recording');
+        }
+        if (els.audioRecorderComplete) {
+          els.audioRecorderComplete.classList.remove('visible');
+        }
+        state.isRecording = false;
+      }
+
+      function startAudioRecording() {
+        audioRecorderPromise = new Promise(async (resolve, reject) => {
+          if (audioRecorderPendingStream) {
+            audioRecorderStream = audioRecorderPendingStream;
+            audioRecorderPendingStream = null;
+            audioRecorderStreamRequested = false;
+          } else {
+            try {
+              audioRecorderStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+              reject(err);
+              return;
+            }
+          }
+          audioRecorderChunks = [];
+          audioRecorderMediaRecorder = new MediaRecorder(audioRecorderStream);
+          audioRecorderMediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              audioRecorderChunks.push(e.data);
+            }
+          };
+          audioRecorderMediaRecorder.onstop = async () => {
+            try {
+              const blob = new Blob(audioRecorderChunks, { type: audioRecorderMediaRecorder.mimeType });
+              audioRecorderChunks = [];
+              if (blob.size === 0) {
+                throw new Error('录音为空');
+              }
+              let wavBlob = blob;
+              if (blob.type !== 'audio/wav') {
+                wavBlob = await createWavFromBlob(blob);
+              }
+              const dataUrl = await blobToDataUrl(wavBlob);
+              state.draftAudioFiles.push({
+                id: makeAudioFileId(),
+                name: '录音' + (state.draftAudioFiles.length + 1) + '.wav',
+                type: 'audio/wav',
+                size: wavBlob.size,
+                dataUrl: dataUrl
+              });
+              renderDraftImages();
+              closeAudioRecorderModal();
+            } catch (err) {
+          audioRecorderChunks = [];
+              if (els.audioRecorderComplete) {
+                els.audioRecorderComplete.classList.remove('visible');
+              }
+              if (els.audioRecorderStatus) {
+                els.audioRecorderStatus.classList.remove('visible');
+              }
+              if (els.audioRecorderStartBtn) {
+                els.audioRecorderStartBtn.textContent = '开始录音';
+                els.audioRecorderStartBtn.classList.remove('is-recording');
+              }
+              reject(err);
+            }
+          };
+          audioRecorderMediaRecorder.onerror = () => {
+            reject(new Error('录音错误'));
+          };
+        audioRecorderMediaRecorder.start(100);
+          if (els.audioRecorderStatus) {
+            els.audioRecorderStatus.classList.add('visible');
+          }
+          if (els.audioRecorderStartBtn) {
+            els.audioRecorderStartBtn.textContent = '停止录音';
+            els.audioRecorderStartBtn.classList.add('is-recording');
+          }
+          state.isRecording = true;
+        });
+        return audioRecorderPromise;
+      }
+
+      function stopAudioRecording() {
+        if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
+          audioRecorderMediaRecorder.stop();
+        }
+        if (audioRecorderStream) {
+          audioRecorderStream.getTracks().forEach((t) => t.stop());
+          audioRecorderStream = null;
+        }
+        if (els.audioRecorderStartBtn) {
+          els.audioRecorderStartBtn.textContent = '开始录音';
+          els.audioRecorderStartBtn.classList.remove('is-recording');
+        }
+        if (els.audioRecorderStatus) {
+          els.audioRecorderStatus.classList.remove('visible');
+        }
+        state.isRecording = false;
+      }
+
+function confirmAudioRecording() {
+        closeAudioRecorderModal();
+      }
+
+      els.audioRecorderDoneBtn.addEventListener('click', confirmAudioRecording);
+
+      function handleRecorderBtn() {
+        if (state.isRecording) {
+          stopAudioRecording();
+        } else {
+          startAudioRecordingAction();
+        }
+      }
+
+      async function startAudioRecordingAction() {
+        try {
+          await startAudioRecording();
+        } catch (err) {
+          console.error('[AudioRecorder] Error:', err);
+          resetAudioRecorderUI();
+          showToast('error', '录音失败: ' + (err?.message || '未知错误'), '录音错误');
+        }
+      }
+
+      async function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      async function createWavFromBlob(blob) {
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+          await audioCtx.close();
+          return audioBufferToWav(audioBuffer);
+        } catch {
+          return blob;
+        }
+      }
+
+      function audioBufferToWav(buffer) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const format = 1; // PCM
+        const bitDepth = 16;
+        const bytesPerSample = bitDepth / 8;
+        const blockAlign = numChannels * bytesPerSample;
+        const dataLength = buffer.length * blockAlign;
+        const headerLength = 44;
+        const totalLength = headerLength + dataLength;
+        const arrayBuffer = new ArrayBuffer(totalLength);
+        const view = new DataView(arrayBuffer);
+
+        function writeString(offset, str) {
+          for (let i = 0; i < str.length; i++) {
+            view.setUint8(offset + i, str.charCodeAt(i));
+          }
+        }
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, totalLength - 4, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, format, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        writeString(36, 'data');
+        view.setUint32(40, dataLength, true);
+
+        const channels = [];
+        for (let i = 0; i < numChannels; i++) {
+          channels.push(buffer.getChannelData(i));
+        }
+
+        let offset = 44;
+        for (let i = 0; i < buffer.length; i++) {
+          for (let ch = 0; ch < numChannels; ch++) {
+            let sample = channels[ch][i];
+            sample = Math.max(-1, Math.min(1, sample));
+            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+            offset += 2;
+          }
+        }
+
+        return new Blob([arrayBuffer], { type: 'audio/wav' });
+      }
+
+      els.micRecorderBtn.addEventListener('click', openAudioRecorderModal);
+
+      els.audioRecorderCloseBtn.addEventListener('click', closeAudioRecorderModal);
+      els.audioRecorderModal.addEventListener('click', event => {
+        if (event.target === els.audioRecorderModal) {
+          closeAudioRecorderModal();
+        }
+      });
+     els.audioRecorderStartBtn.addEventListener('click', handleRecorderBtn);
+
       els.saveSettingsBtn.addEventListener('click', async () => {
         await saveSettings();
         closeSettings();
