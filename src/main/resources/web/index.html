@@ -338,20 +338,8 @@
 
         <div class="content-scrollable">
             <div class="settings-layout">
-                <div class="settings-menu" role="tablist" aria-label="page.settings.menu.aria" data-i18n="page.settings.menu.aria" data-i18n-attr="aria-label">
-                    <button class="settings-menu-item active" type="button" role="tab" aria-selected="true" data-tab="general" onclick="selectSettingsTab('general')">
-                        <i class="fas fa-sliders-h"></i>
-                        <span data-i18n="page.settings.menu.general">page.settings.menu.general</span>
-                    </button>
-
-                    <button class="settings-menu-item" type="button" role="tab" aria-selected="false" data-tab="mcp" onclick="selectSettingsTab('mcp')">
-                        <i class="fas fa-toolbox"></i>
-                        <span data-i18n="page.settings.menu.mcp">page.settings.menu.mcp</span>
-                    </button>
-                </div>
-
                 <div class="settings-content">
-                    <div class="settings-panel" data-tab-panel="general">
+                    <div class="settings-panel">
                         <div class="model-list-container">
                             <div class="model-list-header">
                                 <h2 data-i18n="page.settings.general.title">page.settings.general.title</h2>
@@ -479,13 +467,6 @@
 
 
 
-                    <div class="settings-panel" data-tab-panel="mcp" style="display: none;">
-                        <div class="model-list-container">
-                            <div class="settings-panel-body" style="padding: 0;">
-                                <iframe class="settings-embed-frame" title="page.settings.mcp.title" data-i18n="page.settings.mcp.title" data-i18n-attr="title" data-src="tools/mcp-manager.html" loading="lazy"></iframe>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -2228,7 +2209,7 @@
             if (nav) nav.classList.add('active');
         }
 
-        function showSettingsPage(tab) {
+        function showSettingsPage() {
             document.getElementById('main-model-list').style.display = 'none';
             document.getElementById('main-llamacpp-setting').style.display = 'none';
             document.getElementById('main-model-path-setting').style.display = 'none';
@@ -2239,34 +2220,10 @@
             const main = document.getElementById('main-settings');
             if (main) main.style.display = '';
 
-            selectSettingsTab(tab || 'general');
-
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
             const nav = document.getElementById('nav-settings');
             if (nav) nav.classList.add('active');
-        }
-
-        function selectSettingsTab(tab) {
-            const menuItems = document.querySelectorAll('#main-settings .settings-menu-item');
-            menuItems.forEach(btn => {
-                const active = btn && btn.dataset && btn.dataset.tab === tab;
-                btn.classList.toggle('active', !!active);
-                btn.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
-
-            const panels = document.querySelectorAll('#main-settings .settings-panel');
-            panels.forEach(panel => {
-                const show = panel && panel.dataset && panel.dataset.tabPanel === tab;
-                panel.style.display = show ? '' : 'none';
-                if (show) {
-                    const frame = panel.querySelector('iframe[data-src]');
-                    if (frame && !frame.getAttribute('src')) {
-                        const src = frame.dataset ? frame.dataset.src : '';
-                        if (src) frame.setAttribute('src', src);
-                    }
-                }
-            });
         }
 
         // 加载模型路径列表

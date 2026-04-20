@@ -1047,72 +1047,14 @@
         #main-settings .content-scrollable { padding: 0; background-color: #fff; }
 
         .settings-layout {
-            display: flex;
-            gap: 1rem;
-            align-items: stretch;
             min-height: 100%;
             padding: 1.5rem 2rem 2rem;
         }
-        .settings-menu {
-            width: 220px;
-            flex: 0 0 220px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-sm);
-            padding: 0.5rem;
-            position: sticky;
-            top: 0;
-            height: 100%;
-        }
-        .settings-menu-item {
-            width: 100%;
-            border: none;
-            background: transparent;
-            padding: 0.75rem 0.875rem;
-            border-radius: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            cursor: pointer;
-            color: var(--text-primary);
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-        .settings-menu-item:hover { background-color: #f9fafb; }
-        .settings-menu-item.active {
-            background-color: rgba(0, 0, 0, 0.08);
-            color: var(--primary-color);
-        }
-
-        .settings-content {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            min-height: 0;
-            flex-direction: column;
-        }
         #main-settings .settings-panel {
             width: 100%;
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-        #main-settings .settings-panel .model-list-container {
-            flex: 1;
-            min-height: 0;
-        }
-        #main-settings .settings-panel[data-tab-panel="general"] .model-list-container {
-            flex: none;
-            min-height: auto;
         }
         .settings-panel-body {
             padding: 1.25rem 1.5rem;
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
         }
         .settings-toggle-list {
             margin-top: 1rem;
@@ -1176,10 +1118,6 @@
             flex: 1;
         }
 
-        @media (max-width: 1000px) {
-            .settings-layout { flex-direction: column; }
-            .settings-menu { width: 100%; flex: none; position: static; height: auto; }
-        }
         
         @media (max-width: 768px) {
             .sidebar { display: none; } /* Mobile sidebar not implemented yet for brevity */
