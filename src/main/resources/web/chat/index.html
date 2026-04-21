@@ -5061,55 +5061,38 @@
 
       // ── Audio Recorder ──
 
-     let audioRecorderBlobUrl = null;
-      let audioRecorderMediaRecorder = null;
-      let audioRecorderChunks = [];
-      let audioRecorderStream = null;
-      let audioRecorderPromise = null;
-      let audioRecorderPendingStream = null;
-      let audioRecorderStreamRequested = false;
+       let audioRecorderBlobUrl = null;
+       let audioRecorderMediaRecorder = null;
+       let audioRecorderChunks = [];
+       let audioRecorderStream = null;
+       let audioRecorderPromise = null;
 
-      function openAudioRecorderModal() {
-        const modal = els.audioRecorderModal;
-        if (!modal) return;
-        resetAudioRecorderUI();
-        modal.classList.add('open');
-        modal.setAttribute('aria-hidden', 'false');
-        if (!audioRecorderStreamRequested && !audioRecorderPendingStream) {
-          audioRecorderStreamRequested = true;
-          navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-            audioRecorderPendingStream = stream;
-          }).catch((err) => {
-            console.error('[AudioRecorder] Failed to pre-request stream:', err);
-            audioRecorderPendingStream = null;
-            audioRecorderStreamRequested = false;
-          });
-        }
-      }
+       function openAudioRecorderModal() {
+         const modal = els.audioRecorderModal;
+         if (!modal) return;
+         resetAudioRecorderUI();
+         modal.classList.add('open');
+         modal.setAttribute('aria-hidden', 'false');
+       }
 
-     function closeAudioRecorderModal() {
-        const modal = els.audioRecorderModal;
-        if (!modal) return;
-        if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
-          audioRecorderMediaRecorder.stop();
-        }
-        if (audioRecorderStream) {
-          audioRecorderStream.getTracks().forEach((t) => t.stop());
-          audioRecorderStream = null;
-        }
-        if (audioRecorderPendingStream) {
-          audioRecorderPendingStream.getTracks().forEach((t) => t.stop());
-          audioRecorderPendingStream = null;
-          audioRecorderStreamRequested = false;
-        }
-        audioRecorderChunks = [];
-        if (audioRecorderBlobUrl) {
-          URL.revokeObjectURL(audioRecorderBlobUrl);
-          audioRecorderBlobUrl = null;
-        }
-        modal.classList.remove('open');
-        modal.setAttribute('aria-hidden', 'true');
-      }
+      function closeAudioRecorderModal() {
+         const modal = els.audioRecorderModal;
+         if (!modal) return;
+         if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
+           audioRecorderMediaRecorder.stop();
+         }
+         if (audioRecorderStream) {
+           audioRecorderStream.getTracks().forEach((t) => t.stop());
+           audioRecorderStream = null;
+         }
+         audioRecorderChunks = [];
+         if (audioRecorderBlobUrl) {
+           URL.revokeObjectURL(audioRecorderBlobUrl);
+           audioRecorderBlobUrl = null;
+         }
+         modal.classList.remove('open');
+         modal.setAttribute('aria-hidden', 'true');
+       }
 
  function resetAudioRecorderUI() {
         if (audioRecorderBlobUrl) {
@@ -5129,19 +5112,30 @@
         state.isRecording = false;
       }
 
-      function startAudioRecording() {
+       function startAudioRecording() {
         audioRecorderPromise = new Promise(async (resolve, reject) => {
-          if (audioRecorderPendingStream) {
-            audioRecorderStream = audioRecorderPendingStream;
-            audioRecorderPendingStream = null;
-            audioRecorderStreamRequested = false;
-          } else {
-            try {
-              audioRecorderStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            } catch (err) {
-              reject(err);
-              return;
+          // getUserMedia requires a secure context (HTTPS, localhost, or file://)
+          if (!window.isSecureContext) {
+            const err = new Error('录音功能需要 HTTPS 连接，或使用 localhost / file:// 协议');
+            reject(err);
+            return;
+          }
+          try {
+            audioRecorderStream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: false
+            });
+          } catch (err) {
+            let message = '未知错误';
+            if (err?.name === 'NotAllowedError') {
+              message = '麦克风权限被拒绝，请在浏览器设置中允许麦克风访问';
+            } else if (err?.name === 'NotFoundError') {
+              message = '未检测到麦克风设备';
+            } else if (err?.name === 'SecurityError') {
+              message = '麦克风访问被安全策略阻止，请确保使用 HTTPS';
             }
+            reject(new Error(message));
+            return;
           }
           audioRecorderChunks = [];
           audioRecorderMediaRecorder = new MediaRecorder(audioRecorderStream);

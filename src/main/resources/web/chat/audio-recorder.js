@@ -27,19 +27,6 @@ class AudioRecorder {
     this.autoSplitSeconds = options.autoSplitSeconds || 0;
     this._timer = null;
     this._elapsed = 0;
-
-    window.addEventListener("DOMContentLoaded", () => {
-      const btn = document.createElement("button");
-      btn.id = "audio-recorder-btn";
-      btn.title = "Hold to record (microphone)";
-      btn.innerHTML = "\u{1F3A4}";
-      btn.style.cssText =
-        "position:fixed;bottom:18px;right:18px;z-index:9999;border:1px solid rgba(0,0,0,.12);background:#3b82f6;color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;";
-      document.body.appendChild(btn);
-      btn.addEventListener("pointerdown", () => this.start());
-      btn.addEventListener("pointerup",   () => this.stop());
-      btn.addEventListener("pointerleave",() => this.stop());
-    });
   }
 
   /* ---- public API ---- */
