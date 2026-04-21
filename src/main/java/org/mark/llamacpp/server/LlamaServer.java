@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 
 import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
 import org.mark.llamacpp.lmstudio.LMStudio;
@@ -1488,10 +1487,10 @@ private static void bindOpenAI(int port) {
 
 		try {
 			WindowsTray tray = WindowsTray.getInstance();
-
+			String host = "http" + (httpsEnabled ? "s" : "") + "://127.0.0.1:" + webPort;
 			tray.addButton("打开首页", () -> {
 				try {
-					java.awt.Desktop.getDesktop().browse(new java.net.URI("http://127.0.0.1:" + webPort));
+					java.awt.Desktop.getDesktop().browse(new java.net.URI(host));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -1505,7 +1504,7 @@ private static void bindOpenAI(int port) {
 			tray.setDefaultAction(() -> {
 				// 双击托盘图标触发，暂时没东西
 				try {
-					java.awt.Desktop.getDesktop().browse(new java.net.URI("http://127.0.0.1:" + webPort));
+					java.awt.Desktop.getDesktop().browse(new java.net.URI(host));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
