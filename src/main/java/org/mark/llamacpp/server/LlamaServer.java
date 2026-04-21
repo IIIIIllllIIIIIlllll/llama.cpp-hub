@@ -8,10 +8,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 
 import org.mark.llamacpp.lmstudio.LMStudio;
 import org.mark.llamacpp.ollama.Ollama;
@@ -63,6 +68,9 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedFile;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.CharsetUtil;
@@ -125,6 +133,8 @@ public class LlamaServer {
 		}
 
 		logger.info("系统初始化完成，启动Web服务器...");
+		
+		LlamaServer.initHttpsContext();
 
 		Thread t1 = new Thread(() -> {
 			LlamaServer.bindOpenAI(webPort);
@@ -321,6 +331,12 @@ public class LlamaServer {
 
 	private static volatile boolean chatStreamingEnabled = true;
 
+	private static volatile boolean httpsEnabled = false;
+	private static volatile String httpsCertPath = "ssl/keystore.p12";
+	private static volatile String httpsKeyPath = "ssl/keystore.p12";
+	private static volatile String httpsPassword = "changeit";
+	private static volatile SslContext httpsSslContext;
+
 	//##############################################################################################################################
 	
 	public static final String SLOTS_SAVE_KEYWORD = "~SLOTSAVE";
@@ -470,6 +486,24 @@ public class LlamaServer {
 				}
 			}
 		}
+		
+		if (root.has("https")) {
+			JsonObject https = root.getAsJsonObject("https");
+			if (https != null) {
+				if (https.has("enabled")) {
+					httpsEnabled = https.get("enabled").getAsBoolean();
+				}
+				if (https.has("certPath")) {
+					httpsCertPath = https.get("certPath").getAsString();
+				}
+				if (https.has("keyPath")) {
+					httpsKeyPath = https.get("keyPath").getAsString();
+				}
+				if (https.has("password")) {
+					httpsPassword = https.get("password").getAsString();
+				}
+			}
+		}
 	}
     
     /**
@@ -520,6 +554,13 @@ public class LlamaServer {
 				logging.addProperty("logRequestHeader", logRequestHeader);
 				logging.addProperty("logRequestBody", logRequestBody);
 				root.add("logging", logging);
+				
+				JsonObject https = new JsonObject();
+				https.addProperty("enabled", httpsEnabled);
+				https.addProperty("certPath", httpsCertPath);
+				https.addProperty("keyPath", httpsKeyPath);
+				https.addProperty("password", httpsPassword);
+				root.add("https", https);
 	
 				String json = GSON.toJson(root);
 	
@@ -647,10 +688,14 @@ public class LlamaServer {
     	return mcpServerEnabled;
     }
 
-    public static boolean isMcpServerRunning() {
-    	DefaultMcpServiceImpl service = mcpServerService;
-    	return service != null && service.isRunning();
-    }
+public static boolean isMcpServerRunning() {
+     	DefaultMcpServiceImpl service = mcpServerService;
+     	return service != null && service.isRunning();
+     }
+     
+     public static SslContext getHttpsSslContext() {
+     	return httpsSslContext;
+     }
 
     public static int getMcpServerPort() {
     	return DEFAULT_MCP_SERVER_PORT;
@@ -762,9 +807,33 @@ public class LlamaServer {
     }
     
     
-    public static String getDefaultModelsPath() {
-    	return DEFAULT_MODELS_DIRECTORY;
-    }
+public static String getDefaultModelsPath() {
+     	return DEFAULT_MODELS_DIRECTORY;
+     }
+     
+     public static void initHttpsContext() {
+     	if (!httpsEnabled) {
+     		logger.info("HTTPS未启用，使用HTTP协议启动");
+     		return;
+     	}
+     	try {
+     		File keystoreFile = new File(httpsCertPath);
+     		if (!keystoreFile.exists()) {
+     			logger.info("HTTPS证书文件不存在: {}, 使用HTTP协议启动", httpsCertPath);
+     			httpsEnabled = false;
+     			return;
+     		}
+     		KeyStore keyStore = KeyStore.getInstance(keystoreFile, httpsPassword.toCharArray());
+     		KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+     		kmf.init(keyStore, httpsPassword.toCharArray());
+     		SslContext sslContext = SslContextBuilder.forServer(kmf).build();
+     		httpsSslContext = sslContext;
+     		logger.info("HTTPS证书加载成功: {}", httpsCertPath);
+     	} catch (Exception e) {
+     		logger.info("HTTPS证书加载失败: {}, 使用HTTP协议启动", e.getMessage());
+     		httpsEnabled = false;
+     	}
+     }
     
     
     private static void bindAnthropic(int port) {
@@ -780,14 +849,27 @@ public class LlamaServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline()
-                                    .addLast(new HttpServerCodec())
-                                    .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
-                                    .addLast(new ChunkedWriteHandler())
-                                    .addLast(new BasicRouterHandler())
-                                    .addLast(new CompletionRouterHandler())
-                                    .addLast(new AnthropicRouterHandler())
-                                    .addLast(new FileDownloadRouterHandler());
+                            if (httpsSslContext != null) {
+                            	SSLEngine engine = httpsSslContext.newEngine(ch.alloc());
+                                ch.pipeline()
+                                		.addLast(new SslHandler(engine))
+                                        .addLast(new HttpServerCodec())
+                                        .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
+                                        .addLast(new ChunkedWriteHandler())
+                                        .addLast(new BasicRouterHandler())
+                                        .addLast(new CompletionRouterHandler())
+                                        .addLast(new AnthropicRouterHandler())
+                                        .addLast(new FileDownloadRouterHandler());
+                            } else {
+                                ch.pipeline()
+                                        .addLast(new HttpServerCodec())
+                                        .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
+                                        .addLast(new ChunkedWriteHandler())
+                                        .addLast(new BasicRouterHandler())
+                                        .addLast(new CompletionRouterHandler())
+                                        .addLast(new AnthropicRouterHandler())
+                                        .addLast(new FileDownloadRouterHandler());
+                            }
                         }
                         
                         @Override
@@ -798,8 +880,9 @@ public class LlamaServer {
                     });
             
             ChannelFuture future = bootstrap.bind(port).sync();
-            logger.info("LlammServer启动成功，端口: {}", port);
-            logger.info("访问地址: http://localhost:{}", port);
+            logger.info("Anthropic服务启动成功，端口: {}", port);
+            String protocol = httpsSslContext != null ? "https" : "http";
+            logger.info("访问地址: {}://localhost:{}", protocol, port);
             
             future.channel().closeFuture().sync();
         } catch (InterruptedException e) {
@@ -816,7 +899,7 @@ public class LlamaServer {
     }
     
     
-    private static void bindOpenAI(int port) {
+private static void bindOpenAI(int port) {
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         
@@ -829,18 +912,35 @@ public class LlamaServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline()
-                                    .addLast(new HttpServerCodec())
-                                    .addLast(new OpenAIChatStreamingHandler())
-                                    .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
-                                    .addLast(new ChunkedWriteHandler())
-                                    .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
-                                    .addLast(new WebSocketServerHandler())
-                                    
-                                    .addLast(new BasicRouterHandler())
-                                    .addLast(new CompletionRouterHandler())
-                                    .addLast(new FileDownloadRouterHandler())
-                                    .addLast(new OpenAIRouterHandler());
+                            if (httpsSslContext != null) {
+                            	SSLEngine engine = httpsSslContext.newEngine(ch.alloc());
+                                ch.pipeline()
+                                		.addLast(new SslHandler(engine))
+                                        .addLast(new HttpServerCodec())
+                                        .addLast(new OpenAIChatStreamingHandler())
+                                        .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
+                                        .addLast(new ChunkedWriteHandler())
+                                        .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
+                                        .addLast(new WebSocketServerHandler())
+                                        
+                                        .addLast(new BasicRouterHandler())
+                                        .addLast(new CompletionRouterHandler())
+                                        .addLast(new FileDownloadRouterHandler())
+                                        .addLast(new OpenAIRouterHandler());
+                            } else {
+                                ch.pipeline()
+                                        .addLast(new HttpServerCodec())
+                                        .addLast(new OpenAIChatStreamingHandler())
+                                        .addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
+                                        .addLast(new ChunkedWriteHandler())
+                                        .addLast(new WebSocketServerProtocolHandler(WEBSOCKET_PATH, null, true, Integer.MAX_VALUE))
+                                        .addLast(new WebSocketServerHandler())
+                                        
+                                        .addLast(new BasicRouterHandler())
+                                        .addLast(new CompletionRouterHandler())
+                                        .addLast(new FileDownloadRouterHandler())
+                                        .addLast(new OpenAIRouterHandler());
+                            }
                         }
                         @Override
                         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -850,8 +950,9 @@ public class LlamaServer {
                     });
             
             ChannelFuture future = bootstrap.bind(port).sync();
-            logger.info("LlammServer启动成功，端口: {}", port);
-            logger.info("访问地址: http://localhost:{}", port);
+            logger.info("OpenAI服务启动成功，端口: {}", port);
+            String protocol = httpsSslContext != null ? "https" : "http";
+            logger.info("访问地址: {}://localhost:{}", protocol, port);
             
             future.channel().closeFuture().sync();
         } catch (InterruptedException e) {

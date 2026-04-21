@@ -29,7 +29,11 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedWriteHandler;
+
+import javax.net.ssl.SSLEngine;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -137,12 +141,24 @@ public class Ollama {
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
 						protected void initChannel(SocketChannel ch) throws Exception {
-							ch.pipeline()
-									.addLast(new HttpServerCodec())
-									.addLast(new OpenAIChatStreamingHandler())
-									.addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
-									.addLast(new ChunkedWriteHandler())
-									.addLast(new OllamaRouterHandler());
+							SslContext sslContext = org.mark.llamacpp.server.LlamaServer.getHttpsSslContext();
+							if (sslContext != null) {
+								SSLEngine engine = sslContext.newEngine(ch.alloc());
+								ch.pipeline()
+										.addLast(new SslHandler(engine))
+										.addLast(new HttpServerCodec())
+										.addLast(new OpenAIChatStreamingHandler())
+										.addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
+										.addLast(new ChunkedWriteHandler())
+										.addLast(new OllamaRouterHandler());
+							} else {
+								ch.pipeline()
+										.addLast(new HttpServerCodec())
+										.addLast(new OpenAIChatStreamingHandler())
+										.addLast(new HttpObjectAggregator(MAX_HTTP_CONTENT_LENGTH))
+										.addLast(new ChunkedWriteHandler())
+										.addLast(new OllamaRouterHandler());
+							}
 						}
 						@Override
 						public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -162,7 +178,9 @@ public class Ollama {
 			}
 			
 			logger.info("Ollama服务启动成功，端口: {}", bindPort);
-			logger.info("访问地址: http://localhost:{}", bindPort);
+			SslContext sslContext = org.mark.llamacpp.server.LlamaServer.getHttpsSslContext();
+			String protocol = sslContext != null ? "https" : "http";
+			logger.info("访问地址: {}://localhost:{}", protocol, bindPort);
 			
 			future.channel().closeFuture().sync();
 		} catch (InterruptedException e) {
