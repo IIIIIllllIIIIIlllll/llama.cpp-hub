@@ -495,6 +495,69 @@
         }
         #loadModelModal .param-group-body { padding: 1rem; }
         #loadModelModal .param-group-body .form-group:last-child { margin-bottom: 0; }
+
+        /* Model capabilities collapsible section */
+        #loadModelModal .capabilities-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            background: #fafbfc;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        #loadModelModal .capabilities-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.75rem;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #5b7a9d;
+            transition: background 0.15s ease;
+        }
+        #loadModelModal .capabilities-header:hover {
+            background: #f0f4f8;
+        }
+        #loadModelModal .capabilities-chevron {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            font-size: 0.65rem;
+            color: #8fa7c0;
+            transition: transform 0.2s ease;
+        }
+        #loadModelModal .capabilities-section:not(.open) .capabilities-chevron {
+            transform: rotate(-90deg);
+        }
+        #loadModelModal .capabilities-body {
+            display: none;
+            padding: 0.6rem 0.75rem 0.75rem;
+        }
+        #loadModelModal .capabilities-section.open .capabilities-body {
+            display: block;
+        }
+        #loadModelModal .capabilities-body .form-check {
+            margin-bottom: 0.35rem;
+        }
+        #loadModelModal .capabilities-body .form-check:last-child {
+            margin-bottom: 0;
+        }
+        #loadModelModal .capabilities-body .form-check-label {
+            font-size: 0.8rem;
+            color: #4a6278;
+        }
+        #loadModelModal .capabilities-body .form-check-input {
+            width: 14px;
+            height: 14px;
+        }
+        #loadModelModal .capabilities-body .form-text {
+            font-size: 0.72rem;
+            color: #8fa7c0;
+            margin-bottom: 0.5rem;
+        }
         #modelBenchmarkModal .modal-body { overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; }
         #modelBenchmarkModal #modelBenchmarkForm { display: flex; flex-direction: column; flex: 1; min-height: 0; }
         #modelBenchmarkModal .load-model-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: stretch; flex: 1; min-height: 0; }

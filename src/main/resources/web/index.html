@@ -603,25 +603,30 @@
                                 <select class="form-control" id="llamaBinPathSelect" name="llamaBinPathSelect"></select>
                             </div>
 
-                            <div class="form-group" id="modelCapabilitiesGroup">
-                                <label class="form-label" data-i18n="modal.model_action.capabilities.title">modal.model_action.capabilities.title</label>
-                                <small class="form-text" data-i18n="modal.model_action.capabilities.desc">modal.model_action.capabilities.desc</small>
-                                <div style="border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 0.75rem;">
-                                    <div class="form-check" style="margin-bottom: 0.5rem;">
-                                        <input class="form-check-input" type="checkbox" id="capabilityThinking">
-                                        <label class="form-check-label" for="capabilityThinking" data-i18n="modal.model_action.capabilities.thinking">modal.model_action.capabilities.thinking</label>
-                                    </div>
-                                    <div class="form-check" style="margin-bottom: 0.5rem;">
-                                        <input class="form-check-input" type="checkbox" id="capabilityTools">
-                                        <label class="form-check-label" for="capabilityTools" data-i18n="modal.model_action.capabilities.tools">modal.model_action.capabilities.tools</label>
-                                    </div>
-                                    <div class="form-check" style="margin-bottom: 0.5rem;">
-                                        <input class="form-check-input" type="checkbox" id="capabilityRerank">
-                                        <label class="form-check-label" for="capabilityRerank" data-i18n="modal.model_action.capabilities.rerank">modal.model_action.capabilities.rerank</label>
-                                    </div>
-                                    <div class="form-check" style="margin-bottom: 0;">
-                                        <input class="form-check-input" type="checkbox" id="capabilityEmbedding">
-                                        <label class="form-check-label" for="capabilityEmbedding" data-i18n="modal.model_action.capabilities.embedding">modal.model_action.capabilities.embedding</label>
+                            <div class="capabilities-section" id="modelCapabilitiesGroup">
+                                <div class="capabilities-header" onclick="this.parentElement.classList.toggle('open')">
+                                    <span class="capabilities-chevron"><i class="fas fa-chevron-down"></i></span>
+                                    <span data-i18n="modal.model_action.capabilities.title">modal.model_action.capabilities.title</span>
+                                </div>
+                                <div class="capabilities-body">
+                                    <small class="form-text" data-i18n="modal.model_action.capabilities.desc">modal.model_action.capabilities.desc</small>
+                                    <div style="border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 0.75rem;">
+                                        <div class="form-check" style="margin-bottom: 0.5rem;">
+                                            <input class="form-check-input" type="checkbox" id="capabilityThinking">
+                                            <label class="form-check-label" for="capabilityThinking" data-i18n="modal.model_action.capabilities.thinking">modal.model_action.capabilities.thinking</label>
+                                        </div>
+                                        <div class="form-check" style="margin-bottom: 0.5rem;">
+                                            <input class="form-check-input" type="checkbox" id="capabilityTools">
+                                            <label class="form-check-label" for="capabilityTools" data-i18n="modal.model_action.capabilities.tools">modal.model_action.capabilities.tools</label>
+                                        </div>
+                                        <div class="form-check" style="margin-bottom: 0.5rem;">
+                                            <input class="form-check-input" type="checkbox" id="capabilityRerank">
+                                            <label class="form-check-label" for="capabilityRerank" data-i18n="modal.model_action.capabilities.rerank">modal.model_action.capabilities.rerank</label>
+                                        </div>
+                                        <div class="form-check" style="margin-bottom: 0;">
+                                            <input class="form-check-input" type="checkbox" id="capabilityEmbedding">
+                                            <label class="form-check-label" for="capabilityEmbedding" data-i18n="modal.model_action.capabilities.embedding">modal.model_action.capabilities.embedding</label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -637,11 +642,11 @@
                             
                             <div class="form-group" id="mainGpuGroup">
                                 <label class="form-label" for="mainGpuSelect" data-i18n="modal.model_action.main_gpu">modal.model_action.main_gpu</label>
+                                <small class="form-text" id="ctxSizeVramHint" style="color: red; font-weight: 500; white-space: pre-wrap; display: block; margin-top: 8px;"></small>
                                 <select class="form-control" id="mainGpuSelect" name="mg">
                                     <option value="-1" data-i18n="common.default">common.default</option>
                                 </select>
                                 <small class="form-text" data-i18n="modal.model_action.main_gpu_desc">modal.model_action.main_gpu_desc</small>
-                                <small class="form-text" id="ctxSizeVramHint" style="color: red; font-weight: 500; white-space: pre-wrap; display: block; margin-top: 8px;"></small>
                             </div>
                             
                             <div class="form-group">
