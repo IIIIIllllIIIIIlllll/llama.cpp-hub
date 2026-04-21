@@ -300,7 +300,8 @@ function applyCmdToDynamicFields(modal, cmd) {
             if (!p) continue;
             const fieldName = fieldNameFromParamConfig(p);
             if (!fieldName) continue;
-            setParamEnabled(fieldName, true);
+            const defaultEnabled = p.defaultEnabled === true;
+            setParamEnabled(fieldName, defaultEnabled);
 
             const type = (p.type === null || p.type === undefined) ? 'STRING' : String(p.type);
             const typeUpper = String(type).toUpperCase();

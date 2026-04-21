@@ -7,6 +7,7 @@
     "defaultValue": "8192",
     "description": "param.server.ctx_size.desc",
     "sort": 0,
+	"defaultEnabled": true,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -24,6 +25,7 @@
       "auto"
     ],
     "sort": 1,
+	"defaultEnabled": true,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -36,6 +38,7 @@
     "defaultValue": "1",
     "description": "param.server.no_mmap.desc",
     "sort": 2,
+	"defaultEnabled": true,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -48,6 +51,7 @@
     "defaultValue": "0",
     "description": "param.server.mlock.desc",
     "sort": 3,
+	"defaultEnabled": true,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -60,6 +64,7 @@
     "defaultValue": "0",
     "description": "param.server.embedding.desc",
     "sort": 4,
+	"defaultEnabled": false,
     "group": "page.params.group.features",
     "groupOrder": 40,
     "groupCollapsed": true
@@ -72,6 +77,7 @@
     "defaultValue": "0",
     "description": "param.server.rerank.desc",
     "sort": 5,
+	"defaultEnabled": false,
     "group": "page.params.group.features",
     "groupOrder": 40,
     "groupCollapsed": true
@@ -84,6 +90,7 @@
     "defaultValue": "0.7",
     "description": "param.server.temp.desc",
     "sort": 6,
+	"defaultEnabled": true,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -136,6 +143,7 @@
       }
     ],
     "sort": 6.5,
+	"defaultEnabled": false,
     "group": "page.params.group.sampler_chain",
     "groupOrder": 21,
     "groupCollapsed": false
@@ -148,6 +156,7 @@
     "defaultValue": "0.95",
     "description": "param.server.top_p.desc",
     "sort": 7,
+	"defaultEnabled": true,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -160,6 +169,7 @@
     "defaultValue": "40",
     "description": "param.server.top_k.desc",
     "sort": 8,
+	"defaultEnabled": true,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -172,6 +182,7 @@
     "defaultValue": "0.05",
     "description": "param.server.min_p.desc",
     "sort": 9,
+	"defaultEnabled": true,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -184,6 +195,7 @@
     "defaultValue": "-1.0",
     "description": "param.server.top_n_sigma.desc",
     "sort": 10,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -196,6 +208,7 @@
     "defaultValue": "0.0",
     "description": "param.server.presence_penalty.desc",
     "sort": 11,
+	"defaultEnabled": true,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -208,6 +221,7 @@
     "defaultValue": "1.0",
     "description": "param.server.repeat_penalty.desc",
     "sort": 12,
+	"defaultEnabled": true,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -220,6 +234,7 @@
     "defaultValue": "0.0",
     "description": "param.server.frequency_penalty.desc",
     "sort": 13,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -232,6 +247,7 @@
     "defaultValue": "0.0",
     "description": "param.server.dry_multiplier.desc",
     "sort": 14,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -244,6 +260,7 @@
     "defaultValue": "1.75",
     "description": "param.server.dry_base.desc",
     "sort": 15,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -256,6 +273,7 @@
     "defaultValue": "2048",
     "description": "param.server.batch_size.desc",
     "sort": 16,
+	"defaultEnabled": true,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -268,6 +286,7 @@
     "defaultValue": "512",
     "description": "param.server.ubatch_size.desc",
     "sort": 17,
+	"defaultEnabled": true,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -280,6 +299,7 @@
     "defaultValue": "4",
     "description": "param.server.parallel.desc",
     "sort": 18,
+	"defaultEnabled": false,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -291,7 +311,38 @@
     "type": "INTEGER",
     "defaultValue": "8192",
     "description": "param.server.cache_ram.desc",
-    "sort": 19,
+    "sort": 4,
+	"defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.fit.name",
+    "fullName": "--fit",
+    "abbreviation": "--fit",
+    "type": "STRING",
+    "defaultValue": "on",
+    "values": [
+      "on",
+      "off"
+    ],
+    "description": "param.server.fit.desc",
+    "sort": 5,
+	"defaultEnabled": true,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.ngl.name",
+    "fullName": "--gpu-layers",
+    "abbreviation": "-ngl",
+    "type": "STRING",
+    "defaultValue": "-1",
+    "description": "param.server.ngl.desc",
+    "sort": 6,
+	"defaultEnabled": false,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -303,7 +354,21 @@
     "type": "LOGIC",
     "defaultValue": "1",
     "description": "param.server.kv_unified.desc",
-    "sort": 20,
+    "sort": 7,
+	"defaultEnabled": true,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.ctx_checkpoints.name",
+    "fullName": "--ctx-checkpoints",
+    "abbreviation": "--ctx-checkpoints",
+    "type": "INTEGER",
+    "defaultValue": "8",
+    "description": "param.server.ctx_checkpoints.desc",
+    "sort": 8,
+	"defaultEnabled": false,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -329,7 +394,8 @@
       "turbo3",
 	  "turbo2"
     ],
-    "sort": 22,
+    "sort": 9,
+	"defaultEnabled": false,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -355,7 +421,8 @@
 	  "turbo3",
 	  "turbo2"
     ],
-    "sort": 23,
+    "sort": 10,
+	"defaultEnabled": false,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -368,6 +435,7 @@
     "defaultValue": "-1",
     "description": "param.server.threads.desc",
     "sort": 23,
+	"defaultEnabled": false,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -380,6 +448,7 @@
     "defaultValue": "-1",
     "description": "param.server.seed.desc",
     "sort": 24,
+	"defaultEnabled": false,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -389,7 +458,7 @@
     "fullName": "",
     "abbreviation": "",
     "type": "STRING",
-    "defaultValue": "default",
+    "defaultValue": "-dio",
     "description": "param.server.directio.desc",
     "values": [
       "default",
@@ -397,6 +466,7 @@
       "-dio"
     ],
     "sort": 25,
+	"defaultEnabled": true,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false
@@ -409,6 +479,7 @@
     "defaultValue": "0",
     "description": "param.server.no_jinja.desc",
     "sort": 26,
+	"defaultEnabled": false,
     "group": "page.params.group.template",
     "groupOrder": 50,
     "groupCollapsed": true
@@ -473,6 +544,7 @@
       "zephyr"
     ],
     "sort": 27,
+	"defaultEnabled": false,
     "group": "page.params.group.template",
     "groupOrder": 50,
     "groupCollapsed": true
@@ -485,6 +557,7 @@
     "defaultValue": "0",
     "description": "param.server.context_shift.desc",
     "sort": 28,
+	"defaultEnabled": false,
     "group": "page.params.group.features",
     "groupOrder": 40,
     "groupCollapsed": true
@@ -497,6 +570,7 @@
     "defaultValue": "1",
     "description": "param.server.no_webui.desc",
     "sort": 29,
+	"defaultEnabled": true,
     "group": "page.params.group.features",
     "groupOrder": 40,
     "groupCollapsed": true
@@ -515,6 +589,7 @@
     ],
     "description": "param.server.reasoning_format.desc",
     "sort": 30,
+	"defaultEnabled": false,
     "group": "page.params.group.template",
     "groupOrder": 50,
     "groupCollapsed": true
@@ -527,6 +602,7 @@
     "defaultValue": "-1",
     "description": "param.server.reasoning_budget.desc",
     "sort": 31,
+	"defaultEnabled": false,
     "group": "page.params.group.template",
     "groupOrder": 50,
     "groupCollapsed": true
@@ -539,38 +615,41 @@
     "defaultValue": "0",
     "description": "param.server.no_mmproj_offload.desc",
     "sort": 32,
+	"defaultEnabled": false,
     "group": "page.params.group.multimodal",
     "groupOrder": 60,
     "groupCollapsed": true
   },
   {
-	"name": "param.server.ctx_checkpoints.name",
-	"fullName": "--ctx-checkpoints",
-	"abbreviation": "--ctx-checkpoints",
-	"type": "INTEGER",
-	"defaultValue": "8",
-	"description": "param.server.ctx_checkpoints.desc",
-	"sort": 21,
-	"group": "page.params.group.performance",
-	"groupOrder": 30,
-	"groupCollapsed": true
+    "name": "param.server.split_mode.name",
+    "fullName": "--split-mode",
+    "abbreviation": "-sm",
+    "type": "STRING",
+    "defaultValue": "layer",
+    "values": [
+      "none",
+      "layer",
+      "row",
+      "tensor"
+    ],
+    "description": "param.server.split_mode.desc",
+    "sort": 11,
+	"defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   },
   {
-  "name": "param.server.split_mode.name",
-  "fullName": "--split-mode",
-  "abbreviation": "-sm",
-  "type": "STRING",
-  "defaultValue": "layer",
-  "values": [
-    "none",
-    "layer",
-    "row",
-    "tensor"
-  ],
-  "description": "param.server.split_mode.desc",
-  "sort": 24,
-  "group": "page.params.group.performance",
-  "groupOrder": 30,
-  "groupCollapsed": true
+    "name": "param.server.cpu_moe.name",
+    "fullName": "--cpu-moe",
+    "abbreviation": "--cpu-moe",
+    "type": "LOGIC",
+    "defaultValue": "0",
+    "description": "param.server.cpu_moe.desc",
+    "sort": 12,
+	"defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
   }
 ]
