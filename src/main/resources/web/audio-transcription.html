@@ -615,10 +615,6 @@
             <option value="ro">罗马尼亚语 (ro)</option>
           </select>
         </div>
-        <div class="form-group">
-          <label for="promptInput">提示词（可选）</label>
-          <input type="text" id="promptInput" placeholder="为转录提供上下文提示">
-        </div>
       </div>
     </div>
 
@@ -674,7 +670,6 @@
       audioRemove: document.getElementById('audioRemove'),
       modelSelect: document.getElementById('modelSelect'),
       languageInput: document.getElementById('languageInput'),
-      promptInput: document.getElementById('promptInput'),
       submitBtn: document.getElementById('submitBtn'),
       resultSection: document.getElementById('resultSection'),
       resultBody: document.getElementById('resultBody'),
@@ -841,9 +836,6 @@
       const language = els.languageInput.value.trim();
       if (language) formData.append('language', language);
 
-      const prompt = els.promptInput.value.trim();
-      if (prompt) formData.append('prompt', prompt);
-
       try {
         const resp = await fetch(TRANSCRIPTION_ENDPOINT, {
           method: 'POST',
@@ -897,11 +889,16 @@
     /* ---- Load models ---- */
     async function loadModels() {
       try {
-        const resp = await fetch(MODELS_ENDPOINT);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const allModels = data.data || [];
-        models = allModels.filter(m => m.supportsAudio);
+        const [listResp, loadedResp] = await Promise.all([
+          fetch('/api/models/list'),
+          fetch('/api/models/loaded')
+        ]);
+        if (!listResp.ok) return;
+        const listData = await listResp.json();
+        const loadedModels = loadedResp.ok ? (await loadedResp.json()) : { models: [] };
+        const loadedIds = new Set((loadedModels.models || []).map(m => m.id));
+        const allModels = listData.models || [];
+        models = allModels.filter(m => m.supportsAudio && loadedIds.has(m.id));
         if (models.length === 0) return;
         models.forEach(m => {
           const opt = document.createElement('option');
