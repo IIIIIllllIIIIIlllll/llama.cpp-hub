@@ -417,6 +417,7 @@
         .btn-icon.danger:hover { border-color: var(--danger-color); color: var(--danger-color); background-color: #fef2f2; }
         .btn-icon.primary { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
         .btn-icon.primary:hover { background-color: var(--primary-hover); border-color: var(--primary-hover); color: white; }
+        .btn-icon:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
         /* Modals */
         .modal {
@@ -456,7 +457,6 @@
             min-height: 85vh;
             max-height: 85vh;
         }
-        #slotsModal .modal-body { overflow: hidden; display: flex; flex-direction: column; }
         #loadModelModal .modal-body { overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; }
         #loadModelModal #loadModelForm { display: flex; flex-direction: column; flex: 1; min-height: 0; }
         #loadModelModal .load-model-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: stretch; flex: 1; min-height: 0; }

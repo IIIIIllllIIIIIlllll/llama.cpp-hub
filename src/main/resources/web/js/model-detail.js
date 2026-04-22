@@ -36,6 +36,7 @@ function showModelDetailModal(model) {
                 `<button class="btn btn-secondary" id="${modalId}TabChatTemplate">${t('modal.model_detail.tab.chat_template', '聊天模板')}</button>` +
                 `<button class="btn btn-secondary" id="${modalId}TabToken">${t('modal.model_detail.tab.token', 'Token计算')}</button>` +
                 `<button class="btn btn-secondary" id="${modalId}TabKwargs">${t('modal.model_detail.tab.kwargs', 'Kwargs')}</button>` +
+                `<button class="btn btn-secondary" id="${modalId}TabSlots">${t('modal.slots.title', '缓存管理')}</button>` +
                 `</div>`;
     let wrapperStart = isMobileView
         ? `<div style="display:flex; flex-direction:column; flex:1; min-height:0;">`
@@ -101,9 +102,22 @@ function showModelDetailModal(model) {
                         `</div>` +
                         `<textarea id="${modalId}KwargsTextarea" style="width:100%; height:calc(100% - 48px); font-family:monospace; font-size:14px; resize:none; padding:10px; border-radius:0.75rem; border:1px solid #d1d5db;" placeholder="请输入 JSON 内容..."></textarea>` +
                         `</div>`;
+
+    let slotsPanel = `<div id="${modalId}SlotsPanel" style="display:none; height:100%; overflow:auto;">` +
+                        `<div style="margin-bottom:12px;">` +
+                        `<button class="btn btn-primary" id="${modalId}SlotsRefreshBtn">${t('common.refresh', '刷新')}</button>` +
+                        `</div>` +
+                        `<div id="${modalId}SlotsContent" style="display:flex; flex-direction:column; height:calc(100% - 50px);">` +
+                        `<div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">` +
+                        `<label class="form-label" for="${modalId}SlotSelect" style="margin:0;">${t('modal.slots.select', '选择 Slot')}</label>` +
+                        `<select class="form-control" id="${modalId}SlotSelect" style="max-width:320px;"></select>` +
+                        `</div>` +
+                        `<pre id="${modalId}SlotJsonViewer" style="flex:1; min-height:0; overflow:auto; font-size:13px; background:#111827; color:#e5e7eb; padding:10px; border-radius:0.75rem;"></pre>` +
+                        `</div>` +
+                        `</div>`;
     let bodyEnd = `</div>`;
     let wrapperEnd = `</div>`;
-    content.innerHTML = wrapperStart + tabs + bodyStart + infoPanel + samplingPanel + propsPanel + chatTemplatePanel + tokenPanel + kwargsPanel + bodyEnd + wrapperEnd;
+    content.innerHTML = wrapperStart + tabs + bodyStart + infoPanel + samplingPanel + propsPanel + chatTemplatePanel + tokenPanel + kwargsPanel + slotsPanel + bodyEnd + wrapperEnd;
     modal.classList.add('show');
     const tabInfo = document.getElementById(modalId + 'TabInfo');
     const tabSampling = document.getElementById(modalId + 'TabSampling');
@@ -111,6 +125,7 @@ function showModelDetailModal(model) {
     const tabChatTemplate = document.getElementById(modalId + 'TabChatTemplate');
     const tabToken = document.getElementById(modalId + 'TabToken');
     const tabKwargs = document.getElementById(modalId + 'TabKwargs');
+    const tabSlots = document.getElementById(modalId + 'TabSlots');
     const samplingConfigSelect = document.getElementById(modalId + 'SamplingConfigSelect');
     const samplingSaveBtn = document.getElementById(modalId + 'SamplingSaveBtn');
     const samplingAddBtn = document.getElementById(modalId + 'SamplingAddBtn');
@@ -131,6 +146,9 @@ function showModelDetailModal(model) {
     if (tabChatTemplate) tabChatTemplate.onclick = () => { openModelDetailTab('chatTemplate'); loadModelChatTemplate(false); };
     if (tabToken) tabToken.onclick = () => openModelDetailTab('token');
     if (tabKwargs) tabKwargs.onclick = () => { openModelDetailTab('kwargs'); loadModelChatTemplateKwargs(); };
+    if (tabSlots) tabSlots.onclick = () => { openModelDetailTab('slots'); fetchModelSlots(); };
+    const slotsRefreshBtn = document.getElementById(modalId + 'SlotsRefreshBtn');
+    if (slotsRefreshBtn) slotsRefreshBtn.onclick = () => fetchModelSlots();
     if (samplingConfigSelect) samplingConfigSelect.onchange = () => renderSelectedModelSamplingSettings();
     if (samplingSaveBtn) samplingSaveBtn.onclick = () => saveModelSamplingSelection();
     if (samplingAddBtn) samplingAddBtn.onclick = () => addModelSamplingConfig();
@@ -230,18 +248,21 @@ function openModelDetailTab(tab) {
     const chatTemplate = document.getElementById(modalId + 'ChatTemplatePanel');
     const token = document.getElementById(modalId + 'TokenPanel');
     const kwargs = document.getElementById(modalId + 'KwargsPanel');
+    const slots = document.getElementById(modalId + 'SlotsPanel');
     const btnInfo = document.getElementById(modalId + 'TabInfo');
     const btnSampling = document.getElementById(modalId + 'TabSampling');
     const btnProps = document.getElementById(modalId + 'TabProps');
     const btnChatTemplate = document.getElementById(modalId + 'TabChatTemplate');
     const btnToken = document.getElementById(modalId + 'TabToken');
     const btnKwargs = document.getElementById(modalId + 'TabKwargs');
+    const btnSlots = document.getElementById(modalId + 'TabSlots');
     if (info) info.style.display = tab === 'info' ? '' : 'none';
     if (sampling) sampling.style.display = tab === 'sampling' ? '' : 'none';
     if (props) props.style.display = tab === 'props' ? '' : 'none';
     if (chatTemplate) chatTemplate.style.display = tab === 'chatTemplate' ? '' : 'none';
     if (token) token.style.display = tab === 'token' ? '' : 'none';
     if (kwargs) kwargs.style.display = tab === 'kwargs' ? '' : 'none';
+    if (slots) slots.style.display = tab === 'slots' ? '' : 'none';
     const applyTabBtnStyle = (btn, active) => {
         if (!btn) return;
         btn.classList.remove('btn-primary');
@@ -254,6 +275,7 @@ function openModelDetailTab(tab) {
     applyTabBtnStyle(btnChatTemplate, tab === 'chatTemplate');
    applyTabBtnStyle(btnToken, tab === 'token');
     applyTabBtnStyle(btnKwargs, tab === 'kwargs');
+    applyTabBtnStyle(btnSlots, tab === 'slots');
 }
 
 function loadModelProps() {
@@ -1221,5 +1243,79 @@ async function calculateModelTokens() {
     } finally {
         btn.disabled = false;
         btn.textContent = prevText;
+    }
+}
+
+function fetchModelSlots() {
+    const modelId = window.__modelDetailModelId;
+    if (!modelId) return;
+    fetch(`/api/models/slots/get?modelId=${encodeURIComponent(modelId)}`)
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) {
+                const el = document.getElementById('modelDetailModalSlotsContent');
+                if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div><div class="empty-state-title">${t('common.load_failed', '加载失败')}</div><div class="empty-state-text">${d.error || t('common.unknown_error', '未知错误')}</div></div>`;
+                return;
+            }
+            const slots = (d.data && d.data.slots) ? d.data.slots : [];
+            renderSlotsContent(slots);
+        })
+        .catch(e => {
+            const el = document.getElementById('modelDetailModalSlotsContent');
+            if (el) el.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div><div class="empty-state-title">${t('common.network_error', '网络错误')}</div><div class="empty-state-text">${e.message || ''}</div></div>`;
+        });
+}
+
+function renderSlotsContent(slots) {
+    const modalId = 'modelDetailModal';
+    if (!slots || !slots.length) {
+        const contentEl = document.getElementById(modalId + 'SlotsContent');
+        if (contentEl) {
+            contentEl.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class="fas fa-database"></i></div><div class="empty-state-title">${t('modal.slots.empty_title', '无可用Slot')}</div><div class="empty-state-text">${t('modal.slots.empty_desc', '当前模型没有可用的处理槽位')}</div></div>`;
+        }
+        return;
+    }
+    const selectEl = document.getElementById(modalId + 'SlotSelect');
+    const prevIndex = selectEl && selectEl.value !== '' ? parseInt(selectEl.value, 10) : 0;
+    let html = '';
+    html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;margin-top:12px;">`;
+    html += `<label class="form-label" for="${modalId}SlotSelect" style="margin:0;">${t('modal.slots.select', '选择 Slot')}</label>`;
+    html += `<select class="form-control" id="${modalId}SlotSelect" style="max-width:320px;">`;
+    slots.forEach((s, idx) => {
+        const id = s.id !== undefined ? s.id : idx;
+        const running = s.is_processing ? t('modal.slots.status.processing', '处理中') : t('modal.slots.status.idle', '空闲');
+        const nctx = s.n_ctx !== undefined ? s.n_ctx : '';
+        html += `<option value="${idx}">ID ${id} · ${running} · ctx ${nctx}</option>`;
+    });
+    html += `</select>`;
+    html += `</div>`;
+    html += `<pre id="${modalId}SlotJsonViewer" style="flex:1; min-height:0; overflow:auto; font-size:13px; background:#111827; color:#e5e7eb; padding:10px; border-radius:0.75rem;"></pre>`;
+    const contentEl = document.getElementById(modalId + 'SlotsContent');
+    if (contentEl) contentEl.innerHTML = html;
+    window.__slotsData = slots;
+    const sel = document.getElementById(modalId + 'SlotSelect');
+    if (sel) {
+        const idx = Math.min(Math.max(prevIndex, 0), slots.length - 1);
+        sel.selectedIndex = idx;
+        sel.onchange = updateSlotJsonViewer;
+    }
+    updateSlotJsonViewer();
+}
+
+function updateSlotJsonViewer() {
+    const slots = window.__slotsData || [];
+    const selectEl = document.getElementById('modelDetailModalSlotSelect');
+    const viewer = document.getElementById('modelDetailModalSlotJsonViewer');
+    if (!selectEl || !viewer || !slots.length) return;
+    const idx = parseInt(selectEl.value, 10) || 0;
+    const slot = slots[idx];
+    if (!slot) {
+        viewer.textContent = '';
+        return;
+    }
+    try {
+        viewer.textContent = JSON.stringify(slot, null, 2);
+    } catch (e) {
+        viewer.textContent = '';
     }
 }

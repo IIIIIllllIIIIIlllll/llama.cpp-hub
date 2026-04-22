@@ -324,8 +324,9 @@ function renderModelsList(models) {
                 actionButtons = `
                             <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
                             <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
+                            <button class="btn-icon disabled" disabled title="${t('page.model.action.benchmark', '性能测试')}"><i class="fas fa-rocket"></i></button>
                             <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('page.model.action.view_benchmark_results', '查看测试结果')}"><i class="fas fa-list"></i></button>
-                            <button class="btn-icon" onclick="openSlotsModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('modal.slots.title', '缓存管理')}"><i class="fas fa-database"></i></button>
+
                         `;
             } else {
                 actionButtons = `
