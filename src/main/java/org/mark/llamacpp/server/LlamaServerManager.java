@@ -1670,7 +1670,7 @@ public class LlamaServerManager {
 //			String mmprojFile = model.getPath() + "/" + model.getMmproj().getFileName();
 //			command += ParamTool.quoteIfNeeded(mmprojFile);
 //		}
-		System.err.println(command);
+		logger.info("执行llama-fit-param命令：{}", command);
 		// 执行命令
 		CommandLineRunner.CommandResult result = CommandLineRunner.execute(command, 30);
 		String output = result.getError();

@@ -1061,7 +1061,10 @@ public class SystemController implements BaseController {
 			// 运行fit-param
 			String output = LlamaServerManager.getInstance().handleFitParam(llamaBinPathSelect, modelId, enableVision, cmdlist);
 			// 提取第一个数值
-			Pattern numberPattern = Pattern.compile("llama_params_fit_impl: projected to use (\\d+) MiB");
+			// 兼容新旧版本：
+			// 旧版：llama_params_fit_impl: projected to use XXX MiB
+			// 新版：common_params_fit_impl: projected to use XXX MiB of device memory vs. YYY MiB of free device memory
+			Pattern numberPattern = Pattern.compile("(?:llama|common)_params_fit_impl: projected to use (\\d+) MiB");
 			Matcher numberMatcher = numberPattern.matcher(output);
 			if (numberMatcher.find()) {
 			    String value = numberMatcher.group(1);
