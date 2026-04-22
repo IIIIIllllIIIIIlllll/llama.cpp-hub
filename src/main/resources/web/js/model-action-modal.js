@@ -695,7 +695,9 @@ function getModelCapabilitiesEls(modal) {
         thinking: findById(modal, 'capabilityThinking'),
         tools: findById(modal, 'capabilityTools'),
         rerank: findById(modal, 'capabilityRerank'),
-        embedding: findById(modal, 'capabilityEmbedding')
+        embedding: findById(modal, 'capabilityEmbedding'),
+        vision: findById(modal, 'capabilityVision'),
+        audio: findById(modal, 'capabilityAudio')
     };
 }
 
@@ -707,7 +709,9 @@ function normalizeModelCapabilities(input) {
         thinking: parseBooleanLike(base && base.thinking, false),
         tools: parseBooleanLike(base && base.tools, false),
         rerank: parseBooleanLike(base && base.rerank, false),
-        embedding: parseBooleanLike(base && base.embedding, false)
+        embedding: parseBooleanLike(base && base.embedding, false),
+        vision: parseBooleanLike(base && base.vision, false),
+        audio: parseBooleanLike(base && base.audio, false)
     };
 }
 
@@ -720,7 +724,9 @@ function readModelCapabilitiesFromUi(modal) {
         thinking: !!els.thinking.checked,
         tools: !!els.tools.checked,
         rerank: !!els.rerank.checked,
-        embedding: !!els.embedding.checked
+        embedding: !!els.embedding.checked,
+        vision: !!els.vision.checked,
+        audio: !!els.audio.checked
     };
 }
 
@@ -754,6 +760,12 @@ function enforceModelCapabilitiesRules(modal, changedKey) {
         els.thinking.disabled = false;
         els.tools.disabled = false;
     }
+
+    const hasVisionOrAudio = !!(els.vision && els.vision.checked || els.audio && els.audio.checked);
+    if (hasVisionOrAudio) {
+        els.rerank.checked = false;
+        els.embedding.checked = false;
+    }
 }
 
 function applyModelCapabilitiesToUi(modal, caps) {
@@ -764,6 +776,8 @@ function applyModelCapabilitiesToUi(modal, caps) {
     els.tools.checked = !!c.tools;
     els.rerank.checked = !!c.rerank;
     els.embedding.checked = !!c.embedding;
+    if (els.vision) els.vision.checked = !!c.vision;
+    if (els.audio) els.audio.checked = !!c.audio;
     enforceModelCapabilitiesRules(modal, '');
 }
 
@@ -813,6 +827,8 @@ function ensureModelCapabilitiesWired(modal) {
     els.tools.addEventListener('change', onChange('tools'));
     els.rerank.addEventListener('change', onChange('rerank'));
     els.embedding.addEventListener('change', onChange('embedding'));
+    if (els.vision) els.vision.addEventListener('change', onChange('vision'));
+    if (els.audio) els.audio.addEventListener('change', onChange('audio'));
 }
 
 function loadModelCapabilities(modelId, modal) {

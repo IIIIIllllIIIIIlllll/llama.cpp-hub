@@ -434,12 +434,26 @@ public class LlamaServerManager {
 			tools = false;
 			thinking = false;
 		}
+		// 多模态相关
+		GGUFMetaData mmproj = model.getMmproj();
+		boolean supportsAudio = false;
+		boolean supportsVision = false;
+		if(mmproj != null) {
+			if(mmproj.isSupportsAudio()) {
+				supportsAudio = true;
+			}
+			if(mmproj.isSupportsVision()) {
+				supportsVision = true;
+			}
+		}
 
 		Map<String, Object> out = new HashMap<>();
 		out.put("rerank", rerank);
 		out.put("embedding", embedding);
 		out.put("tools", tools);
 		out.put("thinking", thinking);
+		out.put("audio", supportsAudio);
+		out.put("vision", supportsVision);
 		return out;
 	}
 	
@@ -571,6 +585,8 @@ public class LlamaServerManager {
 		out.addProperty("thinking", ParamTool.parseJsonBoolean(caps, "thinking", false));
 		out.addProperty("rerank", ParamTool.parseJsonBoolean(caps, "rerank", false));
 		out.addProperty("embedding", ParamTool.parseJsonBoolean(caps, "embedding", false));
+		out.addProperty("vision", ParamTool.parseJsonBoolean(caps, "vision", false));
+		out.addProperty("audio", ParamTool.parseJsonBoolean(caps, "audio", false));
 		out.addProperty("file", filePath.toString());
 		return out;
 	}
@@ -585,6 +601,8 @@ public class LlamaServerManager {
 		boolean thinking = ParamTool.parseJsonBoolean(capsObj, "thinking", false);
 		boolean rerank = ParamTool.parseJsonBoolean(capsObj, "rerank", false);
 		boolean embedding = ParamTool.parseJsonBoolean(capsObj, "embedding", false);
+		boolean vision = ParamTool.parseJsonBoolean(capsObj, "vision", false);
+		boolean audio = ParamTool.parseJsonBoolean(capsObj, "audio", false);
 
 		if (embedding && rerank) {
 			rerank = false;
@@ -597,6 +615,10 @@ public class LlamaServerManager {
 			rerank = false;
 			embedding = false;
 		}
+		if (vision || audio) {
+			rerank = false;
+			embedding = false;
+		}
 
 		JsonObject saved = new JsonObject();
 		saved.addProperty("modelId", id);
@@ -604,6 +626,8 @@ public class LlamaServerManager {
 		saved.addProperty("thinking", thinking);
 		saved.addProperty("rerank", rerank);
 		saved.addProperty("embedding", embedding);
+		saved.addProperty("vision", vision);
+		saved.addProperty("audio", audio);
 		saved.addProperty("updatedAt", System.currentTimeMillis());
 
 		Path filePath = this.resolveCapabilitiesFilePath(id);
@@ -619,6 +643,8 @@ public class LlamaServerManager {
 		outCaps.addProperty("thinking", thinking);
 		outCaps.addProperty("rerank", rerank);
 		outCaps.addProperty("embedding", embedding);
+		outCaps.addProperty("vision", vision);
+		outCaps.addProperty("audio", audio);
 		out.add("capabilities", outCaps);
 		out.addProperty("file", filePath.toString());
 		return out;

@@ -43,7 +43,11 @@ public class GGUFMetaData {
 
     private final String sizeLabel;
 
-    private GGUFMetaData(String fileName, String filePath, String architecture, Integer contextLength, Integer fileType, String baseName, String name, String sizeLabel) {
+    private final boolean supportsAudio;
+
+    private final boolean supportsVision;
+
+    private GGUFMetaData(String fileName, String filePath, String architecture, Integer contextLength, Integer fileType, String baseName, String name, String sizeLabel, boolean supportsAudio, boolean supportsVision) {
         this.fileName = fileName;
         this.filePath = filePath;
         this.architecture = architecture;
@@ -52,6 +56,8 @@ public class GGUFMetaData {
         this.baseName = baseName;
         this.name = name;
         this.sizeLabel = sizeLabel;
+        this.supportsAudio = supportsAudio;
+        this.supportsVision = supportsVision;
     }
 
     public static GGUFMetaData readFile(File file) {
@@ -65,6 +71,8 @@ public class GGUFMetaData {
         String baseName = null;
         String name = null;
         String sizeLabel = null;
+        boolean supportsAudio = false;
+        boolean supportsVision = false;
 
         // 使用 BufferedInputStream 提高读取性能
         try (FileInputStream fis = new FileInputStream(file);
@@ -122,6 +130,18 @@ public class GGUFMetaData {
                                         (value instanceof Long ? ((Long) value).intValue() : null);
                     }
                     handled = true;
+                } else if ("clip.has_audio_encoder".equals(key)) {
+                    Object value = readValue(dis, valueType);
+                    if (value instanceof Boolean && (Boolean) value) {
+                        supportsAudio = true;
+                    }
+                    handled = true;
+                } else if ("clip.has_vision_encoder".equals(key)) {
+                    Object value = readValue(dis, valueType);
+                    if (value instanceof Boolean && (Boolean) value) {
+                        supportsVision = true;
+                    }
+                    handled = true;
                 }
 
                 if (!handled) {
@@ -134,7 +154,7 @@ public class GGUFMetaData {
             return null;
         }
 
-        return new GGUFMetaData(file.getName(), file.getAbsolutePath(), architecture, contextLength, fileType, baseName, name, sizeLabel);
+        return new GGUFMetaData(file.getName(), file.getAbsolutePath(), architecture, contextLength, fileType, baseName, name, sizeLabel, supportsAudio, supportsVision);
     }
 
     public String getFileName() {
@@ -167,6 +187,14 @@ public class GGUFMetaData {
 
     public String getSizeLabel() {
         return sizeLabel;
+    }
+
+    public boolean isSupportsAudio() {
+        return supportsAudio;
+    }
+
+    public boolean isSupportsVision() {
+        return supportsVision;
     }
     
     public String getQuantizationType() {
