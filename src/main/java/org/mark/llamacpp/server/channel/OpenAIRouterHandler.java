@@ -103,7 +103,7 @@ public class OpenAIRouterHandler extends SimpleChannelInboundHandler<FullHttpReq
 				return;
 			}
 			// 音频
-			if(uri.startsWith("/v1/audio/transcriptions")) {
+			if(uri.startsWith("/v1/audio/transcriptions") || uri.startsWith("/audio/transcriptions")) {
 				this.openAIServerHandler.handleOpenAIAudioTranscriptionsRequest(ctx, request);
 				return;
 			}
