@@ -404,7 +404,6 @@
   "modal.model_detail.label.start_cmd": "Start command:",
   "modal.model_detail.label.status": "Status:",
   "modal.model_detail.metrics.fetch": "Fetch metrics",
-  "modal.model_detail.props.fetch": "Fetch props",
   "modal.model_detail.status.port_prefix": " (Port ",
   "modal.model_detail.status.port_suffix": ")",
   "modal.model_detail.status.running": "Running",
@@ -816,6 +815,6 @@
   "model_detail.usage.cumulative_prompt": "Cumulative prompt",
   "model_detail.usage.cumulative_predict": "Cumulative predict",
   "model_detail.usage.no_records": "No records",
-  "modal.model_detail.tab.props": "Props", 
+
   "modal.model_detail.label.usage": "Usage"
 }
