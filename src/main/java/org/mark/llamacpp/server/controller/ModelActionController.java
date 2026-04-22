@@ -213,7 +213,11 @@ public class ModelActionController implements BaseController {
 
 				// 判断是否为多模态模型
 				boolean isMultimodal = mmproj != null;
+				boolean supportsVision = mmproj != null && mmproj.isSupportsVision();
+				boolean supportsAudio = mmproj != null && mmproj.isSupportsAudio();
 				modelInfo.put("isMultimodal", isMultimodal);
+				modelInfo.put("supportsVision", supportsVision);
+				modelInfo.put("supportsAudio", supportsAudio);
 
 				// 是否处于加载状态
 				if (manager.isLoading(modelId)) {

@@ -353,7 +353,8 @@ function renderModelsList(models) {
                         <div class="model-details">
                             <div class="model-name" title="${model.name}" onclick="openAliasModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), decodeURIComponent('${encodeURIComponent(model.alias || '')}'))">
                                 ${displayName}
-                                ${model.isMultimodal ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}
+                                ${model.supportsVision ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}
+                                ${model.supportsAudio ? '<span class="audio-badge"><i class="fas fa-headphones"></i></span>' : ''}
                             </div>
                         <div class="model-meta">
                                 <span><i class="fas fa-layer-group"></i> ${architecture}</span>

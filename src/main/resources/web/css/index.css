@@ -355,6 +355,14 @@
             font-size: 0.75rem;
         }
 
+        .audio-badge {
+            color: var(--info-color);
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
         .model-meta {
             display: flex;
             gap: 1.25rem;
