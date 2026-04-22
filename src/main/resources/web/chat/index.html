@@ -5062,10 +5062,16 @@
       // ── Audio Recorder ──
 
        let audioRecorderBlobUrl = null;
-       let audioRecorderMediaRecorder = null;
-       let audioRecorderChunks = [];
-       let audioRecorderStream = null;
-       let audioRecorderPromise = null;
+        let audioRecorderMediaRecorder = null;
+        let audioRecorderChunks = [];
+        let audioRecorderStream = null;
+        let audioRecorderPromise = null;
+        let audioRecorderAudioCtx = null;
+        let audioRecorderScriptNode = null;
+        let audioRecorderSource = null;
+        let audioRecorderBuffers = [];
+        let audioRecorderBufferSize = 0;
+        let audioRecorderStartTime = 0;
 
        function openAudioRecorderModal() {
          const modal = els.audioRecorderModal;
@@ -5076,129 +5082,122 @@
        }
 
       function closeAudioRecorderModal() {
-         const modal = els.audioRecorderModal;
-         if (!modal) return;
-         if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
-           audioRecorderMediaRecorder.stop();
-         }
-         if (audioRecorderStream) {
-           audioRecorderStream.getTracks().forEach((t) => t.stop());
-           audioRecorderStream = null;
-         }
-         audioRecorderChunks = [];
+          const modal = els.audioRecorderModal;
+          if (!modal) return;
+          if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
+            audioRecorderMediaRecorder.stop();
+          }
+          if (audioRecorderScriptNode) {
+            audioRecorderScriptNode.onaudioprocess = null;
+            if (audioRecorderSource && audioRecorderScriptNode.input) {
+              try { audioRecorderSource.disconnect(audioRecorderScriptNode); } catch(e) {}
+              try { audioRecorderScriptNode.disconnect(audioRecorderAudioCtx.destination); } catch(e) {}
+            }
+          }
+          if (audioRecorderAudioCtx && audioRecorderAudioCtx.state !== 'closed') {
+            audioRecorderAudioCtx.close().catch(() => {});
+          }
+          if (audioRecorderStream) {
+            audioRecorderStream.getTracks().forEach((t) => t.stop());
+            audioRecorderStream = null;
+          }
+          audioRecorderChunks = [];
+          audioRecorderBuffers = [];
+          audioRecorderBufferSize = 0;
+          audioRecorderScriptNode = null;
+          audioRecorderSource = null;
+          audioRecorderAudioCtx = null;
+          if (audioRecorderBlobUrl) {
+            URL.revokeObjectURL(audioRecorderBlobUrl);
+            audioRecorderBlobUrl = null;
+          }
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+
+function resetAudioRecorderUI() {
          if (audioRecorderBlobUrl) {
            URL.revokeObjectURL(audioRecorderBlobUrl);
            audioRecorderBlobUrl = null;
          }
-         modal.classList.remove('open');
-         modal.setAttribute('aria-hidden', 'true');
+         if (els.audioRecorderStatus) {
+           els.audioRecorderStatus.classList.remove('visible');
+         }
+       if (els.audioRecorderStartBtn) {
+           els.audioRecorderStartBtn.textContent = '开始录音';
+           els.audioRecorderStartBtn.classList.remove('is-recording');
+         }
+         if (els.audioRecorderComplete) {
+           els.audioRecorderComplete.classList.remove('visible');
+         }
+         state.isRecording = false;
+         audioRecorderBuffers = [];
+         audioRecorderBufferSize = 0;
        }
 
- function resetAudioRecorderUI() {
-        if (audioRecorderBlobUrl) {
-          URL.revokeObjectURL(audioRecorderBlobUrl);
-          audioRecorderBlobUrl = null;
-        }
-        if (els.audioRecorderStatus) {
-          els.audioRecorderStatus.classList.remove('visible');
-        }
-      if (els.audioRecorderStartBtn) {
-          els.audioRecorderStartBtn.textContent = '开始录音';
-          els.audioRecorderStartBtn.classList.remove('is-recording');
-        }
-        if (els.audioRecorderComplete) {
-          els.audioRecorderComplete.classList.remove('visible');
-        }
-        state.isRecording = false;
-      }
+       async function startAudioRecording() {
+           // getUserMedia requires a secure context (HTTPS, localhost, or file://)
+           if (!window.isSecureContext) {
+             throw new Error('录音功能需要 HTTPS 连接，或使用 localhost / file:// 协议');
+           }
+           try {
+             audioRecorderStream = await navigator.mediaDevices.getUserMedia({
+               audio: true,
+               video: false
+             });
+           } catch (err) {
+             let message = '未知错误';
+             if (err?.name === 'NotAllowedError') {
+               message = '麦克风权限被拒绝，请在浏览器设置中允许麦克风访问';
+             } else if (err?.name === 'NotFoundError') {
+               message = '未检测到麦克风设备';
+             } else if (err?.name === 'SecurityError') {
+               message = '麦克风访问被安全策略阻止，请确保使用 HTTPS';
+             }
+             throw new Error(message);
+           }
 
-       function startAudioRecording() {
-        audioRecorderPromise = new Promise(async (resolve, reject) => {
-          // getUserMedia requires a secure context (HTTPS, localhost, or file://)
-          if (!window.isSecureContext) {
-            const err = new Error('录音功能需要 HTTPS 连接，或使用 localhost / file:// 协议');
-            reject(err);
-            return;
-          }
-          try {
-            audioRecorderStream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-              video: false
-            });
-          } catch (err) {
-            let message = '未知错误';
-            if (err?.name === 'NotAllowedError') {
-              message = '麦克风权限被拒绝，请在浏览器设置中允许麦克风访问';
-            } else if (err?.name === 'NotFoundError') {
-              message = '未检测到麦克风设备';
-            } else if (err?.name === 'SecurityError') {
-              message = '麦克风访问被安全策略阻止，请确保使用 HTTPS';
-            }
-            reject(new Error(message));
-            return;
-          }
-          audioRecorderChunks = [];
-          audioRecorderMediaRecorder = new MediaRecorder(audioRecorderStream);
-          audioRecorderMediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-              audioRecorderChunks.push(e.data);
-            }
-          };
-          audioRecorderMediaRecorder.onstop = async () => {
-            try {
-              const blob = new Blob(audioRecorderChunks, { type: audioRecorderMediaRecorder.mimeType });
-              audioRecorderChunks = [];
-              if (blob.size === 0) {
-                throw new Error('录音为空');
-              }
-              let wavBlob = blob;
-              if (blob.type !== 'audio/wav') {
-                wavBlob = await createWavFromBlob(blob);
-              }
-              const dataUrl = await blobToDataUrl(wavBlob);
-              state.draftAudioFiles.push({
-                id: makeAudioFileId(),
-                name: '录音' + (state.draftAudioFiles.length + 1) + '.wav',
-                type: 'audio/wav',
-                size: wavBlob.size,
-                dataUrl: dataUrl
-              });
-              renderDraftImages();
-              closeAudioRecorderModal();
-            } catch (err) {
-          audioRecorderChunks = [];
-              if (els.audioRecorderComplete) {
-                els.audioRecorderComplete.classList.remove('visible');
-              }
-              if (els.audioRecorderStatus) {
-                els.audioRecorderStatus.classList.remove('visible');
-              }
-              if (els.audioRecorderStartBtn) {
-                els.audioRecorderStartBtn.textContent = '开始录音';
-                els.audioRecorderStartBtn.classList.remove('is-recording');
-              }
-              reject(err);
-            }
-          };
-          audioRecorderMediaRecorder.onerror = () => {
-            reject(new Error('录音错误'));
-          };
-        audioRecorderMediaRecorder.start(100);
-          if (els.audioRecorderStatus) {
-            els.audioRecorderStatus.classList.add('visible');
-          }
-          if (els.audioRecorderStartBtn) {
-            els.audioRecorderStartBtn.textContent = '停止录音';
-            els.audioRecorderStartBtn.classList.add('is-recording');
-          }
-          state.isRecording = true;
-        });
-        return audioRecorderPromise;
-      }
+           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+           audioRecorderAudioCtx = new AudioContextClass();
+           audioRecorderSource = audioRecorderAudioCtx.createMediaStreamSource(audioRecorderStream);
+           audioRecorderScriptNode = audioRecorderAudioCtx.createScriptProcessor(4096, 1, 1);
+           audioRecorderBuffers = [];
+           audioRecorderBufferSize = 0;
+           audioRecorderStartTime = Date.now();
 
-      function stopAudioRecording() {
-        if (audioRecorderMediaRecorder && audioRecorderMediaRecorder.state !== 'inactive') {
-          audioRecorderMediaRecorder.stop();
+           audioRecorderScriptNode.onaudioprocess = (e) => {
+             const channelData = e.inputBuffer.getChannelData(0);
+             const copy = new Float32Array(channelData.length);
+             copy.set(channelData);
+             audioRecorderBuffers.push(copy);
+             audioRecorderBufferSize += copy.length;
+           };
+
+           audioRecorderSource.connect(audioRecorderScriptNode);
+           audioRecorderScriptNode.connect(audioRecorderAudioCtx.destination);
+
+           if (els.audioRecorderStatus) {
+             els.audioRecorderStatus.classList.add('visible');
+           }
+           if (els.audioRecorderStartBtn) {
+             els.audioRecorderStartBtn.textContent = '停止录音';
+             els.audioRecorderStartBtn.classList.add('is-recording');
+           }
+           state.isRecording = true;
+       }
+
+      async function stopAudioRecording() {
+        const duration = (Date.now() - audioRecorderStartTime) / 1000;
+
+        if (audioRecorderScriptNode) {
+          audioRecorderScriptNode.onaudioprocess = null;
+          if (audioRecorderSource) {
+            audioRecorderSource.disconnect(audioRecorderScriptNode);
+            audioRecorderScriptNode.disconnect(audioRecorderAudioCtx.destination);
+          }
+        }
+        if (audioRecorderAudioCtx && audioRecorderAudioCtx.state !== 'closed') {
+          await audioRecorderAudioCtx.close().catch(() => {});
         }
         if (audioRecorderStream) {
           audioRecorderStream.getTracks().forEach((t) => t.stop());
@@ -5212,6 +5211,63 @@
           els.audioRecorderStatus.classList.remove('visible');
         }
         state.isRecording = false;
+
+        if (audioRecorderBuffers.length === 0) {
+          throw new Error('录音为空');
+        }
+
+        const sampleRate = audioRecorderAudioCtx ? audioRecorderAudioCtx.sampleRate : 44100;
+        const merged = new Float32Array(audioRecorderBufferSize);
+        let offset = 0;
+        for (const buf of audioRecorderBuffers) {
+          merged.set(buf, offset);
+          offset += buf.length;
+        }
+
+        const numChannels = 1;
+        const bitDepth = 16;
+        const dataLength = merged.length * (bitDepth / 8);
+        const headerLength = 44;
+        const totalLength = headerLength + dataLength;
+        const wavArrayBuffer = new ArrayBuffer(totalLength);
+        const wavView = new DataView(wavArrayBuffer);
+
+        function writeString(wOffset, str) {
+          for (let i = 0; i < str.length; i++) {
+            wavView.setUint8(wOffset + i, str.charCodeAt(i));
+          }
+        }
+
+        writeString(0, 'RIFF');
+        wavView.setUint32(4, totalLength - 8, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        wavView.setUint32(16, 16, true);
+        wavView.setUint16(20, 1, true);
+        wavView.setUint16(22, numChannels, true);
+        wavView.setUint32(24, sampleRate, true);
+        wavView.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+        wavView.setUint16(32, numChannels * (bitDepth / 8), true);
+        wavView.setUint16(34, bitDepth, true);
+        writeString(36, 'data');
+        wavView.setUint32(40, dataLength, true);
+
+        for (let i = 0; i < merged.length; i++) {
+          const s = Math.max(-1, Math.min(1, merged[i]));
+          wavView.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+
+        const wavBlob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
+        const dataUrl = await blobToDataUrl(wavBlob);
+        state.draftAudioFiles.push({
+          id: makeAudioFileId(),
+          name: '录音' + (state.draftAudioFiles.length + 1) + '.wav',
+          type: 'audio/wav',
+          size: wavBlob.size,
+          dataUrl: dataUrl
+        });
+        renderDraftImages();
+        closeAudioRecorderModal();
       }
 
 function confirmAudioRecording() {
@@ -5220,23 +5276,33 @@ function confirmAudioRecording() {
 
       els.audioRecorderDoneBtn.addEventListener('click', confirmAudioRecording);
 
-      function handleRecorderBtn() {
-        if (state.isRecording) {
-          stopAudioRecording();
-        } else {
-          startAudioRecordingAction();
-        }
-      }
+     function handleRecorderBtn() {
+         if (state.isRecording) {
+           stopAudioRecordingAction();
+         } else {
+           startAudioRecordingAction();
+         }
+       }
 
       async function startAudioRecordingAction() {
-        try {
-          await startAudioRecording();
-        } catch (err) {
-          console.error('[AudioRecorder] Error:', err);
-          resetAudioRecorderUI();
-          showToast('error', '录音失败: ' + (err?.message || '未知错误'), '录音错误');
-        }
-      }
+         try {
+           await startAudioRecording();
+         } catch (err) {
+           console.error('[AudioRecorder] Error:', err);
+           resetAudioRecorderUI();
+           showToast('error', '录音失败: ' + (err?.message || '未知错误'), '录音错误');
+         }
+       }
+
+       async function stopAudioRecordingAction() {
+         try {
+           await stopAudioRecording();
+         } catch (err) {
+           console.error('[AudioRecorder] Error:', err);
+           resetAudioRecorderUI();
+           showToast('error', '录音失败: ' + (err?.message || '未知错误'), '录音错误');
+         }
+       }
 
       async function blobToDataUrl(blob) {
         return new Promise((resolve, reject) => {
