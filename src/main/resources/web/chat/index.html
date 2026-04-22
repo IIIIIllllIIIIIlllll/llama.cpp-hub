@@ -444,6 +444,29 @@
       sidebarCollapsed: false
     };
 
+    let modelCapabilitiesMap = {};
+
+    function isAudioSupported() {
+      const modelName = typeof state.model === 'string' ? state.model : '';
+      if (!modelName) {
+        return false;
+      }
+      const caps = modelCapabilitiesMap[modelName];
+      if (!caps || typeof caps !== 'object') {
+        return false;
+      }
+      return caps.audio === true;
+    }
+
+    function syncMicRecorderButton() {
+      if (!els.micRecorderBtn) {
+        return;
+      }
+      const supported = isAudioSupported();
+      els.micRecorderBtn.disabled = !supported;
+      els.micRecorderBtn.title = supported ? '录音' : '当前模型不支持音频';
+    }
+
     const els = {
       settingsBtn: document.getElementById('settingsBtn'),
       newChatBtn: document.getElementById('newChatBtn'),
@@ -4648,6 +4671,7 @@
         const previousModel = state.model;
         const json = await fetchJson(MODELS_ENDPOINT, { headers: getHeaders() });
         const models = Array.isArray(json?.data) ? json.data : [];
+        modelCapabilitiesMap = {};
         els.modelSelect.innerHTML = '';
         if (!models.length) {
           const option = document.createElement('option');
@@ -4665,6 +4689,10 @@
             option.value = id;
             option.textContent = id;
             els.modelSelect.appendChild(option);
+            const caps = item?.my_capabilities;
+            if (caps && typeof caps === 'object') {
+              modelCapabilitiesMap[id] = caps;
+            }
           }
           if (state.model && models.some(item => item?.id === state.model)) {
             els.modelSelect.value = state.model;
@@ -4674,6 +4702,7 @@
         }
         syncCurrentAssistantFromRuntimeState();
         syncModelSelectControl();
+        syncMicRecorderButton();
         if (state.model !== previousModel) {
           persistState();
         }
@@ -5418,6 +5447,7 @@ function confirmAudioRecording() {
         state.model = els.modelSelect.value;
         syncCurrentAssistantFromRuntimeState();
         syncSettingsInputs();
+        syncMicRecorderButton();
         persistState();
       });
       els.systemPromptInput.addEventListener('input', () => {

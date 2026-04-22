@@ -107,6 +107,9 @@ public class OpenAIService {
 				if (modelId == null || modelId.isBlank()) {
 					continue;
 				}
+				// 取出能力信息。
+				JsonObject capabilities = manager.getModelCapabilities(modelId);
+				
 				// 取出配置的上下文长度
 				int runtimeCtx = e.getValue().getCtxSize();
 				
@@ -141,6 +144,7 @@ public class OpenAIService {
 						if (!key.isEmpty() && !modelsByKey.containsKey(key)) {
 							JsonObject mCopy = m.deepCopy();
 							mCopy.addProperty("runtimeCtx", runtimeCtx);
+							mCopy.add("my_capabilities", capabilities);
 							modelsByKey.put(key, mCopy);
 						}
 					}
@@ -151,6 +155,7 @@ public class OpenAIService {
 						if (!id.isEmpty() && !dataById.containsKey(id)) {
 							JsonObject dCopy = d.deepCopy();
 							dCopy.addProperty("runtimeCtx", runtimeCtx);
+							dCopy.add("my_capabilities", capabilities);
 							dataById.put(id, dCopy);
 						}
 					}
