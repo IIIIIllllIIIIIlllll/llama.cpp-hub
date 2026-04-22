@@ -21,6 +21,7 @@ class AudioRecorder {
     this.mediaRecorder = null;
     this.chunks = [];
     this.isRecording = false;
+    this._lastBlob = null;  // 保存最后生成的blob，供外部访问
 
     // Time delimiters: emit an "audio-available" event each time this period passes
     // even if still recording. Set to 0 to disable auto-emission.
@@ -87,7 +88,7 @@ class AudioRecorder {
   _emitAudioBlob() {
     if (this.chunks.length === 0) return;
     const blob = new Blob(this.chunks, { type: this.mediaRecorder?.mimeType || "audio/webm" });
-    this.chunks = [];
+    this._lastBlob = blob;  // 保存引用
     const url = URL.createObjectURL(blob);
     window.dispatchEvent(new CustomEvent("audio-available", {
       detail: { blob, url, duration: null }   // duration available after "recording-stop"

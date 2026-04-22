@@ -652,6 +652,7 @@
     let timerInterval = null;
     let recordSeconds = 0;
     let models = [];
+    let _audioAvailableHandler = null;
 
     const els = {
       tabBtns: document.querySelectorAll('.tab-btn'),
@@ -742,6 +743,13 @@
 
     function startRecording() {
       recorder = new AudioRecorder();
+      _audioAvailableHandler = e => {
+        recordedBlob = e.detail.blob;
+        if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+        recordedUrl = URL.createObjectURL(recordedBlob);
+        els.audioPlayer.src = recordedUrl;
+        els.audioPreview.classList.add('visible');
+      };
       recorder.start().then(() => {
         isRecording = true;
         recordSeconds = 0;
@@ -752,13 +760,7 @@
         els.recorderStatus.textContent = '正在录音... 点击停止结束';
         startTimer();
 
-        recorder.on('audio-available', e => {
-          recordedBlob = e.detail.blob;
-          if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-          recordedUrl = URL.createObjectURL(recordedBlob);
-          els.audioPlayer.src = recordedUrl;
-          els.audioPreview.classList.add('visible');
-        });
+        window.addEventListener('audio-available', _audioAvailableHandler);
       }).catch(err => {
         showToast('无法访问麦克风: ' + err.message, 'error');
       });
@@ -766,14 +768,33 @@
 
     function stopRecording() {
       if (recorder) {
+        // 先保存引用，因为在recorder.stop()之后recorder对象可能会被修改
+        const currentRecorder = recorder;
+
         recorder.stop();
         isRecording = false;
         els.recordBtn.classList.remove('recording');
         els.recordBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
         els.recordBtn.title = '开始录音';
-        els.recorderStatus.textContent = '录音已完成';
+        els.recorderStatus.textContent = '正在处理音频...';
         stopTimer();
-        checkReady();
+
+        // 等待 audio-available 事件被处理后再移除监听器
+        // mediaRecorder.stop() 是异步的，需要时间处理最后的音频数据
+        setTimeout(() => {
+          window.removeEventListener('audio-available', _audioAvailableHandler);
+
+          // 如果 audio-available 事件没有触发，使用 _lastBlob（由 _emitAudioBlob 保存）
+          if (!recordedBlob && currentRecorder && currentRecorder._lastBlob) {
+            recordedBlob = currentRecorder._lastBlob;
+            recordedUrl = URL.createObjectURL(recordedBlob);
+            els.audioPlayer.src = recordedUrl;
+            els.audioPreview.classList.add('visible');
+          }
+
+          els.recorderStatus.textContent = recordedBlob ? '录音已完成，可以播放' : '录音已完成';
+          checkReady();
+        }, 500);
       }
     }
 
