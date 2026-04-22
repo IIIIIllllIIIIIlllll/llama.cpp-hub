@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Transcription</title>
+  <link rel="stylesheet" href="/css/all.min.css">
+  <link rel="stylesheet" href="/css/github.min.css">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #000000;
+      --muted: #5f5f5f;
+      --muted-bg: #f2f2f2;
+      --border: #d8d8d8;
+      --primary: #000000;
+      --primary-fg: #ffffff;
+      --secondary: #f2f2f2;
+      --destructive: #333333;
+      --success: #111111;
+      --ring: #8c8c8c;
+      --radius: 0.625rem;
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--fg);
+      background: var(--bg);
+    }
+
+    button { cursor: pointer; font-family: inherit; font-size: inherit; }
+
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      min-height: 100vh;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .brand a {
+      color: inherit;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand a:hover { opacity: 0.7; }
+
+    .section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--muted-bg);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .section-body {
+      padding: 24px 20px;
+    }
+
+    /* Upload area */
+    .drop-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      position: relative;
+    }
+
+    .drop-area:hover, .drop-area.dragover {
+      border-color: var(--primary);
+      background: var(--secondary);
+    }
+
+    .drop-area-icon {
+      font-size: 36px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .drop-area-text {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .drop-area-text strong {
+      color: var(--primary);
+    }
+
+    .drop-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .supported-formats {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* File preview */
+    .file-preview {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--muted-bg);
+      margin-top: 16px;
+    }
+
+    .file-preview.visible { display: flex; }
+
+    .file-preview-icon {
+      font-size: 24px;
+      color: var(--muted);
+    }
+
+    .file-preview-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-preview-name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-preview-size {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .file-preview-remove {
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .file-preview-remove:hover {
+      background: var(--border);
+      color: var(--fg);
+    }
+
+    /* Recording */
+    .recorder-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px 0;
+    }
+
+    .record-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 2px solid var(--destructive);
+      background: transparent;
+      color: var(--destructive);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .record-btn:hover:not(:disabled) {
+      background: rgba(51, 51, 51, 0.06);
+    }
+
+    .record-btn.recording {
+      border-color: #dc2626;
+      color: #dc2626;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.3); }
+      50% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    }
+
+    .timer {
+      font-size: 28px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--fg);
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .recorder-status {
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* Audio preview */
+    .audio-preview {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--muted-bg);
+    }
+
+    .audio-preview.visible { display: block; }
+
+    .audio-preview audio {
+      width: 100%;
+      outline: none;
+    }
+
+    .audio-preview-remove {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .audio-preview-remove:hover {
+      background: var(--secondary);
+      color: var(--fg);
+    }
+
+    /* Model select */
+    .form-group {
+      margin-top: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--fg);
+    }
+
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      padding: 0 10px;
+      font-size: 14px;
+      color: var(--fg);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-group select:focus,
+    .form-group input:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring);
+    }
+
+    .form-group input[type="text"] {
+      height: 36px;
+    }
+
+    /* Submit */
+    .submit-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .submit-btn {
+      height: 40px;
+      padding: 0 24px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--primary);
+      color: var(--primary-fg);
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .submit-btn:hover:not(:disabled) { opacity: 0.85; }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .submit-btn .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .submit-btn.loading .spinner { display: inline-block; }
+    .submit-btn.loading .btn-text { display: none; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Result */
+    .result-section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: none;
+    }
+
+    .result-section.visible { display: block; }
+
+    .result-header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--muted-bg);
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .result-copy-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .result-copy-btn:hover {
+      background: var(--secondary);
+      color: var(--fg);
+    }
+
+    .result-body {
+      padding: 20px;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .result-meta {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .result-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      font-size: 13px;
+      animation: toastIn 0.2s var(--ease-spring) both;
+      max-width: 360px;
+    }
+
+    .toast.error { border-color: #dc2626; color: #dc2626; }
+    .toast.success { border-color: #16a34a; color: #16a34a; }
+
+    .toast.exiting {
+      animation: toastOut 0.2s ease both;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateX(20px); }
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      height: 44px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      transition: color 0.15s ease, border-color 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover { color: var(--fg); }
+
+    .tab-btn.active {
+      color: var(--fg);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .icon-mic { font-size: 16px; }
+    .icon-upload { font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="brand">
+      <a href="../index.html">
+        <img src="/llama1-icon-transparent.png" alt="llama.cpp-hub">
+        <h1>llama.cpp-hub</h1>
+      </a>
+    </div>
+
+    <div class="section">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="upload" type="button">
+          <i class="fa-solid fa-upload icon-upload"></i>
+          上传音频
+        </button>
+        <button class="tab-btn" data-tab="record" type="button">
+          <i class="fa-solid fa-microphone icon-mic"></i>
+          录音
+        </button>
+      </div>
+
+      <!-- Upload tab -->
+      <div class="tab-panel active" id="tab-upload">
+        <div class="section-body">
+          <div class="drop-area" id="dropArea">
+            <div class="drop-area-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+            <div class="drop-area-text">
+              <strong>点击选择</strong> 或拖放音频文件到此处
+            </div>
+            <div class="supported-formats">支持 WAV / MP3 / M4A / OGG / FLAC / WEBM / OPUS，最大 25 MB</div>
+            <input type="file" id="fileInput" accept="audio/*,.ogg,.opus,.webm,.flac,.m4a,.mp3,.wav">
+          </div>
+          <div class="file-preview" id="filePreview">
+            <div class="file-preview-icon"><i class="fa-solid fa-file-audio"></i></div>
+            <div class="file-preview-info">
+              <div class="file-preview-name" id="fileName"></div>
+              <div class="file-preview-size" id="fileSize"></div>
+            </div>
+            <button class="file-preview-remove" id="fileRemove" type="button" title="移除">&times;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Record tab -->
+      <div class="tab-panel" id="tab-record">
+        <div class="section-body">
+          <div class="recorder-controls">
+            <button class="record-btn" id="recordBtn" type="button" title="开始录音">
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+            <div class="timer" id="timer">00:00</div>
+          </div>
+          <div class="recorder-status" id="recorderStatus">点击麦克风开始录音</div>
+          <div class="audio-preview" id="audioPreview">
+            <audio id="audioPlayer" controls></audio>
+            <br>
+            <button class="audio-preview-remove" id="audioRemove" type="button">
+              <i class="fa-solid fa-trash-can"></i> 重新录音
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="modelSection">
+      <div class="section-header">参数设置</div>
+      <div class="section-body">
+        <div class="form-group">
+          <label for="modelSelect">模型</label>
+          <select id="modelSelect">
+            <option value="">自动选择</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="languageInput">语言（可选）</label>
+          <input type="text" id="languageInput" placeholder="留空则自动检测，如 zh, en, ja, fr">
+        </div>
+        <div class="form-group">
+          <label for="promptInput">提示词（可选）</label>
+          <input type="text" id="promptInput" placeholder="为转录提供上下文提示">
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-section">
+      <button class="submit-btn" id="submitBtn" type="button" disabled>
+        <span class="spinner"></span>
+        <span class="btn-text">转录</span>
+      </button>
+    </div>
+
+    <div class="result-section" id="resultSection">
+      <div class="result-header">
+        <span>转录结果</span>
+        <button class="result-copy-btn" id="copyBtn" type="button">复制</button>
+      </div>
+      <div class="result-body" id="resultBody"></div>
+      <div class="result-meta" id="resultMeta"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/chat/audio-recorder.js"></script>
+  <script>
+    const TRANSCRIPTION_ENDPOINT = '/v1/audio/transcriptions';
+    const MODELS_ENDPOINT = '/v1/models';
+    const MAX_AUDIO_SIZE = 25 * 1024 * 1024;
+    const ALLOWED_EXTENSIONS = new Set(['wav', 'mp3', 'm4a', 'ogg', 'flac', 'webm', 'opus', 'aac', 'amr', '3gp', 'wma']);
+
+    let selectedFile = null;
+    let recordedBlob = null;
+    let recordedUrl = null;
+    let isRecording = false;
+    let recorder = null;
+    let timerInterval = null;
+    let recordSeconds = 0;
+    let models = [];
+
+    const els = {
+      tabBtns: document.querySelectorAll('.tab-btn'),
+      tabPanels: document.querySelectorAll('.tab-panel'),
+      dropArea: document.getElementById('dropArea'),
+      fileInput: document.getElementById('fileInput'),
+      filePreview: document.getElementById('filePreview'),
+      fileName: document.getElementById('fileName'),
+      fileSize: document.getElementById('fileSize'),
+      fileRemove: document.getElementById('fileRemove'),
+      recordBtn: document.getElementById('recordBtn'),
+      timer: document.getElementById('timer'),
+      recorderStatus: document.getElementById('recorderStatus'),
+      audioPreview: document.getElementById('audioPreview'),
+      audioPlayer: document.getElementById('audioPlayer'),
+      audioRemove: document.getElementById('audioRemove'),
+      modelSelect: document.getElementById('modelSelect'),
+      languageInput: document.getElementById('languageInput'),
+      promptInput: document.getElementById('promptInput'),
+      submitBtn: document.getElementById('submitBtn'),
+      resultSection: document.getElementById('resultSection'),
+      resultBody: document.getElementById('resultBody'),
+      resultMeta: document.getElementById('resultMeta'),
+      copyBtn: document.getElementById('copyBtn'),
+      toastContainer: document.getElementById('toastContainer')
+    };
+
+    /* ---- Tabs ---- */
+    els.tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        els.tabBtns.forEach(b => b.classList.remove('active'));
+        els.tabPanels.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    /* ---- File upload ---- */
+    els.dropArea.addEventListener('dragover', e => {
+      e.preventDefault();
+      els.dropArea.classList.add('dragover');
+    });
+
+    els.dropArea.addEventListener('dragleave', () => {
+      els.dropArea.classList.remove('dragover');
+    });
+
+    els.dropArea.addEventListener('drop', e => {
+      e.preventDefault();
+      els.dropArea.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) handleFile(files[0]);
+    });
+
+    els.fileInput.addEventListener('change', () => {
+      if (els.fileInput.files.length > 0) handleFile(els.fileInput.files[0]);
+    });
+
+    els.fileRemove.addEventListener('click', clearFile);
+
+    function handleFile(file) {
+      if (!checkAudioFile(file)) return;
+      clearFile();
+      selectedFile = file;
+      els.fileName.textContent = file.name;
+      els.fileSize.textContent = formatSize(file.size);
+      els.filePreview.classList.add('visible');
+      checkReady();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      els.fileInput.value = '';
+      els.filePreview.classList.remove('visible');
+      checkReady();
+    }
+
+    /* ---- Recording ---- */
+    els.recordBtn.addEventListener('click', toggleRecording);
+    els.audioRemove.addEventListener('click', clearRecording);
+
+    function toggleRecording() {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    }
+
+    function startRecording() {
+      recorder = new AudioRecorder();
+      recorder.start().then(() => {
+        isRecording = true;
+        recordSeconds = 0;
+        updateTimer();
+        els.recordBtn.classList.add('recording');
+        els.recordBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+        els.recordBtn.title = '停止录音';
+        els.recorderStatus.textContent = '正在录音... 点击停止结束';
+        startTimer();
+
+        recorder.on('audio-available', e => {
+          recordedBlob = e.detail.blob;
+          if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+          recordedUrl = URL.createObjectURL(recordedBlob);
+          els.audioPlayer.src = recordedUrl;
+          els.audioPreview.classList.add('visible');
+        });
+      }).catch(err => {
+        showToast('无法访问麦克风: ' + err.message, 'error');
+      });
+    }
+
+    function stopRecording() {
+      if (recorder) {
+        recorder.stop();
+        isRecording = false;
+        els.recordBtn.classList.remove('recording');
+        els.recordBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+        els.recordBtn.title = '开始录音';
+        els.recorderStatus.textContent = '录音已完成';
+        stopTimer();
+        checkReady();
+      }
+    }
+
+    function clearRecording() {
+      recordedBlob = null;
+      if (recordedUrl) {
+        URL.revokeObjectURL(recordedUrl);
+        recordedUrl = null;
+      }
+      els.audioPlayer.src = '';
+      els.audioPreview.classList.remove('visible');
+      recordSeconds = 0;
+      updateTimer();
+      checkReady();
+    }
+
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        recordSeconds++;
+        updateTimer();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    function updateTimer() {
+      const mins = String(Math.floor(recordSeconds / 60)).padStart(2, '0');
+      const secs = String(recordSeconds % 60).padStart(2, '0');
+      els.timer.textContent = mins + ':' + secs;
+    }
+
+    /* ---- Check if ready to submit ---- */
+    function checkReady() {
+      const hasFile = !!selectedFile;
+      const hasRecording = !!recordedBlob;
+      els.submitBtn.disabled = !(hasFile || hasRecording);
+    }
+
+    /* ---- Submit ---- */
+    els.submitBtn.addEventListener('click', submitTranscription);
+    els.copyBtn.addEventListener('click', copyResult);
+
+    async function submitTranscription() {
+      const file = selectedFile || recordedBlob;
+      if (!file) return;
+
+      els.submitBtn.classList.add('loading');
+      els.submitBtn.disabled = true;
+      els.resultSection.classList.remove('visible');
+
+      const formData = new FormData();
+      formData.append('file', file, file.name || 'recording.webm');
+
+      const model = els.modelSelect.value;
+      if (model) formData.append('model', model);
+
+      const language = els.languageInput.value.trim();
+      if (language) formData.append('language', language);
+
+      const prompt = els.promptInput.value.trim();
+      if (prompt) formData.append('prompt', prompt);
+
+      try {
+        const resp = await fetch(TRANSCRIPTION_ENDPOINT, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => null);
+          const errMsg = errData && errData.error && errData.error.message
+            ? errData.error.message
+            : '请求失败 (' + resp.status + ')';
+          showToast(errMsg, 'error');
+          return;
+        }
+
+        const data = await resp.json();
+        displayResult(data);
+        showToast('转录完成', 'success');
+      } catch (err) {
+        showToast('转录失败: ' + err.message, 'error');
+      } finally {
+        els.submitBtn.classList.remove('loading');
+        checkReady();
+      }
+    }
+
+    function displayResult(data) {
+      const text = data.text || data.transcription || data.text || '无结果';
+      els.resultBody.textContent = text;
+
+      const metaParts = [];
+      if (data.language) metaParts.push('<span><i class="fa-solid fa-language"></i> ' + escapeHtml(data.language) + '</span>');
+      if (data.duration) metaParts.push('<span><i class="fa-solid fa-clock"></i> ' + data.duration + 's</span>');
+      if (data.model) metaParts.push('<span><i class="fa-solid fa-robot"></i> ' + escapeHtml(data.model) + '</span>');
+      els.resultMeta.innerHTML = metaParts.join('');
+
+      els.resultSection.classList.add('visible');
+      els.resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function copyResult() {
+      const text = els.resultBody.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        els.copyBtn.textContent = '已复制';
+        setTimeout(() => { els.copyBtn.textContent = '复制'; }, 1500);
+      }).catch(() => {
+        showToast('复制失败', 'error');
+      });
+    }
+
+    /* ---- Load models ---- */
+    async function loadModels() {
+      try {
+        const resp = await fetch(MODELS_ENDPOINT);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        models = data.data || [];
+        if (models.length === 0) return;
+        models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.id;
+          els.modelSelect.appendChild(opt);
+        });
+      } catch (e) {
+        // silently fail, auto model is fine
+      }
+    }
+
+    /* ---- Helpers ---- */
+    function checkAudioFile(file) {
+      const ext = getExtension(file.name);
+      if (!ALLOWED_EXTENSIONS.has(ext)) {
+        showToast('不支持的文件格式: .' + ext, 'error');
+        return false;
+      }
+      if (file.size > MAX_AUDIO_SIZE) {
+        showToast('文件大小超过限制 (最大 25 MB)', 'error');
+        return false;
+      }
+      return true;
+    }
+
+    function getExtension(name) {
+      const parts = name.split('.');
+      return parts.length > 1 ? parts.pop().toLowerCase() : '';
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function showToast(message, type) {
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + (type || '');
+      toast.textContent = message;
+      els.toastContainer.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('exiting');
+        toast.addEventListener('animationend', () => toast.remove(), { once: true });
+      }, 3000);
+    }
+
+    /* ---- Init ---- */
+    loadModels();
+  </script>
+</body>
+</html>
