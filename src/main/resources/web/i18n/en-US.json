@@ -436,7 +436,7 @@
   "modal.slots.select": "Select slot",
   "modal.slots.status.idle": "Idle",
   "modal.slots.status.processing": "Processing",
-  "modal.slots.title": "Slots",
+  "modal.slots.title": "Slots Status",
   "modal.system_settings.default_download_dir": "Default download directory",
   "modal.system_settings.default_download_dir_desc": "Default save directory when creating download tasks",
   "modal.system_settings.save": "Save settings",

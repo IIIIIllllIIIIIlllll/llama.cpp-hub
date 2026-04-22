@@ -32,11 +32,11 @@ function showModelDetailModal(model) {
     let tabs = `<div style="display:flex; gap:8px; margin-bottom:12px;">` +
                 `<button class="btn btn-secondary" id="${modalId}TabInfo">${t('modal.model_detail.tab.overview', '概览')}</button>` +
                 `<button class="btn btn-secondary" id="${modalId}TabSampling">${t('modal.model_detail.tab.sampling', '采样设置')}</button>` +
-                `<button class="btn btn-secondary" id="${modalId}TabProps">${t('modal.model_detail.tab.props', 'Props')}</button>` +
+
                 `<button class="btn btn-secondary" id="${modalId}TabChatTemplate">${t('modal.model_detail.tab.chat_template', '聊天模板')}</button>` +
                 `<button class="btn btn-secondary" id="${modalId}TabToken">${t('modal.model_detail.tab.token', 'Token计算')}</button>` +
                 `<button class="btn btn-secondary" id="${modalId}TabKwargs">${t('modal.model_detail.tab.kwargs', 'Kwargs')}</button>` +
-                `<button class="btn btn-secondary" id="${modalId}TabSlots">${t('modal.slots.title', '缓存管理')}</button>` +
+                `<button class="btn btn-secondary" id="${modalId}TabSlots">${t('modal.slots.title', 'Slots状态')}</button>` +
                 `</div>`;
     let wrapperStart = isMobileView
         ? `<div style="display:flex; flex-direction:column; flex:1; min-height:0;">`
@@ -66,12 +66,7 @@ function showModelDetailModal(model) {
                         `</div>` +
                         `<div id="${modalId}SamplingDetails" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>` +
                         `</div>`;
-    let propsPanel = `<div id="${modalId}PropsPanel" style="display:none; height:100%;">` +
-                       `<div style="display:flex; gap:8px; margin-bottom:8px;">` +
-                       `<button class="btn btn-primary" id="${modalId}PropsFetchBtn">${t('modal.model_detail.props.fetch', '请求 props')}</button>` +
-                       `</div>` +
-                       `<pre id="${modalId}PropsViewer" style="height:calc(100% - 48px); overflow:auto; font-size:13px; background:#111827; color:#e5e7eb; padding:10px; border-radius:0.75rem;"></pre>` +
-                       `</div>`;
+
     let chatTemplatePanel = `<div id="${modalId}ChatTemplatePanel" style="display:none; height:100%;">` +
                         `<div style="display:flex; gap:8px; margin-bottom:8px;">` +
                         `<button class="btn btn-primary" id="${modalId}ChatTemplateDefaultBtn">${t('common.default', '默认')}</button>` +
@@ -103,7 +98,7 @@ function showModelDetailModal(model) {
                         `<textarea id="${modalId}KwargsTextarea" style="width:100%; height:calc(100% - 48px); font-family:monospace; font-size:14px; resize:none; padding:10px; border-radius:0.75rem; border:1px solid #d1d5db;" placeholder="请输入 JSON 内容..."></textarea>` +
                         `</div>`;
 
-    let slotsPanel = `<div id="${modalId}SlotsPanel" style="display:none; height:100%; overflow:auto;">` +
+    let slotsPanel = `<div id="${modalId}SlotsPanel" style="display:none; height:100%;">` +
                         `<div style="margin-bottom:12px;">` +
                         `<button class="btn btn-primary" id="${modalId}SlotsRefreshBtn">${t('common.refresh', '刷新')}</button>` +
                         `</div>` +
@@ -117,11 +112,10 @@ function showModelDetailModal(model) {
                         `</div>`;
     let bodyEnd = `</div>`;
     let wrapperEnd = `</div>`;
-    content.innerHTML = wrapperStart + tabs + bodyStart + infoPanel + samplingPanel + propsPanel + chatTemplatePanel + tokenPanel + kwargsPanel + slotsPanel + bodyEnd + wrapperEnd;
+    content.innerHTML = wrapperStart + tabs + bodyStart + infoPanel + samplingPanel + chatTemplatePanel + tokenPanel + kwargsPanel + slotsPanel + bodyEnd + wrapperEnd;
     modal.classList.add('show');
     const tabInfo = document.getElementById(modalId + 'TabInfo');
     const tabSampling = document.getElementById(modalId + 'TabSampling');
-    const tabProps = document.getElementById(modalId + 'TabProps');
     const tabChatTemplate = document.getElementById(modalId + 'TabChatTemplate');
     const tabToken = document.getElementById(modalId + 'TabToken');
     const tabKwargs = document.getElementById(modalId + 'TabKwargs');
@@ -130,7 +124,6 @@ function showModelDetailModal(model) {
     const samplingSaveBtn = document.getElementById(modalId + 'SamplingSaveBtn');
     const samplingAddBtn = document.getElementById(modalId + 'SamplingAddBtn');
     const samplingDeleteBtn = document.getElementById(modalId + 'SamplingDeleteBtn');
-    const fetchPropsBtn = document.getElementById(modalId + 'PropsFetchBtn');
     const tplReloadBtn = document.getElementById(modalId + 'ChatTemplateReloadBtn');
     const tplDefaultBtn = document.getElementById(modalId + 'ChatTemplateDefaultBtn');
     const tplSaveBtn = document.getElementById(modalId + 'ChatTemplateSaveBtn');
@@ -142,7 +135,6 @@ function showModelDetailModal(model) {
     const kwargsTextarea = document.getElementById(modalId + 'KwargsTextarea');
     if (tabInfo) tabInfo.onclick = () => openModelDetailTab('info');
     if (tabSampling) tabSampling.onclick = () => { openModelDetailTab('sampling'); loadModelSamplingSettings(); };
-    if (tabProps) tabProps.onclick = () => { openModelDetailTab('props'); loadModelProps(); };
     if (tabChatTemplate) tabChatTemplate.onclick = () => { openModelDetailTab('chatTemplate'); loadModelChatTemplate(false); };
     if (tabToken) tabToken.onclick = () => openModelDetailTab('token');
     if (tabKwargs) tabKwargs.onclick = () => { openModelDetailTab('kwargs'); loadModelChatTemplateKwargs(); };
@@ -153,7 +145,6 @@ function showModelDetailModal(model) {
     if (samplingSaveBtn) samplingSaveBtn.onclick = () => saveModelSamplingSelection();
     if (samplingAddBtn) samplingAddBtn.onclick = () => addModelSamplingConfig();
     if (samplingDeleteBtn) samplingDeleteBtn.onclick = () => deleteModelSamplingConfig();
-    if (fetchPropsBtn) fetchPropsBtn.onclick = () => loadModelProps();
     if (tplReloadBtn) tplReloadBtn.onclick = () => loadModelChatTemplate(true);
     if (tplDefaultBtn) tplDefaultBtn.onclick = () => loadModelDefaultChatTemplate();
     if (tplSaveBtn) tplSaveBtn.onclick = () => saveModelChatTemplate();
@@ -244,21 +235,18 @@ function openModelDetailTab(tab) {
     const modalId = 'modelDetailModal';
     const info = document.getElementById(modalId + 'InfoPanel');
     const sampling = document.getElementById(modalId + 'SamplingPanel');
-    const props = document.getElementById(modalId + 'PropsPanel');
     const chatTemplate = document.getElementById(modalId + 'ChatTemplatePanel');
     const token = document.getElementById(modalId + 'TokenPanel');
     const kwargs = document.getElementById(modalId + 'KwargsPanel');
     const slots = document.getElementById(modalId + 'SlotsPanel');
     const btnInfo = document.getElementById(modalId + 'TabInfo');
     const btnSampling = document.getElementById(modalId + 'TabSampling');
-    const btnProps = document.getElementById(modalId + 'TabProps');
     const btnChatTemplate = document.getElementById(modalId + 'TabChatTemplate');
     const btnToken = document.getElementById(modalId + 'TabToken');
     const btnKwargs = document.getElementById(modalId + 'TabKwargs');
     const btnSlots = document.getElementById(modalId + 'TabSlots');
     if (info) info.style.display = tab === 'info' ? '' : 'none';
     if (sampling) sampling.style.display = tab === 'sampling' ? '' : 'none';
-    if (props) props.style.display = tab === 'props' ? '' : 'none';
     if (chatTemplate) chatTemplate.style.display = tab === 'chatTemplate' ? '' : 'none';
     if (token) token.style.display = tab === 'token' ? '' : 'none';
     if (kwargs) kwargs.style.display = tab === 'kwargs' ? '' : 'none';
@@ -271,28 +259,10 @@ function openModelDetailTab(tab) {
     };
     applyTabBtnStyle(btnInfo, tab === 'info');
     applyTabBtnStyle(btnSampling, tab === 'sampling');
-    applyTabBtnStyle(btnProps, tab === 'props');
     applyTabBtnStyle(btnChatTemplate, tab === 'chatTemplate');
    applyTabBtnStyle(btnToken, tab === 'token');
     applyTabBtnStyle(btnKwargs, tab === 'kwargs');
     applyTabBtnStyle(btnSlots, tab === 'slots');
-}
-
-function loadModelProps() {
-    const modelId = window.__modelDetailModelId;
-    const viewer = document.getElementById('modelDetailModalPropsViewer');
-    if (!modelId || !viewer) return;
-    viewer.textContent = t('common.loading', '加载中...');
-    fetch('/api/models/props?modelId=' + encodeURIComponent(modelId))
-        .then(r => r.json())
-        .then(res => {
-            const d = res && res.success ? res.data : null;
-            const props = d && d.props ? d.props : null;
-            viewer.textContent = props ? JSON.stringify(props, null, 2) : JSON.stringify(res, null, 2);
-        })
-        .catch(() => {
-            viewer.textContent = t('common.request_failed', '请求失败');
-        });
 }
 
 function extractModelConfigFromGetResponse(res, modelId) {

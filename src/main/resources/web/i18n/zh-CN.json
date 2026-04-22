@@ -436,7 +436,7 @@
   "modal.slots.select": "选择 Slot",
   "modal.slots.status.idle": "空闲",
   "modal.slots.status.processing": "处理中",
-  "modal.slots.title": "缓存管理",
+  "modal.slots.title": "Slots状态",
   "modal.system_settings.default_download_dir": "默认下载目录",
   "modal.system_settings.default_download_dir_desc": "创建下载任务时的默认保存目录",
   "modal.system_settings.save": "保存设置",
