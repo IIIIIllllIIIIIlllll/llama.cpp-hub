@@ -456,12 +456,6 @@ public class LlamaServer {
 						}
 					}
 				}
-				if (compat.has("chatStreaming")) {
-					JsonObject chatStreaming = compat.getAsJsonObject("chatStreaming");
-					if (chatStreaming != null && chatStreaming.has("enabled")) {
-						chatStreamingEnabled = chatStreaming.get("enabled").getAsBoolean();
-					}
-				}
 				if (compat.has("mcpServer")) {
 					JsonObject mcpServer = compat.getAsJsonObject("mcpServer");
 					if (mcpServer != null && mcpServer.has("enabled")) {
@@ -492,13 +486,18 @@ public class LlamaServer {
 				if (https.has("enabled")) {
 					httpsEnabled = https.get("enabled").getAsBoolean();
 				}
-				if (https.has("certPath")) {
+				if (https.has("keystorePath")) {
+					httpsCertPath = https.get("keystorePath").getAsString();
+					httpsKeyPath = httpsCertPath;
+				} else if (https.has("certPath")) {
 					httpsCertPath = https.get("certPath").getAsString();
 				}
 				if (https.has("keyPath")) {
 					httpsKeyPath = https.get("keyPath").getAsString();
 				}
-				if (https.has("password")) {
+				if (https.has("keystorePassword")) {
+					httpsPassword = https.get("keystorePassword").getAsString();
+				} else if (https.has("password")) {
 					httpsPassword = https.get("password").getAsString();
 				}
 			}
@@ -538,10 +537,6 @@ public class LlamaServer {
 				lmstudio.addProperty("port", lmstudioCompatPort);
 				compat.add("lmstudio", lmstudio);
 
-				JsonObject chatStreaming = new JsonObject();
-				chatStreaming.addProperty("enabled", chatStreamingEnabled);
-				compat.add("chatStreaming", chatStreaming);
-
 				JsonObject mcpServer = new JsonObject();
 				mcpServer.addProperty("enabled", mcpServerEnabled);
 				compat.add("mcpServer", mcpServer);
@@ -556,9 +551,8 @@ public class LlamaServer {
 				
 				JsonObject https = new JsonObject();
 				https.addProperty("enabled", httpsEnabled);
-				https.addProperty("certPath", httpsCertPath);
-				https.addProperty("keyPath", httpsKeyPath);
-				https.addProperty("password", httpsPassword);
+				https.addProperty("keystorePath", httpsCertPath);
+				https.addProperty("keystorePassword", httpsPassword);
 				root.add("https", https);
 	
 				String json = GSON.toJson(root);
@@ -612,7 +606,9 @@ public class LlamaServer {
     }
     
     public static void setWebPort(int webPort) {
-        LlamaServer.webPort = webPort;
+        if (webPort > 0 && webPort <= 65535) {
+            LlamaServer.webPort = webPort;
+        }
     }
     
     public static int getAnthropicPort() {
@@ -620,7 +616,21 @@ public class LlamaServer {
     }
     
     public static void setAnthropicPort(int anthropicPort) {
-        LlamaServer.anthropicPort = anthropicPort;
+        if (anthropicPort > 0 && anthropicPort <= 65535) {
+            LlamaServer.anthropicPort = anthropicPort;
+        }
+    }
+    
+    public static void updateServerPorts(Integer webPort, Integer anthropicPort) {
+        synchronized (APPLICATION_CONFIG_LOCK) {
+            if (webPort != null && webPort > 0 && webPort <= 65535) {
+                LlamaServer.webPort = webPort;
+            }
+            if (anthropicPort != null && anthropicPort > 0 && anthropicPort <= 65535) {
+                LlamaServer.anthropicPort = anthropicPort;
+            }
+            saveApplicationConfig();
+        }
     }
     
     // ==================== 下载目录配置的get/set方法 ====================
@@ -630,7 +640,46 @@ public class LlamaServer {
     }
     
     public static void setDownloadDirectory(String downloadDirectory) {
-        LlamaServer.downloadDirectory = downloadDirectory;
+        synchronized (APPLICATION_CONFIG_LOCK) {
+            LlamaServer.downloadDirectory = downloadDirectory == null ? "" : downloadDirectory;
+            saveApplicationConfig();
+        }
+    }
+    
+    // ==================== HTTPS ====================
+    
+    public static boolean isHttpsEnabled() {
+        return httpsEnabled;
+    }
+    
+    public static String getHttpsCertPath() {
+        return httpsCertPath;
+    }
+    
+    public static String getHttpsKeyPath() {
+        return httpsKeyPath;
+    }
+    
+    public static String getHttpsPassword() {
+        return httpsPassword;
+    }
+    
+    public static void updateHttpsConfig(Boolean enabled, String certPath, String keyPath, String password) {
+        synchronized (APPLICATION_CONFIG_LOCK) {
+            if (enabled != null) {
+                httpsEnabled = enabled;
+            }
+            if (certPath != null) {
+                httpsCertPath = certPath;
+            }
+            if (keyPath != null) {
+                httpsKeyPath = keyPath;
+            }
+            if (password != null) {
+                httpsPassword = password;
+            }
+            saveApplicationConfig();
+        }
     }
     
     public static boolean isApiKeyValidationEnabled() {
@@ -810,29 +859,63 @@ public static String getDefaultModelsPath() {
      	return DEFAULT_MODELS_DIRECTORY;
      }
      
-     public static void initHttpsContext() {
-     	if (!httpsEnabled) {
-     		logger.info("HTTPS未启用，使用HTTP协议启动");
-     		return;
-     	}
-     	try {
-     		File keystoreFile = new File(httpsCertPath);
-     		if (!keystoreFile.exists()) {
-     			logger.info("HTTPS证书文件不存在: {}, 使用HTTP协议启动", httpsCertPath);
-     			httpsEnabled = false;
-     			return;
-     		}
-     		KeyStore keyStore = KeyStore.getInstance(keystoreFile, httpsPassword.toCharArray());
-     		KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-     		kmf.init(keyStore, httpsPassword.toCharArray());
-     		SslContext sslContext = SslContextBuilder.forServer(kmf).build();
-     		httpsSslContext = sslContext;
-     		logger.info("HTTPS证书加载成功: {}", httpsCertPath);
-     	} catch (Exception e) {
-     		logger.info("HTTPS证书加载失败: {}, 使用HTTP协议启动", e.getMessage());
-     		httpsEnabled = false;
-     	}
-     }
+      public static void initHttpsContext() {
+      	if (!httpsEnabled) {
+      		logger.info("HTTPS未启用，使用HTTP协议启动");
+      		return;
+      	}
+      	try {
+      		File keystoreFile = new File(httpsCertPath);
+      		// 如果配置的是目录，自动查找目录下的证书文件
+      		if (keystoreFile.isDirectory()) {
+      			File[] candidates = keystoreFile.listFiles((dir, name) -> {
+      				String lower = name.toLowerCase();
+      				return lower.endsWith(".p12") || lower.endsWith(".pfx") || lower.endsWith(".jks") || lower.endsWith(".keystore");
+      			});
+      			if (candidates == null || candidates.length == 0) {
+      				logger.info("HTTPS证书目录中未找到证书文件: {}, 使用HTTP协议启动", httpsCertPath);
+      				httpsEnabled = false;
+      				return;
+      			}
+      			// 优先选择 .p12 文件
+      			File chosen = null;
+      			for (File f : candidates) {
+      				if (f.getName().toLowerCase().endsWith(".p12")) {
+      					chosen = f;
+      					break;
+      				}
+      			}
+      			if (chosen == null) chosen = candidates[0];
+      			keystoreFile = chosen;
+      			httpsCertPath = keystoreFile.getAbsolutePath();
+      			httpsKeyPath = httpsCertPath;
+      			saveApplicationConfig();
+      			logger.info("自动选择HTTPS证书文件: {}", httpsCertPath);
+      		}
+      		if (!keystoreFile.exists()) {
+      			logger.info("HTTPS证书文件不存在: {}, 使用HTTP协议启动", httpsCertPath);
+      			httpsEnabled = false;
+      			return;
+      		}
+      		String storeType = "PKCS12";
+      		String fileName = keystoreFile.getName().toLowerCase();
+      		if (fileName.endsWith(".jks") || fileName.endsWith(".keystore")) {
+      			storeType = "JKS";
+      		}
+      		KeyStore keyStore = KeyStore.getInstance(storeType);
+      		try (java.io.FileInputStream fis = new java.io.FileInputStream(keystoreFile)) {
+      			keyStore.load(fis, httpsPassword != null ? httpsPassword.toCharArray() : new char[0]);
+      		}
+      		KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+      		kmf.init(keyStore, httpsPassword != null ? httpsPassword.toCharArray() : new char[0]);
+      		SslContext sslContext = SslContextBuilder.forServer(kmf).build();
+      		httpsSslContext = sslContext;
+      		logger.info("HTTPS证书加载成功: {}", httpsCertPath);
+      	} catch (Exception e) {
+      		logger.info("HTTPS证书加载失败: {}, 使用HTTP协议启动", e.getMessage());
+      		httpsEnabled = false;
+      	}
+      }
     
     
     private static void bindAnthropic(int port) {

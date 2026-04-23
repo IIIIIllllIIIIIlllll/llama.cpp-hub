@@ -95,6 +95,11 @@ public class SystemController implements BaseController {
 			this.handleVersionInfoRequest(ctx, request);
 			return true;
 		}
+		// 获取系统设置
+		if (uri.startsWith("/api/sys/setting") && request.method() == HttpMethod.GET) {
+			this.handleSysSettingGetRequest(ctx, request);
+			return true;
+		}
 		// 保存系统设置
 		if (uri.startsWith("/api/sys/setting")) {
 			this.handleSysSettingRequest(ctx, request);
@@ -240,6 +245,7 @@ public class SystemController implements BaseController {
 						}
 						Map<String, Object> item = new HashMap<>();
 						item.put("name", name);
+						item.put("path", p.toAbsolutePath().normalize().toString());
 						files.add(item);
 					} catch (Exception ignore) {
 					}
@@ -507,6 +513,71 @@ public class SystemController implements BaseController {
 	}
 	
 	/**
+	 * 	获取系统设置
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleSysSettingGetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		try {
+			Map<String, Object> data = new HashMap<>();
+			
+			Map<String, Object> server = new HashMap<>();
+			server.put("webPort", LlamaServer.getWebPort());
+			server.put("anthropicPort", LlamaServer.getAnthropicPort());
+			data.put("server", server);
+			
+			Map<String, Object> download = new HashMap<>();
+			download.put("directory", LlamaServer.getDownloadDirectory());
+			data.put("download", download);
+			
+			Map<String, Object> security = new HashMap<>();
+			security.put("apiKeyEnabled", LlamaServer.isApiKeyValidationEnabled());
+			String key = LlamaServer.getApiKey();
+			security.put("apiKey", key != null ? key : "");
+			data.put("security", security);
+			
+			Map<String, Object> compat = new HashMap<>();
+			Map<String, Object> ollama = new HashMap<>();
+			ollama.put("enabled", LlamaServer.isOllamaCompatEnabled());
+			ollama.put("port", LlamaServer.getOllamaCompatPort());
+			compat.put("ollama", ollama);
+			
+			Map<String, Object> lmstudio = new HashMap<>();
+			lmstudio.put("enabled", LlamaServer.isLmstudioCompatEnabled());
+			lmstudio.put("port", LlamaServer.getLmstudioCompatPort());
+			compat.put("lmstudio", lmstudio);
+			
+			Map<String, Object> mcpServer = new HashMap<>();
+			mcpServer.put("enabled", LlamaServer.isMcpServerEnabled());
+			compat.put("mcpServer", mcpServer);
+			
+			data.put("compat", compat);
+			
+			Map<String, Object> logging = new HashMap<>();
+			logging.put("logRequestUrl", LlamaServer.isLogRequestUrlEnabled());
+			logging.put("logRequestHeader", LlamaServer.isLogRequestHeaderEnabled());
+			logging.put("logRequestBody", LlamaServer.isLogRequestBodyEnabled());
+			data.put("logging", logging);
+			
+			Map<String, Object> https = new HashMap<>();
+			https.put("enabled", LlamaServer.isHttpsEnabled());
+			https.put("keystorePath", LlamaServer.getHttpsCertPath());
+			https.put("keystorePassword", LlamaServer.getHttpsPassword());
+			data.put("https", https);
+			
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("获取系统设置时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取系统设置失败: " + e.getMessage()));
+		}
+	}
+	
+	/**
 	 * 	保存系统设置
 	 * @param ctx
 	 * @param request
@@ -529,8 +600,20 @@ public class SystemController implements BaseController {
 			Boolean logRequestUrl = firstBoolean(obj, "LlamaServer.logRequestUrl", "logRequestUrl", "log_request_url");
 			Boolean logRequestHeader = firstBoolean(obj, "LlamaServer.logRequestHeader", "logRequestHeader", "log_request_header");
 			Boolean logRequestBody = firstBoolean(obj, "LlamaServer.logRequestBody", "logRequestBody", "log_request_body");
+			
+			Integer webPort = firstPort(obj, "webPort", "web_port");
+			Integer anthropicPort = firstPort(obj, "anthropicPort", "anthropic_port");
+			Boolean apiKeyEnabled = firstBoolean(obj, "apiKeyEnabled", "api_key_enabled");
+			String apiKey = JsonUtil.getJsonString(obj, "apiKey", null);
+			Boolean httpsEnabled = firstBoolean(obj, "httpsEnabled", "https_enabled");
+			String httpsCertPath = JsonUtil.getJsonString(obj, "httpsCertPath", null);
+			String httpsPassword = JsonUtil.getJsonString(obj, "httpsPassword", null);
+			String downloadDirectory = JsonUtil.getJsonString(obj, "downloadDirectory", null);
 
-			if (ollamaPort == null && lmstudioPort == null && logRequestUrl == null && logRequestHeader == null && logRequestBody == null) {
+			if (ollamaPort == null && lmstudioPort == null && logRequestUrl == null && logRequestHeader == null && logRequestBody == null
+				&& webPort == null && anthropicPort == null && apiKeyEnabled == null && apiKey == null
+				&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
+				&& downloadDirectory == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少可保存参数"));
 				return;
 			}
@@ -553,6 +636,30 @@ public class SystemController implements BaseController {
 
 			if (logRequestUrl != null || logRequestHeader != null || logRequestBody != null) {
 				LlamaServer.updateRequestLogConfig(logRequestUrl, logRequestHeader, logRequestBody);
+			}
+			
+			if (webPort != null || anthropicPort != null) {
+				if (webPort != null && !isValidPort(webPort.intValue())) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("webPort参数不合法"));
+					return;
+				}
+				if (anthropicPort != null && !isValidPort(anthropicPort.intValue())) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("anthropicPort参数不合法"));
+					return;
+				}
+				LlamaServer.updateServerPorts(webPort, anthropicPort);
+			}
+			
+			if (apiKeyEnabled != null || apiKey != null) {
+				LlamaServer.updateApiKeyConfig(apiKeyEnabled != null ? apiKeyEnabled : LlamaServer.isApiKeyValidationEnabled(), apiKey);
+			}
+			
+			if (httpsEnabled != null || httpsCertPath != null || httpsPassword != null) {
+				LlamaServer.updateHttpsConfig(httpsEnabled, httpsCertPath, null, httpsPassword);
+			}
+			
+			if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
+				LlamaServer.setDownloadDirectory(downloadDirectory);
 			}
 
 			Map<String, Object> data = new HashMap<>();

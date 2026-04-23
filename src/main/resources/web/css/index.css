@@ -1119,64 +1119,98 @@
 
         .settings-layout {
             min-height: 100%;
-            padding: 1.5rem 2rem 2rem;
+            padding: 1rem 1.25rem 1.25rem;
         }
         #main-settings .settings-panel {
             width: 100%;
         }
+        #main-settings .model-list-container {
+            border-radius: 0.5rem;
+        }
+        #main-settings .model-list-header {
+            padding: 0.6rem 1rem;
+        }
+        #main-settings .model-list-header h2 {
+            font-size: 0.875rem;
+        }
         .settings-panel-body {
-            padding: 1.25rem 1.5rem;
+            padding: 0.75rem 1rem;
+        }
+        .settings-panel-body .form-text {
+            font-size: 0.7rem;
+            margin-bottom: 0.35rem;
         }
         .settings-toggle-list {
-            margin-top: 1rem;
+            margin-top: 0.5rem;
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.4rem;
         }
         .settings-toggle-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
-            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+            padding: 0.4rem 0.6rem;
             border: 1px solid var(--border-color);
-            border-radius: 0.75rem;
+            border-radius: 0.5rem;
             background-color: #fff;
         }
         .settings-toggle-title {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.35rem;
             color: var(--text-primary);
             font-weight: 600;
+            font-size: 0.8rem;
+        }
+        .settings-toggle-title i {
+            font-size: 0.75rem;
         }
 
         .settings-compat-actions {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
         .settings-port-field {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.35rem;
         }
         .settings-port-label {
-            font-size: 0.8125rem;
+            font-size: 0.7rem;
             color: var(--text-secondary);
             font-weight: 500;
             white-space: nowrap;
         }
         .settings-port-input {
-            width: 120px;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
+            width: 90px;
+            padding: 0.25rem 0.4rem;
+            font-size: 0.75rem;
         }
         .settings-actions-row {
-            margin-top: 1rem;
+            margin-top: 0.5rem;
             display: flex;
             justify-content: flex-end;
-            gap: 0.75rem;
+            gap: 0.5rem;
+        }
+        #main-settings .settings-actions-row .btn {
+            padding: 0.35rem 0.7rem;
+            font-size: 0.75rem;
+        }
+        #main-settings .form-check {
+            gap: 0.3rem;
+        }
+        #main-settings .form-check-input {
+            width: 0.8rem;
+            height: 0.8rem;
+        }
+        #main-settings .form-check-label {
+            font-size: 0.75rem;
+        }
+        #main-settings .model-list-container[style*="margin-top"] {
+            margin-top: 0.6rem !important;
         }
 
         .settings-embed-frame {
@@ -1431,12 +1465,13 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            flex: 1;
             min-height: 0;
             overflow: hidden;
             padding: 1.25rem 1.25rem;
         }
         #directoryBrowserModal .modal-footer {
-            background-color: #f8fafc;
+            background-color: #FFFFFF;
         }
         
         .dir-browser-toolbar {
@@ -1460,7 +1495,7 @@
         }
         .dir-browser-grid {
             display: grid;
-            grid-template-columns: 1fr 380px;
+            grid-template-columns: 1fr 1fr;
             gap: 0.75rem;
             flex: 1;
             min-height: 0;
@@ -1579,4 +1614,97 @@
         .dir-browser-item-chevron {
             color: var(--text-secondary);
             flex-shrink: 0;
+        }
+
+        .settings-hint {
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+            border-radius: 0.5rem;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            font-size: 0.75rem;
+            color: #92400e;
+            line-height: 1.5;
+        }
+
+        /* Settings Tabs */
+        .settings-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1rem;
+            padding: 0 0.5rem;
+            overflow-x: auto;
+        }
+
+        .settings-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.5rem 0.85rem;
+            border: none;
+            background: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .settings-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .settings-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .settings-tab i {
+            font-size: 0.75rem;
+        }
+
+        .settings-tab-panel {
+            display: none;
+        }
+
+        .settings-tab-panel.active {
+            display: block;
+        }
+
+        .settings-field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .settings-field-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .settings-field {
+            margin-bottom: 0;
+        }
+
+        .settings-field .form-label {
+            font-size: 0.8rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .settings-field .form-text {
+            font-size: 0.7rem;
+            margin-bottom: 0.35rem;
+            display: block;
+        }
+
+        .settings-field .form-control {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
         }

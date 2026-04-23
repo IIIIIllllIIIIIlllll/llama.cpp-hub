@@ -4196,33 +4196,20 @@
           updateStatus('ready', '回复生成完成', '已完成');
           break;
         }
-      } catch (error) {
+       } catch (error) {
         removeTypingIndicator();
-        const conversation = getCurrentConversation();
-        const targetAssistant = Number.isInteger(currentAssistantIndex)
-          ? conversation?.messages?.[currentAssistantIndex]
-          : null;
-        const hasEmptyAssistant = targetAssistant?.role === 'assistant' ||
-          (conversation?.messages?.length && conversation.messages[conversation.messages.length - 1].role === 'assistant');
-        let assistantIndex = Number.isInteger(currentAssistantIndex)
-          ? currentAssistantIndex
-          : conversation?.messages?.length - 1;
-        if (!hasEmptyAssistant) {
-          pushMessage('assistant', '', { model: requestModel }, { incremental: true, persist: false });
-          assistantIndex = getCurrentConversation()?.messages?.length - 1;
-        }
         if (error.name === 'AbortError') {
-          if (Number.isInteger(assistantIndex)) {
-            setAssistantResponseStreaming(assistantIndex, false);
+          if (Number.isInteger(currentAssistantIndex)) {
+            setAssistantResponseStreaming(currentAssistantIndex, false);
           }
           updateStatus('error', '生成已停止', '已停止');
         } else {
-          updateLastAssistantMessage('请求失败：' + (error.message || '未知错误'), '', requestModel, null, assistantIndex);
-          if (Number.isInteger(assistantIndex)) {
-            setAssistantResponseStreaming(assistantIndex, false);
+          if (Number.isInteger(currentAssistantIndex)) {
+            updateLastAssistantMessage('请求失败：' + (error.message || '未知错误'), '', requestModel, null, currentAssistantIndex);
+            setAssistantResponseStreaming(currentAssistantIndex, false);
           }
           updateStatus('error', error.message || '请求失败', '请求失败');
-          showToast('error', '请求失败');
+          showToast('error', '请求失败：' + (error.message || '未知错误'));
         }
       } finally {
         state.isSending = false;
@@ -4384,8 +4371,14 @@
       applySidebarState();
     }
 
+    let currentApiKey = '';
+
     function getHeaders() {
-      return { 'Content-Type': 'application/json' };
+      const headers = { 'Content-Type': 'application/json' };
+      if (currentApiKey) {
+        headers['Authorization'] = 'Bearer ' + currentApiKey;
+      }
+      return headers;
     }
 
     async function fetchJson(url, options = {}) {
@@ -5680,6 +5673,14 @@ function confirmAudioRecording() {
     }
 
     async function init() {
+      try {
+        const resp = await fetch('/api/sys/setting', { method: 'GET' });
+        const result = await resp.json();
+        if (result && result.success && result.data && result.data.security) {
+          currentApiKey = result.data.security.apiKey || '';
+        }
+      } catch (e) {
+      }
       ensureMathJax();
       setStateLoadGuard(true, '正在从服务端同步聊天记录…');
       if (window.ChatMcpModule?.create) {

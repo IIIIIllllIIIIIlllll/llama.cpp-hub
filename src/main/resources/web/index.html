@@ -338,27 +338,96 @@
 
         <div class="content-scrollable">
             <div class="settings-layout">
+                <div class="settings-tabs" role="tablist">
+                    <button class="settings-tab active" data-tab="server">
+                        <i class="fas fa-server"></i> <span data-i18n="page.settings.tab.server">page.settings.tab.server</span>
+                    </button>
+                    <button class="settings-tab" data-tab="compat">
+                        <i class="fas fa-plug"></i> <span data-i18n="page.settings.tab.compat">page.settings.tab.compat</span>
+                    </button>
+                    <button class="settings-tab" data-tab="security">
+                        <i class="fas fa-shield-alt"></i> <span data-i18n="page.settings.tab.security">page.settings.tab.security</span>
+                    </button>
+                    <button class="settings-tab" data-tab="https">
+                        <i class="fas fa-lock"></i> <span data-i18n="page.settings.tab.https">page.settings.tab.https</span>
+                    </button>
+                    <button class="settings-tab" data-tab="logging">
+                        <i class="fas fa-file-alt"></i> <span data-i18n="page.settings.tab.logging">page.settings.tab.logging</span>
+                    </button>
+                    <button class="settings-tab" data-tab="download">
+                        <i class="fas fa-download"></i> <span data-i18n="page.settings.tab.download">page.settings.tab.download</span>
+                    </button>
+                </div>
+
                 <div class="settings-content">
-                    <div class="settings-panel">
-                        <div class="model-list-container">
-                            <div class="model-list-header">
-                                <h2 data-i18n="page.settings.general.title">page.settings.general.title</h2>
-                            </div>
+
+                    <!-- Tab: Server -->
+                    <div class="settings-tab-panel active" data-tab-panel="server">
+                        <div class="settings-panel">
                             <div class="settings-panel-body">
-                                <div class="form-group" style="margin: 0;">
-                                    <label class="form-label" data-i18n="page.settings.general.compat.title">page.settings.general.compat.title</label>
-                                    <small class="form-text" data-i18n="page.settings.general.compat.desc">page.settings.general.compat.desc</small>
-                                </div>
+                                <div class="settings-hint" data-i18n="page.settings.server.hint">page.settings.server.hint</div>
                                 <div class="settings-toggle-list">
                                     <div class="settings-toggle-row">
                                         <div class="settings-toggle-title">
-                                            <i class="fas fa-plug"></i>
-                                            <span>Ollama</span>
+                                            <i class="fas fa-globe"></i><span data-i18n="page.settings.server.web_port">page.settings.server.web_port</span>
                                         </div>
                                         <div class="settings-compat-actions">
                                             <div class="settings-port-field">
                                                 <span class="settings-port-label" data-i18n="common.port">common.port</span>
-                                                <input class="form-control settings-port-input" type="number" min="1" max="65535" step="1" id="ollamaCompatPortInput" placeholder="11434">
+                                                <input class="form-control settings-port-input" type="number" id="webPortInput" min="1" max="65535" placeholder="8080">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-globe"></i><span data-i18n="page.settings.server.anthropic_port">page.settings.server.anthropic_port</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="settings-port-field">
+                                                <span class="settings-port-label" data-i18n="common.port">common.port</span>
+                                                <input class="form-control settings-port-input" type="number" id="anthropicPortInput" min="1" max="65535" placeholder="8070">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-toggle-list" style="margin-top: 0.75rem;">
+                                     <div class="settings-toggle-row">
+                                         <div class="settings-toggle-title">
+                                             <i class="fas fa-server"></i><span data-i18n="page.settings.server.mcp_server">page.settings.server.mcp_server</span>
+                                         </div>
+                                         <div class="settings-compat-actions">
+                                             <div class="form-check" style="margin: 0;">
+                                                 <input class="form-check-input" type="checkbox" id="toggleMcpServer">
+                                                 <label class="form-check-label" for="toggleMcpServer" data-i18n="common.enable">common.enable</label>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <div class="settings-actions-row">
+                                     <button class="btn btn-primary" id="saveServerPortsBtn" data-i18n="common.save">common.save</button>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Compatibility -->
+                    <div class="settings-tab-panel" data-tab-panel="compat">
+                        <div class="settings-panel">
+                            <div class="settings-panel-body">
+                                 <div class="form-group" style="margin: 0;">
+                                     <label class="form-label" data-i18n="page.settings.general.compat.title">page.settings.general.compat.title</label>
+                                     <small class="form-text" data-i18n="page.settings.general.compat.desc">page.settings.general.compat.desc</small>
+                                 </div>
+                                 <div class="settings-hint" data-i18n="page.settings.compat.hint">page.settings.compat.hint</div>
+                                <div class="settings-toggle-list">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-plug"></i><span>Ollama</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="settings-port-field">
+                                                <span class="settings-port-label" data-i18n="common.port">common.port</span>
+                                                <input class="form-control settings-port-input" type="number" id="ollamaCompatPortInput" min="1" max="65535" placeholder="11434">
                                             </div>
                                             <div class="form-check" style="margin: 0;">
                                                 <input class="form-check-input" type="checkbox" id="toggleOllamaCompat">
@@ -368,40 +437,118 @@
                                     </div>
                                     <div class="settings-toggle-row">
                                         <div class="settings-toggle-title">
-                                            <i class="fas fa-plug"></i>
-                                            <span>LMStudio</span>
+                                            <i class="fas fa-plug"></i><span>LMStudio</span>
                                         </div>
                                         <div class="settings-compat-actions">
                                             <div class="settings-port-field">
                                                 <span class="settings-port-label" data-i18n="common.port">common.port</span>
-                                                <input class="form-control settings-port-input" type="number" min="1" max="65535" step="1" id="lmstudioCompatPortInput" placeholder="1234">
+                                                <input class="form-control settings-port-input" type="number" id="lmstudioCompatPortInput" min="1" max="65535" placeholder="1234">
                                             </div>
                                             <div class="form-check" style="margin: 0;">
                                                 <input class="form-check-input" type="checkbox" id="toggleLmstudioCompat">
                                                 <label class="form-check-label" for="toggleLmstudioCompat" data-i18n="common.enable">common.enable</label>
                                             </div>
                                         </div>
-                                    </div>
+                                     </div>
                                 </div>
                                 <div class="settings-actions-row">
-                                    <button class="btn btn-primary" type="button" id="saveCompatPortsBtn" data-i18n="page.settings.general.compat.save_ports">page.settings.general.compat.save_ports</button>
+                                    <button class="btn btn-primary" id="saveCompatPortsBtn" data-i18n="page.settings.general.compat.save_ports">page.settings.general.compat.save_ports</button>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="model-list-container" style="margin-top: 1rem;">
-                            <div class="model-list-header">
-                                <h2 data-i18n="page.settings.general.request_log.title">page.settings.general.request_log.title</h2>
+                    <!-- Tab: Security -->
+                    <div class="settings-tab-panel" data-tab-panel="security">
+                        <div class="settings-panel">
+                            <div class="settings-panel-body">
+                                 <div class="form-group" style="margin: 0;">
+                                     <label class="form-label" data-i18n="page.settings.security.title">page.settings.security.title</label>
+                                     <small class="form-text" data-i18n="page.settings.security.desc">page.settings.security.desc</small>
+                                 </div>
+                                 <div class="settings-hint" data-i18n="page.settings.security.hint">page.settings.security.hint</div>
+                                <div class="settings-toggle-list">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-key"></i><span data-i18n="page.settings.security.enable">page.settings.security.enable</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleApiKeyEnabled">
+                                                <label class="form-check-label" for="toggleApiKeyEnabled" data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-field-row" style="margin-top: 0.75rem;">
+                                    <div class="settings-field">
+                                        <label class="form-label" data-i18n="page.settings.security.api_key">page.settings.security.api_key</label>
+                                        <small class="form-text" data-i18n="page.settings.security.api_key_desc">page.settings.security.api_key_desc</small>
+                                        <input class="form-control" type="password" id="apiKeyInput" placeholder="page.settings.security.api_key">
+                                    </div>
+                                </div>
+                                <div class="settings-actions-row">
+                                    <button class="btn btn-primary" id="saveSecurityBtn" data-i18n="common.save">common.save</button>
+                                </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: HTTPS -->
+                    <div class="settings-tab-panel" data-tab-panel="https">
+                        <div class="settings-panel">
+                            <div class="settings-panel-body">
+                                 <div class="form-group" style="margin: 0;">
+                                     <label class="form-label" data-i18n="page.settings.https.title">page.settings.https.title</label>
+                                     <small class="form-text" data-i18n="page.settings.https.desc">page.settings.https.desc</small>
+                                 </div>
+                                 <div class="settings-hint" data-i18n="page.settings.https.hint">page.settings.https.hint</div>
+                                <div class="settings-toggle-list">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-lock"></i><span data-i18n="page.settings.https.enable">page.settings.https.enable</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleHttpsEnabled">
+                                                <label class="form-check-label" for="toggleHttpsEnabled" data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                 <div class="settings-field" style="margin-top: 0.75rem;">
+                                     <label class="form-label" data-i18n="page.settings.https.keystore_path">page.settings.https.keystore_path</label>
+                                     <small class="form-text" data-i18n="page.settings.https.keystore_path_desc">page.settings.https.keystore_path_desc</small>
+                                     <div class="dir-browse-input-row">
+                                         <input class="form-control" id="httpsCertPathInput" placeholder="/path/to/keystore.p12">
+                                         <button class="btn btn-secondary dir-browse-btn" type="button" onclick="openFileBrowser('httpsCertPathInput')" title="common.browse" data-i18n="common.browse" data-i18n-attr="title">
+                                             <i class="fas fa-folder-open"></i>
+                                         </button>
+                                     </div>
+                                 </div>
+                                 <div class="settings-field" style="margin-top: 0.75rem;">
+                                     <label class="form-label" data-i18n="page.settings.https.password">page.settings.https.password</label>
+                                     <input class="form-control" type="password" id="httpsPasswordInput" placeholder="page.settings.https.password">
+                                 </div>
+                                <div class="settings-actions-row">
+                                    <button class="btn btn-primary" id="saveHttpsBtn" data-i18n="common.save">common.save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Logging -->
+                    <div class="settings-tab-panel" data-tab-panel="logging">
+                        <div class="settings-panel">
                             <div class="settings-panel-body">
                                 <div class="form-group" style="margin: 0;">
-                                    <small class="form-text" data-i18n="page.settings.general.request_log.desc">page.settings.general.request_log.desc</small>
+                                    <label class="form-label" data-i18n="page.settings.logging.title">page.settings.logging.title</label>
+                                    <small class="form-text" data-i18n="page.settings.logging.desc">page.settings.logging.desc</small>
                                 </div>
                                 <div class="settings-toggle-list">
                                     <div class="settings-toggle-row">
                                         <div class="settings-toggle-title">
-                                            <i class="fas fa-link"></i>
-                                            <span data-i18n="page.settings.general.request_log.url">page.settings.general.request_log.url</span>
+                                            <i class="fas fa-link"></i><span data-i18n="page.settings.logging.url">page.settings.logging.url</span>
                                         </div>
                                         <div class="settings-compat-actions">
                                             <div class="form-check" style="margin: 0;">
@@ -412,8 +559,7 @@
                                     </div>
                                     <div class="settings-toggle-row">
                                         <div class="settings-toggle-title">
-                                            <i class="fas fa-heading"></i>
-                                            <span data-i18n="page.settings.general.request_log.header">page.settings.general.request_log.header</span>
+                                            <i class="fas fa-heading"></i><span data-i18n="page.settings.logging.header">page.settings.logging.header</span>
                                         </div>
                                         <div class="settings-compat-actions">
                                             <div class="form-check" style="margin: 0;">
@@ -424,8 +570,7 @@
                                     </div>
                                     <div class="settings-toggle-row">
                                         <div class="settings-toggle-title">
-                                            <i class="fas fa-file-alt"></i>
-                                            <span data-i18n="page.settings.general.request_log.body">page.settings.general.request_log.body</span>
+                                            <i class="fas fa-file-alt"></i><span data-i18n="page.settings.logging.body">page.settings.logging.body</span>
                                         </div>
                                         <div class="settings-compat-actions">
                                             <div class="form-check" style="margin: 0;">
@@ -435,40 +580,40 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="settings-actions-row">
+                                    <button class="btn btn-primary" id="saveLoggingBtn" data-i18n="common.save">common.save</button>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="model-list-container" style="margin-top: 1rem;">
-                            <div class="model-list-header">
-                                <h2 data-i18n="page.settings.general.mcp_server.title">page.settings.general.mcp_server.title</h2>
-                            </div>
+                    <!-- Tab: Download -->
+                    <div class="settings-tab-panel" data-tab-panel="download">
+                        <div class="settings-panel">
                             <div class="settings-panel-body">
                                 <div class="form-group" style="margin: 0;">
-                                    <small class="form-text" data-i18n="page.settings.general.mcp_server.desc">page.settings.general.mcp_server.desc</small>
+                                    <label class="form-label" data-i18n="page.settings.download.title">page.settings.download.title</label>
+                                    <small class="form-text" data-i18n="page.settings.download.desc">page.settings.download.desc</small>
                                 </div>
-                                <div class="settings-toggle-list">
-                                    <div class="settings-toggle-row">
-                                        <div class="settings-toggle-title">
-                                            <i class="fas fa-server"></i>
-                                            <span data-i18n="page.settings.general.mcp_server.enable">page.settings.general.mcp_server.enable</span>
-                                        </div>
-                                        <div class="settings-compat-actions">
-                                            <div class="form-check" style="margin: 0;">
-                                                <input class="form-check-input" type="checkbox" id="toggleMcpServer">
-                                                <label class="form-check-label" for="toggleMcpServer" data-i18n="common.enable">common.enable</label>
-                                            </div>
+                                <div class="settings-field-row">
+                                    <div class="settings-field">
+                                        <div class="dir-browse-input-row">
+                                            <input class="form-control" id="downloadDirInput" placeholder="/path/to/downloads">
+                                            <button class="btn btn-secondary btn-sm dir-browse-btn" type="button" onclick="openDirectoryBrowser('downloadDirInput')" title="common.browse" data-i18n="common.browse" data-i18n-attr="title">
+                                                <i class="fas fa-folder-open"></i>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
+                                <div class="settings-actions-row">
+                                    <button class="btn btn-primary" id="saveDownloadBtn" data-i18n="common.save">common.save</button>
+                                </div>
                             </div>
                         </div>
-
                     </div>
 
-
-
-                </div>
-            </div>
+                </div><!-- /settings-content -->
+            </div><!-- /settings-layout -->
         </div>
     </main>
 
@@ -824,9 +969,6 @@
             loadParamConfig();
             loadBuildInfo();
             updateChatCompletionLinkForDevice();
-            initCompatServiceToggles();
-            initSettingsForms();
-            loadCompatServiceStatus();
         });
 
         function t(key, fallback) {
@@ -902,7 +1044,7 @@
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" type="button" onclick="closeModal('directoryBrowserModal')" data-i18n="common.cancel">common.cancel</button>
-                        <button class="btn btn-primary" type="button" onclick="directoryBrowserConfirm()" data-i18n="modal.dir_browser.select">modal.dir_browser.select</button>
+                        <button class="btn btn-primary" type="button" id="directoryBrowserConfirmBtn" onclick="directoryBrowserConfirm()" data-i18n="modal.dir_browser.select">modal.dir_browser.select</button>
                     </div>
                 </div>`;
             document.body.appendChild(modal);
@@ -918,9 +1060,41 @@
             const current = (el.value || '').trim();
             window.__directoryBrowserState = {
                 targetInputId,
-                currentPath: current || null
+                currentPath: current || null,
+                selectFile: false
             };
             directoryBrowserLoad(current || null);
+            const confirmBtn = document.getElementById('directoryBrowserConfirmBtn');
+            if (confirmBtn) confirmBtn.style.display = '';
+            document.getElementById('directoryBrowserModal').classList.add('show');
+        }
+
+        function openFileBrowser(targetInputId) {
+            const el = document.getElementById(targetInputId);
+            if (!el) return;
+            ensureDirectoryBrowserModal();
+            
+            const current = (el.value || '').trim();
+            let dirPath = null;
+            let fileName = null;
+            if (current) {
+                const sepIdx = current.lastIndexOf('/');
+                const sepIdx2 = current.lastIndexOf('\\');
+                const sepPos = Math.max(sepIdx, sepIdx2);
+                if (sepPos > 0) {
+                    dirPath = current.substring(0, sepPos);
+                    fileName = current.substring(sepPos + 1);
+                }
+            }
+            window.__directoryBrowserState = {
+                targetInputId,
+                currentPath: dirPath || null,
+                currentFile: fileName || null,
+                selectFile: true
+            };
+            directoryBrowserLoad(dirPath || null);
+            const confirmBtn = document.getElementById('directoryBrowserConfirmBtn');
+            if (confirmBtn) confirmBtn.style.display = 'none';
             document.getElementById('directoryBrowserModal').classList.add('show');
         }
         
@@ -996,8 +1170,25 @@
                     if (files.length === 0) {
                         fileListEl.innerHTML = `<div class="empty-state">${t('modal.dir_browser.no_files')}</div>`;
                     } else {
+                        const state = window.__directoryBrowserState || {};
+                        const selectFile = state.selectFile || false;
+                        const currentFile = state.currentFile || '';
                         fileListEl.innerHTML = files.map(f => {
                             const name = escapeHtml(f.name || '');
+                            const p = escapeHtml(f.path || '');
+                            const pAttr = escapeAttr(f.path || '');
+                            if (selectFile) {
+                                const isSelected = f.path === currentFile;
+                                return `
+                                    <div class="dir-browser-item file${isSelected ? ' selected' : ''}" role="button" tabindex="0" data-path="${pAttr}" onclick="directoryBrowserSelectFile(this.getAttribute('data-path'))" onkeydown="directoryBrowserFileItemKeydown(event, this)">
+                                        <div class="dir-browser-item-icon file"><i class="fas fa-file"></i></div>
+                                        <div class="dir-browser-item-body">
+                                            <div class="dir-browser-item-title" title="${name}">${name}</div>
+                                            <div class="dir-browser-item-subtitle">${p}</div>
+                                        </div>
+                                        <div class="dir-browser-item-chevron"><i class="fas fa-chevron-right"></i></div>
+                                    </div>`;
+                            }
                             return `
                                 <div class="dir-browser-item file">
                                     <div class="dir-browser-item-icon file"><i class="fas fa-file"></i></div>
@@ -1038,6 +1229,23 @@
                 directoryBrowserEnter(p);
             }
         }
+
+        function directoryBrowserFileItemKeydown(event, el) {
+            if (!event || !el) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                const p = el.getAttribute('data-path');
+                directoryBrowserSelectFile(p);
+            }
+        }
+
+        function directoryBrowserSelectFile(path) {
+            const state = window.__directoryBrowserState || {};
+            state.currentFile = path;
+            state.currentPath = path;
+            window.__directoryBrowserState = state;
+            directoryBrowserConfirm();
+        }
         
         function directoryBrowserEnter(path) {
             const p = (path || '').trim();
@@ -1062,7 +1270,7 @@
         function directoryBrowserConfirm() {
             const state = window.__directoryBrowserState || {};
             const targetInputId = state.targetInputId;
-            const path = state.currentPath;
+            const path = state.selectFile ? (state.currentFile || state.currentPath) : state.currentPath;
             if (!targetInputId) return;
             if (!path) {
                 showToast(t('toast.error'), t('modal.dir_browser.select_required'), 'error');
@@ -1070,6 +1278,8 @@
             }
             const el = document.getElementById(targetInputId);
             if (el) el.value = path;
+            const confirmBtn = document.getElementById('directoryBrowserConfirmBtn');
+            if (confirmBtn) confirmBtn.style.display = '';
             closeModal('directoryBrowserModal');
         }
 
@@ -2068,6 +2278,10 @@
             navItems.forEach(item => item.classList.remove('active'));
             const nav = document.getElementById('nav-settings');
             if (nav) nav.classList.add('active');
+
+            if (window.SettingsPage && typeof window.SettingsPage.load === 'function') {
+                window.SettingsPage.load();
+            }
         }
 
         // 加载模型路径列表
@@ -2157,6 +2371,7 @@
             }
         }
     </script>
+    <script src="js/settings.js"></script>
     <script src="js/model-icon.js"></script>
     <script src="js/model-detail.js"></script>
     <script src="js/model-list.js"></script>
