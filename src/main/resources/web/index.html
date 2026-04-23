@@ -51,6 +51,10 @@
                 <i class="fas fa-cloud"></i>
                 <span data-i18n="nav.hf">nav.hf</span>
             </a>
+            <a href="#" class="nav-item" id="nav-device-status" onclick="showDeviceStatus(); return false;">
+                <i class="fas fa-memory"></i>
+                <span data-i18n="nav.device_status">nav.device_status</span>
+            </a>
             <a href="#" class="nav-item" id="nav-console" onclick="showConsolePage(); return false;">
                 <i class="fas fa-terminal"></i>
                 <span data-i18n="nav.console">nav.console</span>
@@ -614,6 +618,24 @@
 
                 </div><!-- /settings-content -->
             </div><!-- /settings-layout -->
+        </div>
+    </main>
+
+    <main class="main-area" id="main-device-status" style="display: none">
+        <div class="top-bar">
+            <h1 class="page-title"><i class="fas fa-memory"></i> <span data-i18n="page.device_status.title">page.device_status.title</span></h1>
+            <div class="top-actions" style="display:flex; align-items:center; gap:12px;">
+                <button class="btn btn-secondary" id="refreshDeviceStatusBtn" title="common.refresh" data-i18n="common.refresh" data-i18n-attr="title">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <div id="deviceStatusText" style="font-size:12px; color:var(--text-secondary); margin-left:auto;"></div>
+            </div>
+        </div>
+
+        <div class="content-scrollable" style="padding: 0;">
+            <div id="deviceStatusContainer" style="height: 100%; overflow:auto; padding:16px; font-family:'Menlo', 'Monaco', 'Courier New', monospace; background:#0f172a; color:#e5e7eb; font-size: 0.875rem;">
+                <pre id="deviceStatusContent" style="margin:0; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word;"></pre>
+            </div>
         </div>
     </main>
 
@@ -2166,7 +2188,9 @@
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
             document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
             stopConsoleAuto();
+            stopDeviceStatusAuto();
             //refreshModels();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -2184,7 +2208,9 @@
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
             document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
             stopConsoleAuto();
+            stopDeviceStatusAuto();
             loadLlamaCppList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -2202,7 +2228,9 @@
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
             document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
             stopConsoleAuto();
+            stopDeviceStatusAuto();
             loadModelPathList();
             // 更新导航项高亮
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -2219,6 +2247,8 @@
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
             document.getElementById('main-console').style.display = '';
+            document.getElementById('main-device-status').style.display = 'none';
+            stopDeviceStatusAuto();
             openConsoleModal();
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
@@ -2235,7 +2265,9 @@
             document.getElementById('main-hf').style.display = '';
             document.getElementById('main-download').style.display = 'none';
             document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
             stopConsoleAuto();
+            stopDeviceStatusAuto();
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
             navItems.forEach(item => item.classList.remove('active'));
             const nav = document.getElementById('nav-hf');
@@ -2250,7 +2282,9 @@
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-settings').style.display = 'none';
             document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
             stopConsoleAuto();
+            stopDeviceStatusAuto();
             const main = document.getElementById('main-download');
             const hasEntered = main && main.dataset && main.dataset.entered === '1';
             if (main) main.style.display = '';
@@ -2270,7 +2304,9 @@
             document.getElementById('main-hf').style.display = 'none';
             document.getElementById('main-download').style.display = 'none';
             document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
             stopConsoleAuto();
+            stopDeviceStatusAuto();
             const main = document.getElementById('main-settings');
             if (main) main.style.display = '';
 
@@ -2282,6 +2318,72 @@
             if (window.SettingsPage && typeof window.SettingsPage.load === 'function') {
                 window.SettingsPage.load();
             }
+        }
+
+        // Device status polling
+        let deviceStatusTimer = null;
+
+        function stopDeviceStatusAuto() {
+            if (deviceStatusTimer) {
+                clearInterval(deviceStatusTimer);
+                deviceStatusTimer = null;
+            }
+        }
+
+        function fetchDeviceStatus() {
+            const statusEl = document.getElementById('deviceStatusText');
+            const contentEl = document.getElementById('deviceStatusContent');
+            if (statusEl) statusEl.textContent = '加载中...';
+            fetch('/api/sys/gpu/status')
+                .then(r => r.json())
+                .then(data => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    let rawLines = [];
+                    const gpuData = data.data || data;
+                    if (gpuData.gpus && Array.isArray(gpuData.gpus)) {
+                        for (const gpu of gpuData.gpus) {
+                            rawLines.push(`[${timestamp}] ${gpu.vendor || 'unknown'}:`);
+                            rawLines.push(gpu.rawOutput || '(no output)');
+                        }
+                    }
+                    if (contentEl) {
+                        contentEl.textContent = rawLines.join('\n') || '(no GPU data)';
+                    }
+                    if (statusEl) statusEl.textContent = `已更新 · ${timestamp}`;
+                    const container = document.getElementById('deviceStatusContainer');
+                    if (container) container.scrollTop = container.scrollHeight;
+                })
+                .catch(e => {
+                    if (statusEl) statusEl.textContent = '加载失败';
+                    const contentEl = document.getElementById('deviceStatusContent');
+                    if (contentEl) {
+                        const timestamp = new Date().toLocaleTimeString();
+                        contentEl.textContent += `[${timestamp}] 错误: 无法获取设备状态\n`;
+                    }
+                });
+        }
+
+        function showDeviceStatus() {
+            document.getElementById('main-model-list').style.display = 'none';
+            document.getElementById('main-llamacpp-setting').style.display = 'none';
+            document.getElementById('main-model-path-setting').style.display = 'none';
+            document.getElementById('main-settings').style.display = 'none';
+            document.getElementById('main-hf').style.display = 'none';
+            document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = '';
+            stopConsoleAuto();
+            const contentEl = document.getElementById('deviceStatusContent');
+            if (contentEl) contentEl.textContent = '';
+            fetchDeviceStatus();
+            stopDeviceStatusAuto();
+            deviceStatusTimer = setInterval(fetchDeviceStatus, 1000);
+            const refreshBtn = document.getElementById('refreshDeviceStatusBtn');
+            if (refreshBtn) refreshBtn.onclick = fetchDeviceStatus;
+            const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            const nav = document.getElementById('nav-device-status');
+            if (nav) nav.classList.add('active');
         }
 
         // 加载模型路径列表

@@ -19,6 +19,7 @@ import org.mark.llamacpp.ollama.Ollama;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
+import org.mark.llamacpp.server.service.GpuService;
 import org.mark.llamacpp.server.service.ModelSamplingService;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.JsonUtil;
@@ -93,6 +94,16 @@ public class SystemController implements BaseController {
 		// 获取构建版本信息
 		if (uri.startsWith("/api/sys/version")) {
 			this.handleVersionInfoRequest(ctx, request);
+			return true;
+		}
+		// 获取GPU服务信息（初始化快照）
+		if (uri.startsWith("/api/sys/gpu/info")) {
+			this.handleGpuInfoRequest(ctx, request);
+			return true;
+		}
+		// 查询GPU实时状态
+		if (uri.startsWith("/api/sys/gpu/status")) {
+			this.handleGpuStatusRequest(ctx, request);
 			return true;
 		}
 		// 获取系统设置
@@ -307,6 +318,48 @@ public class SystemController implements BaseController {
 		}
 	}
 	
+	/**
+	 * 	获取GPU服务信息（初始化时的快照）
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleGpuInfoRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		try {
+			JsonObject info = GpuService.getInstance().getServiceInfo();
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(info));
+		} catch (Exception e) {
+			logger.info("获取GPU信息时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取GPU信息失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 	查询GPU实时状态
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleGpuStatusRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		try {
+			JsonObject status = GpuService.getInstance().queryGpuStatus();
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(status));
+		} catch (Exception e) {
+			logger.info("查询GPU状态时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("查询GPU状态失败: " + e.getMessage()));
+		}
+	}
+
 	/**
 	 * 	获取兼容服务 ollama和lmstudio 状态
 	 * @param ctx

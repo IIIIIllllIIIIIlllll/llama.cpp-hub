@@ -321,13 +321,12 @@ public class CommandLineRunner {
 			return;
 		}
 
-		pb.directory(exeDir);
-
 		String osName = System.getProperty("os.name");
 		String os = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
 		Map<String, String> env = pb.environment();
 
 		if (os.contains("win")) {
+			pb.directory(exeDir);
 			String currentPath = env.get("PATH");
 			String dir = exeDir.getAbsolutePath();
 			if (currentPath == null || currentPath.isBlank()) {
@@ -338,27 +337,47 @@ public class CommandLineRunner {
 			return;
 		}
 
+		// On non-Windows, check if this is a system command
+		// System commands (nvidia-smi, rocm-smi, system_profiler, etc.) rely on
+		// the system's default library search (ldconfig cache), not LD_LIBRARY_PATH.
+		// Setting LD_LIBRARY_PATH can actually break them by overriding system defaults.
+		String exeDirAbs = exeDir.getAbsolutePath();
+		if (isSystemDirectory(exeDirAbs)) {
+			// Don't modify environment for system commands
+			return;
+		}
+
+		// NVIDIA tools should not have LD_LIBRARY_PATH modified, as they rely on
+		// their own bundled libraries in /usr/lib/nvidia-*.
+		if (isNvidiaCommand(exe)) {
+			pb.directory(exeDir);
+			return;
+		}
+
+		pb.directory(exeDir);
+
 		String currentLdPath = env.get("LD_LIBRARY_PATH");
-		String dir = exeDir.getAbsolutePath();
-		StringBuilder newLdPath = new StringBuilder(dir);
-		if (currentLdPath != null && !currentLdPath.isBlank() && !currentLdPath.contains(dir)) {
+		StringBuilder newLdPath = new StringBuilder(exeDirAbs);
+		if (currentLdPath != null && !currentLdPath.isBlank() && !currentLdPath.contains(exeDirAbs)) {
 			newLdPath.append(":").append(currentLdPath);
 		}
 
-		// ROCm 7.2 库路径 - 支持多种可能的安装位置
-		String[] rocmPaths = {
-			"/opt/rocm-7.2.0/lib",
-			"/opt/rocm-7.2.0/lib64",
-			"/opt/rocm/lib",
-			"/opt/rocm/lib64",
-			"/usr/local/rocm/lib",
-			"/usr/local/rocm/lib64",
-			"/usr/local/lib64",
-			"/usr/local/lib"
-		};
-		for (String rocmPath : rocmPaths) {
-			if (!newLdPath.toString().contains(rocmPath)) {
-				newLdPath.append(":").append(rocmPath);
+		// ROCm library paths - only apply for AMD/ROCm commands (rocm-smi, etc.)
+		if (isRocmCommand(exe)) {
+			String[] rocmPaths = {
+				"/opt/rocm-7.2.0/lib",
+				"/opt/rocm-7.2.0/lib64",
+				"/opt/rocm/lib",
+				"/opt/rocm/lib64",
+				"/usr/local/rocm/lib",
+				"/usr/local/rocm/lib64",
+				"/usr/local/lib64",
+				"/usr/local/lib"
+			};
+			for (String rocmPath : rocmPaths) {
+				if (!newLdPath.toString().contains(rocmPath)) {
+					newLdPath.append(":").append(rocmPath);
+				}
 			}
 		}
 
@@ -367,18 +386,46 @@ public class CommandLineRunner {
 		if (os.contains("mac") || os.contains("darwin")) {
 			String currentDyldPath = env.get("DYLD_LIBRARY_PATH");
 			if (currentDyldPath == null || currentDyldPath.isBlank()) {
-				env.put("DYLD_LIBRARY_PATH", dir);
-			} else if (!currentDyldPath.contains(dir)) {
-				env.put("DYLD_LIBRARY_PATH", dir + ":" + currentDyldPath);
+				env.put("DYLD_LIBRARY_PATH", exeDirAbs);
+			} else if (!currentDyldPath.contains(exeDirAbs)) {
+				env.put("DYLD_LIBRARY_PATH", exeDirAbs + ":" + currentDyldPath);
 			}
 
 			String currentFallback = env.get("DYLD_FALLBACK_LIBRARY_PATH");
 			if (currentFallback == null || currentFallback.isBlank()) {
-				env.put("DYLD_FALLBACK_LIBRARY_PATH", dir);
-			} else if (!currentFallback.contains(dir)) {
-				env.put("DYLD_FALLBACK_LIBRARY_PATH", dir + ":" + currentFallback);
+				env.put("DYLD_FALLBACK_LIBRARY_PATH", exeDirAbs);
+			} else if (!currentFallback.contains(exeDirAbs)) {
+				env.put("DYLD_FALLBACK_LIBRARY_PATH", exeDirAbs + ":" + currentFallback);
 			}
 		}
+	}
+
+	private static boolean isSystemDirectory(String dir) {
+		if (dir == null) return false;
+		String[] systemDirs = {
+			"/usr/bin", "/usr/sbin", "/usr/local/bin", "/usr/local/sbin",
+			"/bin", "/sbin", "/usr/bin/X11", "/usr/X11R6/bin"
+		};
+		for (String sd : systemDirs) {
+			if (dir.equals(sd)) return true;
+		}
+		// NVIDIA library directories (nvidia-smi is often symlinked here)
+		if (dir.startsWith("/usr/lib/nvidia") || dir.startsWith("/usr/lib/x86_64-linux-gnu/nvidia")) {
+			return true;
+		}
+		return false;
+	}
+
+	private static boolean isNvidiaCommand(String exe) {
+		if (exe == null) return false;
+		String lower = exe.toLowerCase(Locale.ROOT);
+		return lower.contains("nvidia-smi") || lower.contains("nvidia-ml");
+	}
+
+	private static boolean isRocmCommand(String exe) {
+		if (exe == null) return false;
+		String lower = exe.toLowerCase(Locale.ROOT);
+		return lower.contains("rocm-smi") || lower.contains("rocm-");
 	}
 
 	private static boolean isWindows() {
@@ -633,7 +680,8 @@ public class CommandLineRunner {
 		if (path == null || path.isBlank()) {
 			return null;
 		}
-		String[] dirs = path.split(";");
+		char pathSep = isWindows() ? ';' : ':';
+		String[] dirs = path.split(String.valueOf(pathSep));
 		for (String dirRaw : dirs) {
 			if (dirRaw == null) {
 				continue;
@@ -672,6 +720,14 @@ public class CommandLineRunner {
 				return f.getAbsolutePath();
 			}
 			return null;
+		}
+
+		// On non-Windows, check the file as-is first (no extension needed)
+		if (!isWindows()) {
+			File f = dir == null ? new File(exe) : new File(dir, exe);
+			if (f.exists()) {
+				return f.getAbsolutePath();
+			}
 		}
 
 		for (String ext : exts) {
