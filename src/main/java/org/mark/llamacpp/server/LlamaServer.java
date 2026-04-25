@@ -131,6 +131,9 @@ public class LlamaServer {
 			logger.info("MCP初始化失败: {}", e.getMessage());
 		}
 
+		logger.info("正在初始化节点管理器...");
+		NodeManager.getInstance().initialize();
+
 		logger.info("系统初始化完成，启动Web服务器...");
 		
 		LlamaServer.initHttpsContext();
@@ -336,6 +339,8 @@ public class LlamaServer {
 	private static volatile String httpsPassword = "changeit";
 	private static volatile SslContext httpsSslContext;
 
+	private static volatile String nodeRole = "master";
+
 	//##############################################################################################################################
 	
 	public static final String SLOTS_SAVE_KEYWORD = "~SLOTSAVE";
@@ -502,6 +507,10 @@ public class LlamaServer {
 				}
 			}
 		}
+
+		if (root.has("nodeRole")) {
+			nodeRole = root.get("nodeRole").getAsString();
+		}
 	}
     
     /**
@@ -511,7 +520,9 @@ public class LlamaServer {
 		synchronized (APPLICATION_CONFIG_LOCK) {
 			try {
 				JsonObject root = new JsonObject();
-	
+
+				root.addProperty("nodeRole", nodeRole);
+
 				JsonObject server = new JsonObject();
 				server.addProperty("webPort", webPort);
 				server.addProperty("anthropicPort", anthropicPort);
@@ -759,6 +770,10 @@ public static boolean isMcpServerRunning() {
     
     public static boolean isLogRequestBodyEnabled() {
     	return logRequestBody;
+    }
+
+    public static boolean isMasterNode() {
+    	return "master".equalsIgnoreCase(nodeRole);
     }
     
     public static void updateOllamaCompatConfig(boolean enabled, int port) {

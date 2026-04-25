@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -91,7 +92,6 @@ public class OpenAIService {
 	 */
 	public void handleOpenAIModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			// 只支持GET请求
 			if (request.method() != HttpMethod.GET) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only GET method is supported", "method");
 				return;
@@ -107,12 +107,9 @@ public class OpenAIService {
 				if (modelId == null || modelId.isBlank()) {
 					continue;
 				}
-				// 取出能力信息。
 				JsonObject capabilities = manager.getModelCapabilities(modelId);
-				
-				// 取出配置的上下文长度
 				int runtimeCtx = e.getValue().getCtxSize();
-				
+
 				JsonObject info = manager.getLoadedModelInfo(modelId);
 				if (info == null) {
 					try {
@@ -162,6 +159,10 @@ public class OpenAIService {
 				}
 			}
 
+			for (org.mark.llamacpp.server.LlamaHubNode node : NodeManager.getInstance().listEnabledNodes()) {
+				this.mergeRemoteModels(node.getNodeId(), node.getName(), modelsByKey, dataById);
+			}
+
 			JsonArray models = new JsonArray();
 			for (JsonObject m : modelsByKey.values()) {
 				models.add(m);
@@ -182,6 +183,61 @@ public class OpenAIService {
 		}
 	}
 	
+	/**
+	 * 合并远程节点的模型列表到本地结果中
+	 */
+	private void mergeRemoteModels(String nodeId, String nodeName,
+	                               Map<String, JsonObject> modelsByKey,
+	                               Map<String, JsonObject> dataById) {
+		try {
+			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+					nodeId, "GET", "/v1/models", null);
+			if (!result.isSuccess()) {
+				logger.warn("获取远程节点模型列表失败: nodeId={}, code={}, body={}", nodeId, result.getStatusCode(), result.getBody());
+				return;
+			}
+
+			JsonObject root = JsonUtil.fromJson(result.getBody(), JsonObject.class);
+			if (root == null) return;
+
+			if (root.has("models") && root.get("models").isJsonArray()) {
+				JsonArray remoteModels = root.getAsJsonArray("models");
+				for (JsonElement el : remoteModels) {
+					if (!el.isJsonObject()) continue;
+					JsonObject m = el.getAsJsonObject();
+					String key = JsonUtil.getJsonString(m, "model");
+					if (key.isEmpty()) key = JsonUtil.getJsonString(m, "name");
+					if (key.isEmpty()) continue;
+					key = nodeId + ":" + key;
+					if (!modelsByKey.containsKey(key)) {
+						JsonObject copy = m.deepCopy();
+						copy.addProperty("nodeId", nodeId);
+						copy.addProperty("nodeName", nodeName);
+						modelsByKey.put(key, copy);
+					}
+				}
+			}
+			if (root.has("data") && root.get("data").isJsonArray()) {
+				JsonArray remoteData = root.getAsJsonArray("data");
+				for (JsonElement el : remoteData) {
+					if (!el.isJsonObject()) continue;
+					JsonObject d = el.getAsJsonObject();
+					String id = JsonUtil.getJsonString(d, "id");
+					if (id.isEmpty()) continue;
+					id = nodeId + ":" + id;
+					if (!dataById.containsKey(id)) {
+						JsonObject copy = d.deepCopy();
+						copy.addProperty("nodeId", nodeId);
+						copy.addProperty("nodeName", nodeName);
+						dataById.put(id, copy);
+					}
+				}
+			}
+		} catch (Exception e) {
+			logger.warn("合并远程节点模型列表失败: nodeId={}, error={}", nodeId, e.getMessage());
+		}
+	}
+
 	/**
 	 * 	处理 OpenAI 聊天补全请求，/v1/chat/completions。考虑到现在有了LlamaServer.isChatStreamingEnabled()，应该不会在进入这里了。
 	 * @param ctx
@@ -250,23 +306,26 @@ public class OpenAIService {
 			
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
-			
-			// 检查模型是否已加载
-			if (!manager.getLoadedProcesses().containsKey(modelName)) {
-				this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "Model not found: " + modelName, "model");
-				return;
-			}
 
 			String body = JsonUtil.toJson(requestJson);
-			
-			// 获取模型端口
-			Integer modelPort = manager.getModelPort(modelName);
-			if (modelPort == null) {
-				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, "Model port not found: " + modelName, null);
-				return;
+
+			if (modelName.contains(":")) {
+				String[] parts = modelName.split(":", 2);
+				String nodeId = parts[0];
+				String actualModelName = parts[1];
+				requestJson.addProperty("model", actualModelName);
+				body = JsonUtil.toJson(requestJson);
+				NodeProxyService.getInstance().proxyStreamRequest(ctx, request, nodeId, "v1/chat/completions", requestJson);
+			} else if (manager.getLoadedProcesses().containsKey(modelName)) {
+				Integer modelPort = manager.getModelPort(modelName);
+				if (modelPort == null) {
+					this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, "Model port not found: " + modelName, null);
+					return;
+				}
+				this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/chat/completions", isStream, body);
+			} else {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "Model not found: " + modelName, "model");
 			}
-			// 转发请求到对应的llama.cpp进程
-			this.forwardRequestToLlamaCpp(ctx, request, modelName, modelPort, "/v1/chat/completions", isStream, body);
 		} catch (Exception e) {
 			logger.info("处理OpenAI聊天补全请求时发生错误", e);
 			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
@@ -684,6 +743,14 @@ public class OpenAIService {
 	public HttpURLConnection openTrackedConnection(ChannelHandlerContext ctx, String targetUrl, HttpMethod method, Map<String, String> headers, boolean chunkedStreaming) throws IOException {
 		URL url = URI.create(targetUrl).toURL();
 		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+		if (connection instanceof javax.net.ssl.HttpsURLConnection) {
+			try {
+				NodeManager.trustAllCerts((javax.net.ssl.HttpsURLConnection) connection);
+			} catch (Exception e) {
+				logger.warn("配置HTTPS证书信任失败: {}", e.getMessage());
+			}
+		}
 
 		synchronized (this.channelConnectionMap) {
 			this.channelConnectionMap.put(ctx, connection);

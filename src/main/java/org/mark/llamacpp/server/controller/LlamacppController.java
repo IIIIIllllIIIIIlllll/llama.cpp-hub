@@ -20,6 +20,7 @@ import java.util.Map;
 
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.struct.LlamaCppConfig;
@@ -279,17 +280,21 @@ public class LlamacppController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleLlamaCppList(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
+			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				this.handleLlamaCppListRemote(ctx, nodeId);
+				return;
+			}
+
 			Path configFile = LlamaServer.getLlamaCppConfigPath();
 			LlamaCppConfig cfg = LlamaServer.readLlamaCppConfig(configFile);
 			List<LlamaCppDataStruct> items = cfg.getItems();
-			// 扫描一遍，加入新的。
 			List<LlamaCppDataStruct> list = LlamaServer.scanLlamaCpp();
-			if(list != null && list.size() > 0)
+			if (list != null && list.size() > 0)
 				items.addAll(list);
-			
+
 			Map<String, Object> data = new HashMap<>();
 			data.put("items", items);
 			data.put("count", items == null ? 0 : items.size());
@@ -297,6 +302,21 @@ public class LlamacppController implements BaseController {
 		} catch (Exception e) {
 			logger.info("获取llama.cpp路径列表时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取llama.cpp路径列表失败: " + e.getMessage()));
+		}
+	}
+
+	private void handleLlamaCppListRemote(ChannelHandlerContext ctx, String nodeId) {
+		try {
+			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+					nodeId, "GET", "api/llamacpp/list", null);
+			if (result.isSuccess()) {
+				NodeManager.writeHttpResultToChannel(ctx, result, "[llamacpp远程]");
+			} else {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+			}
+		} catch (Exception e) {
+			logger.warn("获取远程节点llama.cpp列表失败: nodeId={}, error={}", nodeId, e.getMessage());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取远程节点llama.cpp列表失败: " + e.getMessage()));
 		}
 	}
 	

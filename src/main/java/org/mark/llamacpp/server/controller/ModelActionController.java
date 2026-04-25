@@ -21,8 +21,10 @@ import java.util.concurrent.TimeUnit;
 import org.mark.llamacpp.gguf.GGUFMetaData;
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaCppProcess;
+import org.mark.llamacpp.server.LlamaHubNode;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.service.BenchmarkService;
 import org.mark.llamacpp.server.struct.ApiResponse;
@@ -143,106 +145,78 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleRefreshModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			// 获取LlamaServerManager实例并强制刷新模型列表
+			// 检查是否指定了远程节点
+			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				// 刷新单个远程节点
+				logger.info("[模型操作] 远程节点刷新模型: nodeId={}", nodeId);
+				NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+						nodeId, "GET", "api/models/refresh", null);
+				if (result.isSuccess()) {
+					NodeManager.writeHttpResultToChannel(ctx, result, "[模型操作刷新远程]");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点刷新失败: code=" + result.getStatusCode()));
+				}
+				return;
+			}
+
+			// 刷新本地模型列表
 			LlamaServerManager manager = LlamaServerManager.getInstance();
-			manager.listModel(true); // 传入true强制刷新
-			// 刷新后回应给前端
-			// 构建响应
+			manager.listModel(true);
+
+			// 同步刷新所有已启用的远程节点
+			List<LlamaHubNode> enabledNodes = NodeManager.getInstance().listEnabledNodes();
+			for (LlamaHubNode node : enabledNodes) {
+				try {
+					NodeManager.getInstance().callRemoteApi(node.getNodeId(), "GET", "api/models/refresh", null);
+					logger.info("[模型操作] 已刷新远程节点: nodeId={}", node.getNodeId());
+				} catch (Exception e) {
+					logger.warn("[模型操作] 刷新远程节点失败: nodeId={}, error={}", node.getNodeId(), e.getMessage());
+				}
+			}
+
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
-			// response.put("models", modelList);
-			response.put("refreshed", true); // 标识这是刷新成功
+			response.put("refreshed", true);
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("强制刷新模型列表时发生错误", e);
-			Map<String, Object> errorResponse = new HashMap<>();
-			errorResponse.put("success", false);
-			errorResponse.put("error", "强制刷新模型列表失败: " + e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, errorResponse);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("强制刷新模型列表失败: " + e.getMessage()));
 		}
 	}
 	
 	/**
 	 * 处理模型列表请求
-	 * 
+	 *
 	 * @param ctx
 	 * @param request
-	 * @throws RequestMethodException 
+	 * @throws RequestMethodException
 	 */
 	private void handleModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 
 		try {
-			// 获取LlamaServerManager实例并获取模型列表
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			List<GGUFModel> models = manager.listModel();
+			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
 
-			// 转换为前端期望的格式
-			List<Map<String, Object>> modelList = new ArrayList<>();
-			for (GGUFModel model : models) {
-				Map<String, Object> modelInfo = new HashMap<>();
-
-				// 从主模型获取基本信息
-				GGUFMetaData primaryModel = model.getPrimaryModel();
-				GGUFMetaData mmproj = model.getMmproj();
-
-				// 使用模型名称作为ID，如果没有名称则使用默认值
-				String modelName = "未知模型";
-				String modelId = "unknown-model-" + System.currentTimeMillis();
-
-				if (primaryModel != null) {
-					modelName = model.getName(); // primaryModel.getStringValue("general.name");
-					if (modelName == null || modelName.trim().isEmpty()) {
-						modelName = "未命名模型";
-					}
-					// 使用模型名称作为ID的一部分
-					modelId = model.getModelId();
-				}
-
-				modelInfo.put("id", modelId);
-				modelInfo.put("name", modelName);
-				modelInfo.put("alias", model.getAlias());
-				modelInfo.put("favourite", model.isFavourite());
-
-				// 设置默认大小为0，因为GGUFMetaData类没有提供获取文件大小的方法
-				modelInfo.put("size", model.getSize());
-
-				// 判断是否为多模态模型
-				boolean isMultimodal = mmproj != null;
-				boolean supportsVision = mmproj != null && mmproj.isSupportsVision();
-				boolean supportsAudio = mmproj != null && mmproj.isSupportsAudio();
-				modelInfo.put("isMultimodal", isMultimodal);
-				modelInfo.put("supportsVision", supportsVision);
-				modelInfo.put("supportsAudio", supportsAudio);
-
-				// 是否处于加载状态
-				if (manager.isLoading(modelId)) {
-					modelInfo.put("isLoading", true);
-				}
-
-				String architecture = "未知";
-				String quantization = "";
-				if (primaryModel != null) {
-					String value = primaryModel.getStringValue("general.architecture");
-					if (value != null && !value.trim().isEmpty()) {
-						architecture = value;
-					}
-					String quantizationValue = primaryModel.getQuantizationType();
-					if (quantizationValue != null) {
-						quantization = quantizationValue;
-					}
-				}
-				modelInfo.put("architecture", architecture);
-				modelInfo.put("quantization", quantization);
-
-				modelList.add(modelInfo);
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				List<Map<String, Object>> models = this.fetchRemoteModelList(nodeId);
+				Map<String, Object> response = new HashMap<>();
+				response.put("success", true);
+				response.put("models", models);
+				LlamaServer.sendJsonResponse(ctx, response);
+				return;
 			}
 
-			// 构建响应
+			List<Map<String, Object>> modelList = this.buildLocalModelList();
+
+			List<LlamaHubNode> enabledNodes = NodeManager.getInstance().listEnabledNodes();
+			for (LlamaHubNode node : enabledNodes) {
+				List<Map<String, Object>> remoteModels = this.fetchRemoteModelList(node.getNodeId());
+				modelList.addAll(remoteModels);
+			}
+
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
 			response.put("models", modelList);
@@ -255,6 +229,131 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, errorResponse);
 		}
 	}
+
+	/**
+	 * 构建本地模型列表
+	 */
+	private List<Map<String, Object>> buildLocalModelList() {
+		LlamaServerManager manager = LlamaServerManager.getInstance();
+		List<GGUFModel> models = manager.listModel();
+
+		List<Map<String, Object>> modelList = new ArrayList<>();
+		for (GGUFModel model : models) {
+			Map<String, Object> modelInfo = new HashMap<>();
+
+			GGUFMetaData primaryModel = model.getPrimaryModel();
+			GGUFMetaData mmproj = model.getMmproj();
+
+			String modelName = "未知模型";
+			String modelId = "unknown-model-" + System.currentTimeMillis();
+
+			if (primaryModel != null) {
+				modelName = model.getName();
+				if (modelName == null || modelName.trim().isEmpty()) {
+					modelName = "未命名模型";
+				}
+				modelId = model.getModelId();
+			}
+
+			modelInfo.put("id", modelId);
+			modelInfo.put("name", modelName);
+			modelInfo.put("alias", model.getAlias());
+			modelInfo.put("favourite", model.isFavourite());
+			modelInfo.put("size", model.getSize());
+
+			boolean isMultimodal = mmproj != null;
+			boolean supportsVision = mmproj != null && mmproj.isSupportsVision();
+			boolean supportsAudio = mmproj != null && mmproj.isSupportsAudio();
+			modelInfo.put("isMultimodal", isMultimodal);
+			modelInfo.put("supportsVision", supportsVision);
+			modelInfo.put("supportsAudio", supportsAudio);
+
+			if (manager.isLoading(modelId)) {
+				modelInfo.put("isLoading", true);
+			}
+
+			String architecture = "未知";
+			String quantization = "";
+			if (primaryModel != null) {
+				String value = primaryModel.getStringValue("general.architecture");
+				if (value != null && !value.trim().isEmpty()) {
+					architecture = value;
+				}
+				String quantizationValue = primaryModel.getQuantizationType();
+				if (quantizationValue != null) {
+					quantization = quantizationValue;
+				}
+			}
+			modelInfo.put("architecture", architecture);
+			modelInfo.put("quantization", quantization);
+			modelInfo.put("nodeId", "local");
+			modelInfo.put("nodeName", "本机");
+
+			modelList.add(modelInfo);
+		}
+		return modelList;
+	}
+
+	/**
+	 * 从远程节点获取模型列表
+	 */
+	private List<Map<String, Object>> fetchRemoteModelList(String nodeId) {
+		List<Map<String, Object>> result = new ArrayList<>();
+		NodeManager manager = NodeManager.getInstance();
+		NodeManager.HttpResult httpResult = manager.fetchRemoteModels(nodeId);
+		if (!httpResult.isSuccess()) {
+			logger.warn("获取远程节点模型列表失败: nodeId={}, code={}", nodeId, httpResult.getStatusCode());
+			return result;
+		}
+		LlamaHubNode node = manager.getNode(nodeId);
+		String nodeName = node != null ? node.getName() : nodeId;
+
+		try {
+			JsonObject root = JsonUtil.fromJson(httpResult.getBody(), JsonObject.class);
+			if (root == null || !root.has("models")) {
+				return result;
+			}
+			com.google.gson.JsonArray modelsArray = root.getAsJsonArray("models");
+			if (modelsArray == null) {
+				return result;
+			}
+			for (com.google.gson.JsonElement elem : modelsArray) {
+				if (!elem.isJsonObject()) continue;
+				JsonObject modelObj = elem.getAsJsonObject();
+				Map<String, Object> modelInfo = new HashMap<>();
+				for (java.util.Map.Entry<String, com.google.gson.JsonElement> entry : modelObj.entrySet()) {
+					com.google.gson.JsonElement value = entry.getValue();
+					if (value == null || value.isJsonNull()) {
+						modelInfo.put(entry.getKey(), null);
+					} else if (value.isJsonPrimitive()) {
+						com.google.gson.JsonPrimitive prim = (com.google.gson.JsonPrimitive) value;
+						if (prim.isBoolean()) {
+							modelInfo.put(entry.getKey(), value.getAsBoolean());
+						} else if (prim.isNumber()) {
+							// 防止 Gson 把 LazilyParsedNumber 序列化成 {"value": 123}
+							// 整数用 Long，小数用 Double
+							String numStr = prim.getAsString();
+							if (numStr.indexOf('.') >= 0 || numStr.indexOf('e') >= 0 || numStr.indexOf('E') >= 0) {
+								modelInfo.put(entry.getKey(), value.getAsDouble());
+							} else {
+								modelInfo.put(entry.getKey(), value.getAsLong());
+							}
+						} else {
+							modelInfo.put(entry.getKey(), value.getAsString());
+						}
+					} else {
+						modelInfo.put(entry.getKey(), JsonUtil.jsonValueToString(value));
+					}
+				}
+				modelInfo.put("nodeId", nodeId);
+				modelInfo.put("nodeName", nodeName);
+				result.add(modelInfo);
+			}
+		} catch (Exception e) {
+			logger.warn("解析远程节点模型列表失败: nodeId={}, error={}", nodeId, e.getMessage());
+		}
+		return result;
+	}
 	
 	/**
 	 * 处理停止模型请求
@@ -264,43 +363,81 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleStopModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			// 读取请求体
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
 				return;
 			}
 
-			// 解析JSON请求体
-			StopModelRequest stopRequest = JsonUtil.fromJson(content, StopModelRequest.class);
-			String modelId = stopRequest.getModelId();
+			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			if (obj == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
 
+			String modelId = JsonUtil.getJsonString(obj, "modelId");
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
 			}
 
-			// 调用LlamaServerManager停止模型
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			boolean success = manager.stopModel(modelId);
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				this.stopRemoteModel(ctx, nodeId, modelId);
+				return;
+			}
 
-			if (success) {
-				Map<String, Object> data = new HashMap<>();
-				data.put("message", "模型停止成功");
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-				// 发送WebSocket事件
-				LlamaServer.sendModelStopEvent(modelId, true, "模型停止成功");
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			if (manager.getLoadedProcesses().containsKey(modelId)) {
+				logger.info("[模型操作] 本地停止模型: modelId={}", modelId);
+				boolean success = manager.stopModel(modelId);
+				if (success) {
+					Map<String, Object> data = new HashMap<>();
+					data.put("message", "模型停止成功");
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+					LlamaServer.sendModelStopEvent(modelId, true, "模型停止成功");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型停止失败或模型未加载"));
+					LlamaServer.sendModelStopEvent(modelId, false, "模型停止失败或模型未加载");
+				}
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型停止失败或模型未加载"));
-				// 发送WebSocket事件
-				LlamaServer.sendModelStopEvent(modelId, false, "模型停止失败或模型未加载");
+				logger.info("[模型操作] 本地未找到模型，搜索远程节点: modelId={}", modelId);
+				this.findAndStopOnRemoteNode(ctx, modelId);
 			}
 		} catch (Exception e) {
 			logger.info("停止模型时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("停止模型失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 在远程节点上查找并停止模型
+	 */
+	private void findAndStopOnRemoteNode(ChannelHandlerContext ctx, String modelId) {
+		String nodeId = this.findNodeByLoadedModel(modelId);
+		if (nodeId == null) {
+			logger.warn("[模型操作] 远程节点也未找到已加载模型: modelId={}", modelId);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + modelId));
+			return;
+		}
+		logger.info("[模型操作] 找到模型所在远程节点: modelId={}, nodeId={}", modelId, nodeId);
+		this.stopRemoteModel(ctx, nodeId, modelId);
+	}
+
+	/**
+	 * 停止远程节点上的模型（不主动发 modelStop 事件，由 WS 中继传递）
+	 */
+	private void stopRemoteModel(ChannelHandlerContext ctx, String nodeId, String modelId) {
+		NodeManager manager = NodeManager.getInstance();
+		JsonObject body = new JsonObject();
+		body.addProperty("modelId", modelId);
+		NodeManager.HttpResult result = manager.callRemoteApi(nodeId, "POST", "api/models/stop", body);
+		if (result.isSuccess()) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success());
+		} else {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + result.getBody()));
 		}
 	}
 	
@@ -312,52 +449,28 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleLoadedModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 
 		try {
-			// 获取LlamaServerManager实例
-			LlamaServerManager manager = LlamaServerManager.getInstance();
+			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
 
-			// 获取已加载的进程信息
-			Map<String, LlamaCppProcess> loadedProcesses = manager.getLoadedProcesses();
-
-			// 获取所有模型信息
-			List<GGUFModel> allModels = manager.listModel();
-
-			// 构建已加载模型列表
-			List<Map<String, Object>> loadedModels = new ArrayList<>();
-
-			for (Map.Entry<String, LlamaCppProcess> entry : loadedProcesses.entrySet()) {
-				String modelId = entry.getKey();
-				LlamaCppProcess process = entry.getValue();
-
-				// 查找对应的模型信息
-				GGUFModel modelInfo = null;
-				for (GGUFModel model : allModels) {
-					if (model.getModelId().equals(modelId)) {
-						modelInfo = model;
-						break;
-					}
-				}
-
-				// 构建模型信息
-				Map<String, Object> modelData = new HashMap<>();
-				modelData.put("id", modelId);
-				modelData.put("name",
-						modelInfo != null ? (modelInfo.getPrimaryModel() != null
-								? modelInfo.getPrimaryModel().getStringValue("general.name")
-								: "未知模型") : "未知模型");
-				modelData.put("status", process.isRunning() ? "running" : "stopped");
-				modelData.put("port", manager.getModelPort(modelId));
-				modelData.put("pid", process.getPid());
-				modelData.put("size", modelInfo != null ? modelInfo.getSize() : 0);
-				modelData.put("path", modelInfo != null ? modelInfo.getPath() : "");
-
-				loadedModels.add(modelData);
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				List<Map<String, Object>> remoteLoaded = this.fetchRemoteLoadedModels(nodeId);
+				Map<String, Object> response = new HashMap<>();
+				response.put("success", true);
+				response.put("models", remoteLoaded);
+				LlamaServer.sendJsonResponse(ctx, response);
+				return;
 			}
 
-			// 构建响应
+			List<Map<String, Object>> loadedModels = this.buildLocalLoadedModels();
+
+			List<LlamaHubNode> enabledNodes = NodeManager.getInstance().listEnabledNodes();
+			for (LlamaHubNode node : enabledNodes) {
+				List<Map<String, Object>> remoteLoaded = this.fetchRemoteLoadedModels(node.getNodeId());
+				loadedModels.addAll(remoteLoaded);
+			}
+
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
 			response.put("models", loadedModels);
@@ -366,6 +479,107 @@ public class ModelActionController implements BaseController {
 			logger.info("获取已加载模型时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取已加载模型失败: " + e.getMessage()));
 		}
+	}
+
+	/**
+	 * 构建本地已加载模型列表
+	 */
+	private List<Map<String, Object>> buildLocalLoadedModels() {
+		LlamaServerManager manager = LlamaServerManager.getInstance();
+		Map<String, LlamaCppProcess> loadedProcesses = manager.getLoadedProcesses();
+		List<GGUFModel> allModels = manager.listModel();
+
+		List<Map<String, Object>> loadedModels = new ArrayList<>();
+
+		for (Map.Entry<String, LlamaCppProcess> entry : loadedProcesses.entrySet()) {
+			String modelId = entry.getKey();
+			LlamaCppProcess process = entry.getValue();
+
+			GGUFModel modelInfo = null;
+			for (GGUFModel model : allModels) {
+				if (model.getModelId().equals(modelId)) {
+					modelInfo = model;
+					break;
+				}
+			}
+
+			Map<String, Object> modelData = new HashMap<>();
+			modelData.put("id", modelId);
+			modelData.put("name",
+					modelInfo != null ? (modelInfo.getPrimaryModel() != null
+							? modelInfo.getPrimaryModel().getStringValue("general.name")
+							: "未知模型") : "未知模型");
+			modelData.put("status", process.isRunning() ? "running" : "stopped");
+			modelData.put("port", manager.getModelPort(modelId));
+			modelData.put("pid", process.getPid());
+			modelData.put("size", modelInfo != null ? modelInfo.getSize() : 0);
+			modelData.put("path", modelInfo != null ? modelInfo.getPath() : "");
+			modelData.put("nodeId", "local");
+			modelData.put("nodeName", "本机");
+
+			loadedModels.add(modelData);
+		}
+		return loadedModels;
+	}
+
+	/**
+	 * 从远程节点获取已加载模型列表
+	 */
+	private List<Map<String, Object>> fetchRemoteLoadedModels(String nodeId) {
+		List<Map<String, Object>> result = new ArrayList<>();
+		NodeManager manager = NodeManager.getInstance();
+		NodeManager.HttpResult httpResult = manager.fetchRemoteLoadedModels(nodeId);
+		if (!httpResult.isSuccess()) {
+			logger.warn("获取远程节点已加载模型失败: nodeId={}, code={}", nodeId, httpResult.getStatusCode());
+			return result;
+		}
+		LlamaHubNode node = manager.getNode(nodeId);
+		String nodeName = node != null ? node.getName() : nodeId;
+
+		try {
+			JsonObject root = JsonUtil.fromJson(httpResult.getBody(), JsonObject.class);
+			if (root == null || !root.has("models")) {
+				return result;
+			}
+			com.google.gson.JsonArray modelsArray = root.getAsJsonArray("models");
+			if (modelsArray == null) {
+				return result;
+			}
+			for (com.google.gson.JsonElement elem : modelsArray) {
+				if (!elem.isJsonObject()) continue;
+				JsonObject modelObj = elem.getAsJsonObject();
+				Map<String, Object> modelInfo = new HashMap<>();
+				for (java.util.Map.Entry<String, com.google.gson.JsonElement> entry : modelObj.entrySet()) {
+					com.google.gson.JsonElement value = entry.getValue();
+					if (value == null || value.isJsonNull()) {
+						modelInfo.put(entry.getKey(), null);
+					} else if (value.isJsonPrimitive()) {
+						com.google.gson.JsonPrimitive prim = (com.google.gson.JsonPrimitive) value;
+						if (prim.isBoolean()) {
+							modelInfo.put(entry.getKey(), value.getAsBoolean());
+						} else if (prim.isNumber()) {
+							// 防止 Gson 把 LazilyParsedNumber 序列化成 {"value": 123}
+							String numStr = prim.getAsString();
+							if (numStr.indexOf('.') >= 0 || numStr.indexOf('e') >= 0 || numStr.indexOf('E') >= 0) {
+								modelInfo.put(entry.getKey(), value.getAsDouble());
+							} else {
+								modelInfo.put(entry.getKey(), value.getAsLong());
+							}
+						} else {
+							modelInfo.put(entry.getKey(), value.getAsString());
+						}
+					} else {
+						modelInfo.put(entry.getKey(), JsonUtil.jsonValueToString(value));
+					}
+				}
+				modelInfo.put("nodeId", nodeId);
+				modelInfo.put("nodeName", nodeName);
+				result.add(modelInfo);
+			}
+		} catch (Exception e) {
+			logger.warn("解析远程节点已加载模型失败: nodeId={}, error={}", nodeId, e.getMessage());
+		}
+		return result;
 	}
 	
 	/**
@@ -376,84 +590,129 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleLoadModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
-			// 读取请求体
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
 				return;
 			}
 
-			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
-			if (root == null || !root.isJsonObject()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
+			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			if (obj == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
 
-			JsonObject obj = root.getAsJsonObject();
-			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
-			String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
-			if (cmd != null) cmd = cmd.trim();
-			if (extraParams != null) extraParams = extraParams.trim();
-			if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数"));
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				this.loadRemoteModel(ctx, nodeId, obj);
 				return;
 			}
-			boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
+
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
-			String modelNameCmd = JsonUtil.getJsonString(obj, "modelName", null);
-			String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
-			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
-				llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
-			}
-			List<String> device = JsonUtil.getJsonStringList(obj.get("device"));
-			Integer mg = JsonUtil.getJsonInt(obj, "mg", null);
-
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
 			}
-			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供llamaBinPath"));
-				return;
-			}
-			LlamaServerManager manager = LlamaServerManager.getInstance();
-			if (manager.getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型已经加载"));
-				return;
-			}
-			if (manager.isLoading(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该模型正在加载中"));
-				return;
-			}
-			if (manager.findModelById(modelId) == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到ID为 " + modelId + " 的模型"));
-				return;
-			}
-			//
-			String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
-			boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
-			if (!started) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
-				return;
-			}
 
-			Map<String, Object> data = new HashMap<>();
-			data.put("async", true);
-			data.put("modelId", modelId);
-			data.put("modelName", modelNameCmd);
-			data.put("llamaBinPathSelect", llamaBinPathSelect);
-			data.put("device", device);
-			data.put("mg", mg);
-			data.put("cmd", cmd);
-			data.put("extraParams", extraParams);
-			data.put("enableVision", enableVision);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			if (manager.findModelById(modelId) != null) {
+				logger.info("[模型操作] 本地加载模型: modelId={}", modelId);
+				this.loadLocalModel(ctx, obj, manager);
+			} else {
+				logger.info("[模型操作] 本地未找到模型，搜索远程节点: modelId={}", modelId);
+				this.findAndLoadOnRemoteNode(ctx, modelId, obj);
+			}
 		} catch (Exception e) {
 			logger.info("加载模型时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 在远程节点上查找并加载模型
+	 */
+	private void findAndLoadOnRemoteNode(ChannelHandlerContext ctx, String modelId, JsonObject obj) {
+		String nodeId = this.findNodeByModel(modelId);
+		if (nodeId == null) {
+			logger.warn("[模型操作] 远程节点也未找到模型: modelId={}", modelId);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到ID为 " + modelId + " 的模型"));
+			return;
+		}
+		logger.info("[模型操作] 找到模型所在远程节点: modelId={}, nodeId={}", modelId, nodeId);
+		this.loadRemoteModel(ctx, nodeId, obj);
+	}
+
+	/**
+	 * 加载本地模型（原有逻辑）
+	 */
+	private void loadLocalModel(ChannelHandlerContext ctx, JsonObject obj, LlamaServerManager manager) {
+		String cmd = JsonUtil.getJsonString(obj, "cmd", "");
+		String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
+		if (cmd != null) cmd = cmd.trim();
+		if (extraParams != null) extraParams = extraParams.trim();
+		if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数"));
+			return;
+		}
+		boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
+		String modelId = JsonUtil.getJsonString(obj, "modelId", null);
+		String modelNameCmd = JsonUtil.getJsonString(obj, "modelName", null);
+		String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
+		if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+			llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
+		}
+		List<String> device = JsonUtil.getJsonStringList(obj.get("device"));
+		Integer mg = JsonUtil.getJsonInt(obj, "mg", null);
+
+		if (manager.getLoadedProcesses().containsKey(modelId)) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型已经加载"));
+			return;
+		}
+		if (manager.isLoading(modelId)) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该模型正在加载中"));
+			return;
+		}
+		if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供llamaBinPath"));
+			return;
+		}
+		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
+		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+		if (!started) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
+			return;
+		}
+
+		Map<String, Object> data = new HashMap<>();
+		data.put("async", true);
+		data.put("modelId", modelId);
+		data.put("modelName", modelNameCmd);
+		data.put("llamaBinPathSelect", llamaBinPathSelect);
+		data.put("device", device);
+		data.put("mg", mg);
+		data.put("cmd", cmd);
+		data.put("extraParams", extraParams);
+		data.put("enableVision", enableVision);
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+	}
+
+	/**
+	 * 在远程节点上加载模型（移除 nodeId 避免回环）
+	 */
+	private void loadRemoteModel(ChannelHandlerContext ctx, String nodeId, JsonObject body) {
+		if (body != null) {
+			body.remove("nodeId");
+		}
+		NodeManager manager = NodeManager.getInstance();
+		NodeManager.HttpResult result = manager.callRemoteApi(nodeId, "POST", "api/models/load", body);
+		if (result.isSuccess()) {
+			Map<String, Object> data = new HashMap<>();
+			data.put("async", true);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} else {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + result.getBody()));
 		}
 	}
 	
@@ -1098,5 +1357,59 @@ public class ModelActionController implements BaseController {
 			out.add(a);
 		}
 		return out;
+	}
+
+	/**
+	 * 在远程节点上查找已加载的模型，返回 nodeId
+	 */
+	private String findNodeByLoadedModel(String modelId) {
+		NodeManager nodeManager = NodeManager.getInstance();
+		for (LlamaHubNode node : nodeManager.listEnabledNodes()) {
+			try {
+				NodeManager.HttpResult result = nodeManager.fetchRemoteLoadedModels(node.getNodeId());
+				if (!result.isSuccess()) continue;
+				JsonObject root = JsonUtil.fromJson(result.getBody(), JsonObject.class);
+				if (root == null || !root.has("models")) continue;
+				com.google.gson.JsonArray models = root.getAsJsonArray("models");
+				if (models == null) continue;
+				for (com.google.gson.JsonElement el : models) {
+					if (!el.isJsonObject()) continue;
+					String id = JsonUtil.getJsonString(el.getAsJsonObject(), "id");
+					if (modelId.equals(id)) {
+						return node.getNodeId();
+					}
+				}
+			} catch (Exception e) {
+				logger.warn("[模型操作] 检查远程节点已加载模型异常: nodeId={}, error={}", node.getNodeId(), e.getMessage());
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 在远程节点上查找模型（未加载），返回 nodeId
+	 */
+	private String findNodeByModel(String modelId) {
+		NodeManager nodeManager = NodeManager.getInstance();
+		for (LlamaHubNode node : nodeManager.listEnabledNodes()) {
+			try {
+				NodeManager.HttpResult result = nodeManager.fetchRemoteModels(node.getNodeId());
+				if (!result.isSuccess()) continue;
+				JsonObject root = JsonUtil.fromJson(result.getBody(), JsonObject.class);
+				if (root == null || !root.has("models")) continue;
+				com.google.gson.JsonArray models = root.getAsJsonArray("models");
+				if (models == null) continue;
+				for (com.google.gson.JsonElement el : models) {
+					if (!el.isJsonObject()) continue;
+					String id = JsonUtil.getJsonString(el.getAsJsonObject(), "id");
+					if (modelId.equals(id)) {
+						return node.getNodeId();
+					}
+				}
+			} catch (Exception e) {
+				logger.warn("[模型操作] 检查远程节点模型异常: nodeId={}, error={}", node.getNodeId(), e.getMessage());
+			}
+		}
+		return null;
 	}
 }

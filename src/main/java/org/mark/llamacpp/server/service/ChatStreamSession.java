@@ -6,15 +6,22 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.mark.llamacpp.server.LlamaHubNode;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.io.BoundedQueueInputStream;
+import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -200,20 +207,113 @@ public class ChatStreamSession {
 			return;
 		}
 
-		LlamaServerManager manager = LlamaServerManager.getInstance();
-		if (!manager.getLoadedProcesses().containsKey(modelName)) {
+		logger.info("[Node路由] 开始解析模型: model={}", modelName);
+
+		String targetUrl;
+
+		if (modelName.contains(":")) {
+			logger.info("[Node路由] 检测到 nodeId 前缀，尝试解析远程节点");
+			String[] parts = modelName.split(":", 2);
+			String nodeId = parts[0];
+			String actualModelName = parts[1];
+			logger.info("[Node路由] nodeId={}, actualModelName={}", nodeId, actualModelName);
+			targetUrl = this.resolveRemoteModelUrl(nodeId, actualModelName);
+		} else {
+			logger.info("[Node路由] 无 nodeId 前缀，先查本地模型");
+			targetUrl = this.resolveLocalModelUrl(modelName);
+			if (targetUrl == null) {
+				logger.info("[Node路由] 本地未找到模型，开始搜索远程节点: model={}", modelName);
+				targetUrl = this.resolveFromRemoteNodes(modelName);
+			}
+		}
+
+		if (targetUrl == null) {
+			logger.warn("[Node路由] 模型未找到: model={}", modelName);
 			throw new ChatRequestStreamingTransformer.StreamingRequestException(404, "Model not found: " + modelName, "model");
 		}
 
-		Integer modelPort = manager.getModelPort(modelName);
-		if (modelPort == null) {
-			throw new ChatRequestStreamingTransformer.StreamingRequestException(500, "Model port not found: " + modelName, null);
-		}
-
-		String targetUrl = String.format("http://localhost:%d/v1/chat/completions", modelPort.intValue());
+		logger.info("[Node路由] 路由成功: model={}, target={}", modelName, targetUrl);
 		this.connection = this.openAIService.openTrackedConnection(this.ctx, targetUrl, this.method, this.headers, true);
 		this.deferredOutput.attach(this.connection.getOutputStream());
-		logger.info("聊天流式请求已连接到 llama.cpp: {}", targetUrl);
+		logger.info("[Node路由] 聊天流式请求已连接到模型: {}, target: {}", modelName, targetUrl);
+	}
+
+	/**
+	 * 解析本地模型 URL
+	 */
+	private String resolveLocalModelUrl(String modelName) {
+		try {
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+			if (!manager.getLoadedProcesses().containsKey(modelName)) {
+				logger.info("[Node路由] 本地模型未加载: model={}, loadedModels={}", modelName, manager.getLoadedProcesses().keySet());
+				return null;
+			}
+			Integer modelPort = manager.getModelPort(modelName);
+			if (modelPort == null) {
+				logger.warn("[Node路由] 本地模型端口未找到: model={}", modelName);
+				return null;
+			}
+			return String.format("http://localhost:%d/v1/chat/completions", modelPort.intValue());
+		} catch (Exception e) {
+			logger.warn("[Node路由] 解析本地模型异常: model={}, error={}", modelName, e.getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * 从远程节点中查找模型
+	 */
+	private String resolveFromRemoteNodes(String modelName) {
+		NodeManager nodeManager = NodeManager.getInstance();
+		List<LlamaHubNode> enabledNodes = nodeManager.listEnabledNodes();
+		logger.info("[Node路由] 远程节点列表: count={}", enabledNodes.size());
+
+		for (LlamaHubNode node : enabledNodes) {
+			logger.info("[Node路由] 检查远程节点: nodeId={}, nodeName={}, baseUrl={}", node.getNodeId(), node.getName(), node.getBaseUrl());
+			try {
+				NodeManager.HttpResult result = nodeManager.callRemoteApi(node.getNodeId(), "GET", "/v1/models", null);
+				logger.info("[Node路由] 远程节点响应: nodeId={}, code={}", node.getNodeId(), result.getStatusCode());
+				if (!result.isSuccess()) {
+					logger.warn("[Node路由] 远程节点请求失败: nodeId={}, body={}", node.getNodeId(), result.getBody());
+					continue;
+				}
+
+				JsonObject root = JsonUtil.fromJson(result.getBody(), JsonObject.class);
+				if (root == null) continue;
+
+				if (root.has("models") && root.get("models").isJsonArray()) {
+					JsonArray remoteModels = root.getAsJsonArray("models");
+					for (com.google.gson.JsonElement el : remoteModels) {
+						if (!el.isJsonObject()) continue;
+						com.google.gson.JsonObject m = el.getAsJsonObject();
+						String remoteModelKey = JsonUtil.getJsonString(m, "model");
+						if (remoteModelKey.isEmpty()) remoteModelKey = JsonUtil.getJsonString(m, "name");
+						logger.info("[Node路由] 远程模型条目: nodeId={}, remoteModelKey={}", node.getNodeId(), remoteModelKey);
+						if (modelName.equals(remoteModelKey)) {
+							logger.info("[Node路由] 远程节点匹配成功: model={}, nodeId={}", modelName, node.getNodeId());
+							return node.getBaseUrl() + "/v1/chat/completions";
+						}
+					}
+				}
+			} catch (Exception e) {
+				logger.warn("[Node路由] 检查远程节点异常: nodeId={}, error={}", node.getNodeId(), e.getMessage());
+			}
+		}
+		logger.warn("[Node路由] 所有远程节点均未找到模型: model={}", modelName);
+		return null;
+	}
+
+	/**
+	 * 解析远程节点模型 URL（带 nodeId 前缀时调用）
+	 */
+	private String resolveRemoteModelUrl(String nodeId, String modelName) {
+		NodeManager nodeManager = NodeManager.getInstance();
+		LlamaHubNode node = nodeManager.getNode(nodeId);
+		if (node == null || !node.isEnabled()) {
+			logger.warn("[Node路由] 远程节点不存在或未启用: nodeId={}", nodeId);
+			return null;
+		}
+		return node.getBaseUrl() + "/v1/chat/completions";
 	}
 
 	private static class DeferredConnectionOutputStream extends OutputStream {

@@ -1671,7 +1671,7 @@ public class LlamaServerManager {
 			}
 		}
 		GGUFModel model = this.findModelById(modelId);
-		if(model == null) return null;
+		if(model == null) return "Model not found: " + modelId;
 		
 		String executableName = "llama-fit-params";
 		// 拼接完整命令路径
@@ -1700,7 +1700,7 @@ public class LlamaServerManager {
 		// 执行命令
 		CommandLineRunner.CommandResult result = CommandLineRunner.execute(command, 30);
 		String output = result.getError();
-		return output;
+		return output != null ? output : "";
 	}
 	
 	/**

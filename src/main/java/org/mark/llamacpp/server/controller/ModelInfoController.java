@@ -13,6 +13,7 @@ import org.mark.llamacpp.server.ConfigManager;
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.service.ChatTemplateKwargsService;
 import org.mark.llamacpp.server.service.LlamaRecordService;
@@ -206,6 +207,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
+			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理设置能力: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(json, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/capabilities/set");
+				return;
+			}
 			String modelId = JsonUtil.getJsonString(json, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
@@ -233,6 +240,12 @@ public class ModelInfoController implements BaseController {
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理获取能力: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/models/capabilities/get");
+				return;
+			}
 			JsonObject result = LlamaServerManager.getInstance().getModelCapabilitiesSummary(modelId);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
@@ -389,7 +402,6 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelFavouriteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 
 		try {
@@ -406,6 +418,12 @@ public class ModelInfoController implements BaseController {
 			String modelId = json.get("modelId").getAsString();
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("modelId不能为空"));
+				return;
+			}
+			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理设置偏好: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/favourite");
 				return;
 			}
 
@@ -441,14 +459,16 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelConfigRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");		
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			String query = request.uri();
-			String modelId = null;
-			Map<String, String> params = ParamTool.getQueryParam(query);
-			modelId = params.get("modelId");
-
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理配置: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/models/config/get");
+				return;
+			}
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -471,7 +491,6 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelConfigSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
@@ -479,18 +498,21 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
 				return;
 			}
-
-			ConfigManager configManager = ConfigManager.getInstance();
 			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
 			if (root == null || !root.isJsonObject()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
 				return;
 			}
 			JsonObject obj = root.getAsJsonObject();
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理设置配置: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/config/set");
+				return;
+			}
+			ConfigManager configManager = ConfigManager.getInstance();
 			Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
-
 			Map<String, Object> savedData = new HashMap<>();
-
 			if (obj.has("modelId")) {
 				String modelId = obj.get("modelId").getAsString();
 				if (modelId == null || modelId.trim().isEmpty()) {
@@ -575,6 +597,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
 				return;
 			}
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理删除配置: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/config/delete");
+				return;
+			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
@@ -604,15 +632,17 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelDetailsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
-		
+
 		try {
-			String query = request.uri();
-			String modelId = null;
-			Map<String, String> params = ParamTool.getQueryParam(query);
-			modelId = params.get("modelId");
-			
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理详情: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/models/details");
+				return;
+			}
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -682,6 +712,12 @@ public class ModelInfoController implements BaseController {
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理获取模板: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/model/template/get");
+				return;
+			}
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -719,6 +755,12 @@ public class ModelInfoController implements BaseController {
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理设置模板: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/model/template/set");
 				return;
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
@@ -775,6 +817,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理删除模板: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/model/template/delete");
+				return;
+			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
@@ -805,6 +853,12 @@ public class ModelInfoController implements BaseController {
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理默认模板: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/model/template/default");
+				return;
+			}
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -851,15 +905,17 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelSlotsGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 
 		try {
-			String query = request.uri();
-			String modelId = null;
-			Map<String, String> params = ParamTool.getQueryParam(query);
-			modelId = params.get("modelId");
-			
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理获取slots: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/models/slots/get");
+				return;
+			}
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -880,7 +936,6 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelSlotsSave(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 
 		try {
@@ -892,6 +947,12 @@ public class ModelInfoController implements BaseController {
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理保存slots: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(json, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/slots/save");
 				return;
 			}
 			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
@@ -929,6 +990,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理设置kwargs: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/model/chat_template_kwargs/set");
+				return;
+			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
@@ -960,6 +1027,12 @@ public class ModelInfoController implements BaseController {
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理获取kwargs: nodeId={}, modelId={}", nodeId, modelId);
+				this.proxyGetRemote(ctx, request, nodeId, "api/model/chat_template_kwargs/get");
+				return;
+			}
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
@@ -994,6 +1067,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理删除kwargs: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/model/chat_template_kwargs/delete");
+				return;
+			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
@@ -1018,7 +1097,6 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelSlotsLoad(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 
 		try {
@@ -1032,7 +1110,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
 				return;
 			}
-			// 解析请求
+			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理加载slots: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(json, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/slots/load");
+				return;
+			}
 			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
 			Integer slotId = null;
 			if (json.has("slotId")) {
@@ -1046,6 +1129,71 @@ public class ModelInfoController implements BaseController {
 		} catch (Exception e) {
 			logger.info("加载模型slots缓存时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型slots缓存失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 代理GET请求到远程节点（透传URI查询参数）
+	 */
+	private void proxyGetRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
+		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			return;
+		}
+		try {
+			String uri = request.uri();
+			int qIdx = uri.indexOf('?');
+			String fullPath;
+			if (qIdx >= 0) {
+				String query = uri.substring(qIdx + 1);
+				String[] pairs = query.split("&");
+				StringBuilder cleanQuery = new StringBuilder();
+				for (String pair : pairs) {
+					if (pair.startsWith("nodeId=")) continue;
+					if (cleanQuery.length() > 0) cleanQuery.append('&');
+					cleanQuery.append(pair);
+				}
+				fullPath = cleanQuery.length() > 0 ? path + "?" + cleanQuery.toString() : path;
+			} else {
+				fullPath = path;
+			}
+			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(nodeId, "GET", fullPath, null);
+			this.writeRemoteResult(ctx, result, nodeId);
+		} catch (Exception e) {
+			logger.warn("[模型信息] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 代理POST请求到远程节点（透传请求体，移除nodeId避免回环）
+	 */
+	private void proxyPostRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
+		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			return;
+		}
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			JsonObject body = content != null && !content.trim().isEmpty()
+					? JsonUtil.fromJson(content, JsonObject.class) : null;
+			if (body != null) {
+				body.remove("nodeId");
+				if (body.size() == 0) body = null;
+			}
+			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(nodeId, "POST", path, body);
+			this.writeRemoteResult(ctx, result, nodeId);
+		} catch (Exception e) {
+			logger.warn("[模型信息] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+		}
+	}
+
+	private void writeRemoteResult(ChannelHandlerContext ctx, NodeManager.HttpResult result, String nodeId) {
+		if (result.isSuccess()) {
+			NodeManager.writeHttpResultToChannel(ctx, result, "[模型信息]");
+		} else {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
 		}
 	}
 }

@@ -1149,7 +1149,9 @@ async function loadModels() {
       for (const m of models) {
         const opt = document.createElement('option');
         opt.value = m.id;
-        opt.textContent = m.id;
+        const nodeId = m.nodeId || (m.id && m.id.includes(':')) ? m.id.split(':')[0] : '';
+        const display = nodeId && nodeId !== 'local' ? `[${nodeId}] ${m.id}` : m.id;
+        opt.textContent = display;
         els.modelSelect.appendChild(opt);
       }
       if (current && models.some(m => m.id === current)) {

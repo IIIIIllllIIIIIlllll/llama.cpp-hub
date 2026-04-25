@@ -1,6 +1,7 @@
-function viewModelDetails(modelId) {
+function viewModelDetails(modelId, nodeId) {
+    const nodeParam = (nodeId && nodeId !== 'local') ? `&nodeId=${encodeURIComponent(nodeId)}` : '';
     Promise.all([
-        fetch(`/api/models/details?modelId=${modelId}`).then(r => r.json()),
+        fetch(`/api/models/details?modelId=${modelId}${nodeParam}`).then(r => r.json()),
         fetch(`/api/models/record?modelId=${modelId}`).then(r => r.json())
     ]).then(([detailsData, recordData]) => {
         if (detailsData.success) {
@@ -12,6 +13,7 @@ function viewModelDetails(modelId) {
                 model.usage = t('model_detail.usage.no_records', '无记录');
             }
             window.__modelDetailModelId = modelId;
+            window.__modelDetailNodeId = nodeId || '';
             showModelDetailModal(model);
         } else { showToast(t('toast.error', '错误'), detailsData.error, 'error'); }
     }).catch(e => {
@@ -161,6 +163,7 @@ function showModelDetailModal(model) {
     }
     if (kwargsApplyBtn) kwargsApplyBtn.onclick = () => {
         const modelId = window.__modelDetailModelId;
+        const nodeId = window.__modelDetailNodeId || '';
         if (!modelId) {
             showToast(t('toast.error', '错误'), t('modal.model_detail.kwargs.no_model', '未找到当前模型ID'), 'error');
             return;
@@ -172,10 +175,12 @@ function showModelDetailModal(model) {
             }
             kwargsApplyBtn.disabled = true;
             kwargsApplyBtn.textContent = t('common.deleting', '删除中...');
+            const delPayload = { modelId };
+            if (nodeId && nodeId !== 'local') delPayload.nodeId = nodeId;
             fetch('/api/model/chat_template_kwargs/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ modelId: modelId })
+                body: JSON.stringify(delPayload)
             })
             .then(r => r.json())
             .then(res => {
@@ -204,10 +209,12 @@ function showModelDetailModal(model) {
         }
         kwargsApplyBtn.disabled = true;
         kwargsApplyBtn.textContent = t('common.saving', '保存中...');
+        const setPayload = { modelId, chat_template_kwargs: kwargsObj };
+        if (nodeId && nodeId !== 'local') setPayload.nodeId = nodeId;
         fetch('/api/model/chat_template_kwargs/set', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ modelId: modelId, chat_template_kwargs: kwargsObj })
+            body: JSON.stringify(setPayload)
         })
         .then(r => r.json())
         .then(res => {
@@ -1024,10 +1031,12 @@ function deleteModelSamplingConfig() {
 
 function loadModelChatTemplateKwargs() {
     const modelId = window.__modelDetailModelId;
+    const nodeId = window.__modelDetailNodeId || '';
     const el = document.getElementById('modelDetailModalKwargsTextarea');
     if (!modelId || !el) return;
     el.value = '';
-    fetch(`/api/model/chat_template_kwargs/get?modelId=${encodeURIComponent(modelId)}`)
+    const nodeParam = (nodeId && nodeId !== 'local') ? `&nodeId=${encodeURIComponent(nodeId)}` : '';
+    fetch(`/api/model/chat_template_kwargs/get?modelId=${encodeURIComponent(modelId)}${nodeParam}`)
         .then(r => r.json())
         .then(res => {
             if (!(res && res.success)) {
@@ -1043,10 +1052,12 @@ function loadModelChatTemplateKwargs() {
 
 function loadModelChatTemplate(showEmptyTip = false) {
     const modelId = window.__modelDetailModelId;
+    const nodeId = window.__modelDetailNodeId || '';
     const el = document.getElementById('modelDetailModalChatTemplateTextarea');
     if (!modelId || !el) return;
     el.value = '';
-    fetch(`/api/model/template/get?modelId=${encodeURIComponent(modelId)}`)
+    const nodeParam = (nodeId && nodeId !== 'local') ? `&nodeId=${encodeURIComponent(nodeId)}` : '';
+    fetch(`/api/model/template/get?modelId=${encodeURIComponent(modelId)}${nodeParam}`)
         .then(r => r.json())
         .then(res => {
             if (!(res && res.success)) {
@@ -1067,9 +1078,11 @@ function loadModelChatTemplate(showEmptyTip = false) {
 
 function loadModelDefaultChatTemplate() {
     const modelId = window.__modelDetailModelId;
+    const nodeId = window.__modelDetailNodeId || '';
     const el = document.getElementById('modelDetailModalChatTemplateTextarea');
     if (!modelId || !el) return;
-    fetch(`/api/model/template/default?modelId=${encodeURIComponent(modelId)}`)
+    const nodeParam = (nodeId && nodeId !== 'local') ? `&nodeId=${encodeURIComponent(nodeId)}` : '';
+    fetch(`/api/model/template/default?modelId=${encodeURIComponent(modelId)}${nodeParam}`)
         .then(r => r.json())
         .then(res => {
             if (!(res && res.success)) {
@@ -1089,22 +1102,25 @@ function loadModelDefaultChatTemplate() {
 
 function saveModelChatTemplate() {
     const modelId = window.__modelDetailModelId;
+    const nodeId = window.__modelDetailNodeId || '';
     const el = document.getElementById('modelDetailModalChatTemplateTextarea');
     if (!modelId || !el) return;
     const text = el.value == null ? '' : String(el.value);
     if (!text.trim()) {
-        showToast(t('toast.error', '错误'), t('modal.model_detail.chat_template.empty', '聊天模板不能为空；如需清空请使用“删除”按钮。'), 'error');
+        showToast(t('toast.error', '错误'), t('modal.model_detail.chat_template.empty', '聊天模板不能为空；如需清空请使用"删除"按钮。'), 'error');
         el.focus();
         return;
     }
 
     const previewLimit = 300;
-    const preview = text.length > previewLimit ? (text.slice(0, previewLimit) + '\n' + t('modal.model_detail.chat_template.truncated', '…(已截断)')) : text;
+    const preview = text.length > previewLimit ? (text.slice(0, previewLimit) + '\n' + t('modal.model_detail.chat_template.truncated', '\u2026(已截断)')) : text;
     if (!confirm(t('confirm.chat_template.save', '确认保存以下聊天模板吗？') + '\n\n' + preview)) return;
+    const payload = { modelId, chatTemplate: text };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/model/template/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId, chatTemplate: text })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {
@@ -1121,13 +1137,16 @@ function saveModelChatTemplate() {
 
 function deleteModelChatTemplate() {
     const modelId = window.__modelDetailModelId;
+    const nodeId = window.__modelDetailNodeId || '';
     const el = document.getElementById('modelDetailModalChatTemplateTextarea');
     if (!modelId || !el) return;
     if (!confirm(t('confirm.chat_template.delete', '确定要删除该模型已保存的聊天模板吗？'))) return;
+    const payload = { modelId };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/model/template/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {
@@ -1218,8 +1237,10 @@ async function calculateModelTokens() {
 
 function fetchModelSlots() {
     const modelId = window.__modelDetailModelId;
+    const nodeId = window.__modelDetailNodeId || '';
     if (!modelId) return;
-    fetch(`/api/models/slots/get?modelId=${encodeURIComponent(modelId)}`)
+    const nodeParam = (nodeId && nodeId !== 'local') ? `&nodeId=${encodeURIComponent(nodeId)}` : '';
+    fetch(`/api/models/slots/get?modelId=${encodeURIComponent(modelId)}${nodeParam}`)
         .then(r => r.json())
         .then(d => {
             if (!d.success) {

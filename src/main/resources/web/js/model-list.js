@@ -68,12 +68,16 @@ function loadModels() {
                         const modelsWithStatus = allModels.map(model => {
                             const isLoaded = loadedModelIds.includes(model.id);
                             const loadedModel = loadedModels.find(m => m.id === model.id);
+                            const modelNodeId = model.nodeId || (loadedModel ? loadedModel.nodeId : null);
+                            const modelNodeName = model.nodeName || (loadedModel ? loadedModel.nodeName : null);
                             return {
                                 ...model,
                                 isLoading: !!model.isLoading,
                                 isLoaded: isLoaded,
                                 status: isLoaded ? (loadedModel ? loadedModel.status : 'loaded') : 'stopped',
-                                port: isLoaded && loadedModel ? loadedModel.port : null
+                                port: isLoaded && loadedModel ? loadedModel.port : null,
+                                nodeId: modelNodeId,
+                                nodeName: modelNodeName
                             };
                         });
                         currentModelsData = modelsWithStatus;
@@ -315,30 +319,35 @@ function renderModelsList(models) {
         const modelIconSrc = modelIconPath ? (getCachedModelIconObjectUrl(modelIconPath) || modelIconPath) : null;
         const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
         const isFavourite = !!model.favourite;
+        const nodeId = model.nodeId || '';
+        const nodeName = model.nodeName || '';
+        const nodeBadge = nodeId && nodeId !== 'local' ? `<span class="node-badge" title="${nodeName || nodeId}"><i class="fas fa-server"></i> ${nodeName || nodeId}</span>` : '';
 
         let actionButtons = '';
         if (isLoading) {
-            actionButtons = `<button class="btn-icon danger" onclick="stopModel('${model.id}')" title="${t('page.model.action.cancel_loading', '取消加载')}"><i class="fas fa-stop"></i></button>`;
+            actionButtons = `<button class="btn-icon danger" onclick="stopModel('${model.id}', '${nodeId}')" title="${t('page.model.action.cancel_loading', '取消加载')}"><i class="fas fa-stop"></i></button>`;
         } else if (model.isLoaded) {
             if (status === 'running') {
+                const isLocalModel = !nodeId || nodeId === 'local';
                 actionButtons = `
-                            <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
-                            <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
-                            <button class="btn-icon disabled" disabled title="${t('page.model.action.benchmark', '性能测试')}"><i class="fas fa-rocket"></i></button>
+                            <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
+                            <button class="btn-icon" onclick="viewModelDetails('${model.id}', '${nodeId}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
+                            ${isLocalModel ? `<button class="btn-icon disabled" disabled title="${t('page.model.action.benchmark', '性能测试')}"><i class="fas fa-rocket"></i></button>` : ''}
                             <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('page.model.action.view_benchmark_results', '查看测试结果')}"><i class="fas fa-list"></i></button>
 
                         `;
             } else {
                 actionButtons = `
-                            <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
+                            <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
                             <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('page.model.action.view_benchmark_results', '查看测试结果')}"><i class="fas fa-list"></i></button>
                         `;
             }
         } else {
+            const isRemote = nodeId && nodeId !== 'local';
             actionButtons = `
-                        <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}')" title="${t('page.model.action.load', '加载')}"><i class="fas fa-play"></i></button>
-                        <button class="btn-icon" onclick="viewModelDetails('${model.id}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
-                        <button class="btn-icon" onclick="openModelBenchmarkDialog(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('page.model.action.benchmark', '性能测试')}"><i class="fas fa-rocket"></i></button>
+                        <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('page.model.action.load', '加载')}"><i class="fas fa-play"></i></button>
+                        <button class="btn-icon" onclick="viewModelDetails('${model.id}', '${nodeId}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
+                        ${!isRemote ? `<button class="btn-icon" onclick="openModelBenchmarkDialog(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('page.model.action.benchmark', '性能测试')}"><i class="fas fa-rocket"></i></button>` : ''}
                         <button class="btn-icon" onclick="openModelBenchmarkList(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(displayName)}'))" title="${t('page.model.action.view_benchmark_results', '查看测试结果')}"><i class="fas fa-list"></i></button>
                     `;
         }
@@ -356,6 +365,7 @@ function renderModelsList(models) {
                                 ${displayName}
                                 ${model.supportsVision ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}
                                 ${model.supportsAudio ? '<span class="audio-badge"><i class="fas fa-headphones"></i></span>' : ''}
+                                ${nodeBadge}
                             </div>
                         <div class="model-meta">
                                 <span><i class="fas fa-layer-group"></i> ${architecture}</span>
@@ -418,10 +428,13 @@ function toggleFavouriteModel(event, modelId) {
     currentModelsData[idx].favourite = !prev;
     sortAndRenderModels();
 
+    const nodeId = currentModelsData[idx].nodeId || '';
+    const payload = { modelId };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/models/favourite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {

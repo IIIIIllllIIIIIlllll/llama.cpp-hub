@@ -18,6 +18,7 @@ import org.mark.llamacpp.lmstudio.LMStudio;
 import org.mark.llamacpp.ollama.Ollama;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.service.GpuService;
 import org.mark.llamacpp.server.service.ModelSamplingService;
@@ -1067,6 +1068,8 @@ public class SystemController implements BaseController {
 					LlamaServerManager manager = LlamaServerManager.getInstance();
 					manager.shutdownAll();
 					//
+					NodeManager.getInstance().shutdown();
+					//
 					System.exit(0);
 				} catch (Exception e) {
 					logger.info("停止服务时发生错误", e);
@@ -1105,46 +1108,47 @@ public class SystemController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleDeviceListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
-		
-		try {
-			// 从URL参数中提取 llamaBinPath
-			String query = request.uri();
-			String llamaBinPath = null;
-			
-			Map<String, String> params = ParamTool.getQueryParam(query);
-			llamaBinPath = params.get("llamaBinPath");
 
-			// 验证必需的参数
+		try {
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String llamaBinPath = params.get("llamaBinPath");
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				this.handleDeviceListRemote(ctx, nodeId, llamaBinPath);
+				return;
+			}
+
 			if (llamaBinPath == null || llamaBinPath.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的llamaBinPath参数"));
 				return;
 			}
 
 			List<String> devices = LlamaServerManager.getInstance().handleListDevices(llamaBinPath);
-//
-//			String executableName = "llama-bench";
-//			// 拼接完整命令路径
-//			String command = llamaBinPath.trim();
-//			command += File.separator;
-//
-//			command += executableName + " --list-devices";
-//
-//			// 执行命令
-//			CommandLineRunner.CommandResult result = CommandLineRunner.execute(command, 30);
-			// 构建响应数据
 			Map<String, Object> data = new HashMap<>();
-			//data.put("command", command);
-			//data.put("exitCode", result.getExitCode());
-			//data.put("output", result.getOutput());
-			//data.put("error", result.getError());
 			data.put("devices", devices);
 
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取设备列表时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取设备列表失败: " + e.getMessage()));
+		}
+	}
+
+	private void handleDeviceListRemote(ChannelHandlerContext ctx, String nodeId, String llamaBinPath) {
+		try {
+			String encodedPath = (llamaBinPath != null) ? java.net.URLEncoder.encode(llamaBinPath, "UTF-8") : "";
+			String path = "api/model/device/list?llamaBinPath=" + encodedPath;
+			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+					nodeId, "GET", path, null);
+			if (result.isSuccess()) {
+				NodeManager.writeHttpResultToChannel(ctx, result, "[设备列表远程]");
+			} else {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+			}
+		} catch (Exception e) {
+			logger.warn("获取远程节点设备列表失败: nodeId={}, error={}", nodeId, e.getMessage());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取远程节点设备列表失败: " + e.getMessage()));
 		}
 	}
 	
@@ -1156,11 +1160,9 @@ public class SystemController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleVramEstimateRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
-		
+
 		try {
-			// 读取请求体
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
@@ -1173,14 +1175,18 @@ public class SystemController implements BaseController {
 				return;
 			}
 			JsonObject obj = root.getAsJsonObject();
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				logger.info("[显存估算] 远程节点代理: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(obj, "modelId", ""));
+				this.handleVramEstimateRemote(ctx, nodeId, obj);
+				return;
+			}
+
 			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
 			String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
-			// device mg
-			// 取出字符串数组：devices，其结构参考："device":["All"]
 			List<String> device = JsonUtil.getJsonStringList(obj.get("device"));
-			// 取出数字整数：mg
 			Integer mg = JsonUtil.getJsonInt(obj, "mg", null);
-			
+
 			if (cmd != null) cmd = cmd.trim();
 			if (extraParams != null) extraParams = extraParams.trim();
 			if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
@@ -1196,13 +1202,11 @@ public class SystemController implements BaseController {
 			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
 				llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
 			}
-			
-			// 加入-dev和-mg
+
 			if(device.size() == 1) {
-				// 只有一个设备，但是对应的是All，则不添加-dev
 				String onlyOneDevice = device.get(0);
 				if("All".equals(onlyOneDevice)) {
-					
+
 				}else {
 					combinedCmd += " --device " + onlyOneDevice;
 				}
@@ -1210,29 +1214,21 @@ public class SystemController implements BaseController {
 				combinedCmd += " --device ";
 				combinedCmd += ParamTool.quoteIfNeeded(String.join(",", device));
 			}
-			//
 			combinedCmd += " --main-gpu " + mg;
-			
-			// 预留返回值
+
+			logger.info("[显存估算] 本地执行: modelId={}, llamaBinPath={}, cmd={}", modelId, llamaBinPathSelect, combinedCmd);
+
 			Map<String, Object> data = new HashMap<>();
-			
-			// 只保留部分参数：--ctx-size --flash-attn --batch-size --ubatch-size --parallel --kv-unified --cache-type-k --cache-type-v -mg -dev
 			List<String> cmdlist = ParamTool.splitCmdArgs(combinedCmd);
-			// 运行fit-param
 			String output = LlamaServerManager.getInstance().handleFitParam(llamaBinPathSelect, modelId, enableVision, cmdlist);
-			// 提取第一个数值
-			// 兼容新旧版本：
-			// 旧版：llama_params_fit_impl: projected to use XXX MiB
-			// 新版：common_params_fit_impl: projected to use XXX MiB of device memory vs. YYY MiB of free device memory
+
 			Pattern numberPattern = Pattern.compile("(?:llama|common)_params_fit_impl: projected to use (\\d+) MiB");
 			Matcher numberMatcher = numberPattern.matcher(output);
 			if (numberMatcher.find()) {
 			    String value = numberMatcher.group(1);
 			    data.put("vram", value);
-			}
-			// 如果没有找到值，就去找错误信息
-			else {
-				
+			    logger.info("[显存估算] 成功: modelId={}, vram={} MiB", modelId, value);
+			} else {
 				Pattern pattern = Pattern.compile("^.*llama_init_from_model.*$", Pattern.MULTILINE);
 		        Matcher matcher = pattern.matcher(output);
 		        if (matcher.find()) {
@@ -1243,6 +1239,25 @@ public class SystemController implements BaseController {
 		} catch (Exception e) {
 			logger.info("估算显存时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("估算显存失败: " + e.getMessage()));
+		}
+	}
+
+	private void handleVramEstimateRemote(ChannelHandlerContext ctx, String nodeId, JsonObject body) {
+		try {
+			if (body != null) {
+				body.remove("nodeId");
+			}
+			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+					nodeId, "POST", "api/models/vram/estimate", body);
+			logger.info("[显存估算] 远程节点响应: nodeId={}, code={}", nodeId, result.getStatusCode());
+			if (result.isSuccess()) {
+				NodeManager.writeHttpResultToChannel(ctx, result, "[显存估算远程]");
+			} else {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+			}
+		} catch (Exception e) {
+			logger.warn("[显存估算] 远程节点调用异常: nodeId={}, error={}", nodeId, e.getMessage());
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
 		}
 	}
 }

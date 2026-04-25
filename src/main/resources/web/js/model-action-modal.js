@@ -937,13 +937,25 @@ function setModelActionMode(mode) {
     applyModelActionSubmitButtonState(modal, resolved);
 }
 
-function loadModel(modelId, modelName, mode = 'load') {
+function loadModel(modelId, modelName, param1, param2) {
+    let mode = 'load';
+    let nodeId = '';
+    const modes = ['load', 'benchmark', 'reconfigure'];
+    for (const p of [param1, param2]) {
+        if (typeof p === 'string' && p && modes.includes(p)) {
+            mode = p;
+        } else if (typeof p === 'string' && p && !modes.includes(p)) {
+            nodeId = p;
+        }
+    }
     const modal = getLoadModelModal();
     if (modal) modal.classList.add('show');
 
     setModelActionMode(mode);
     setFieldValue(modal, ['modelId'], modelId);
     setFieldValue(modal, ['modelName'], modelName || modelId);
+    if (nodeId) modal.__nodeId = nodeId;
+    else delete modal.__nodeId;
     applyModelActionSubmitButtonState(modal, mode === 'benchmark' ? 'benchmark' : 'load');
     const hint = findById(modal, 'ctxSizeVramHint');
     if (hint) hint.textContent = '';
@@ -962,7 +974,11 @@ function loadModel(modelId, modelName, mode = 'load') {
     const enableVisionGroup = findById(modal, 'enableVisionGroup');
     if (enableVisionGroup) enableVisionGroup.style.display = isVisionModel ? '' : 'none';
 
-    fetch(`/api/models/config/get?modelId=${encodeURIComponent(modelId)}`)
+    const configNodeId = nodeId && nodeId !== 'local' ? nodeId : '';
+    const configUrl = configNodeId
+        ? `/api/models/config/get?modelId=${encodeURIComponent(modelId)}&nodeId=${encodeURIComponent(configNodeId)}`
+        : `/api/models/config/get?modelId=${encodeURIComponent(modelId)}`;
+    fetch(configUrl)
         .then(r => r.json()).then(data => {
             const bundle = extractLaunchConfigBundleFromGetResponse(data, modelId);
             renderModelConfigSelect(modal, bundle);
@@ -975,7 +991,11 @@ function loadModel(modelId, modelName, mode = 'load') {
             const config = bundle.configs[selected] || {};
             applyLaunchConfigToModal(modal, config);
 
-            fetch('/api/llamacpp/list').then(r => r.json()).then(listData => {
+            const effectiveNodeId = modal.__nodeId || '';
+            const llamaListUrl = (effectiveNodeId && effectiveNodeId !== 'local')
+                ? `/api/llamacpp/list?nodeId=${encodeURIComponent(effectiveNodeId)}`
+                : '/api/llamacpp/list';
+            fetch(llamaListUrl).then(r => r.json()).then(listData => {
                 const select = findById(modal, 'llamaBinPathSelect') || findFieldByName(modal, 'llamaBinPathSelect');
                 const items = (listData && listData.success && listData.data) ? (listData.data.items || []) : [];
                 if (select) {
@@ -1010,6 +1030,7 @@ function loadModel(modelId, modelName, mode = 'load') {
 function buildLoadModelPayload(modal) {
     const modelId = getFieldString(modal, ['modelId']);
     const modelName = getFieldString(modal, ['modelName']);
+    const nodeId = modal && modal.__nodeId ? modal.__nodeId : '';
     const llamaBinPathSelect = getFieldString(modal, ['llamaBinPathSelect']);
     const enableVisionEl = findField(modal, 'enableVision');
     const enableVision = enableVisionEl && 'checked' in enableVisionEl ? !!enableVisionEl.checked : true;
@@ -1216,21 +1237,29 @@ function submitModelAction() {
         body: JSON.stringify(mode === 'config' ? payload : configPayload)
     }).then(r => r.json());
 
-    const doLoadRequest = () => fetch('/api/models/load', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).then(r => r.json());
+    const doLoadRequest = () => {
+        const nodeId = modal && modal.__nodeId ? modal.__nodeId : '';
+        if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
+        return fetch('/api/models/load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(r => r.json());
+    };
+
+    const isRemoteModel = !!(modal && modal.__nodeId && modal.__nodeId !== 'local');
 
     // 关键注释：启动模型前先落盘当前选中配置，保证“配置切换”所选项始终最新
     const requestChain = mode === 'config'
         ? saveConfigRequest()
-        : saveConfigRequest().then(cfgRes => {
-            if (!cfgRes || !cfgRes.success) {
-                return Promise.reject(new Error((cfgRes && cfgRes.error) ? cfgRes.error : t('common.save_failed', '保存失败')));
-            }
-            return doLoadRequest();
-        });
+        : isRemoteModel
+            ? doLoadRequest()
+            : saveConfigRequest().then(cfgRes => {
+                if (!cfgRes || !cfgRes.success) {
+                    return Promise.reject(new Error((cfgRes && cfgRes.error) ? cfgRes.error : t('common.save_failed', '保存失败')));
+                }
+                return doLoadRequest();
+            });
 
     requestChain.then(res => {
         if (res.success) {
@@ -1341,6 +1370,8 @@ function estimateVramAction() {
     payload.llamaBinPathSelect = llamaBinPathSelect;
     payload.cmd = cmd;
     payload.extraParams = extraParams;
+    const vramNodeId = modal && modal.__nodeId && modal.__nodeId !== 'local' ? modal.__nodeId : '';
+    if (vramNodeId) payload.nodeId = vramNodeId;
     fetch('/api/models/vram/estimate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
     }).then(r => r.json()).then(res => {
@@ -1367,7 +1398,8 @@ function estimateVram() { estimateVramAction(); }
 
 function viewModelConfig(modelId) {
     const currentModel = (currentModelsData || []).find(m => m && m.id === modelId);
-    loadModel(modelId, currentModel ? currentModel.name : modelId, 'load');
+    const nodeId = currentModel ? (currentModel.nodeId || '') : '';
+    loadModel(modelId, currentModel ? currentModel.name : modelId, '', nodeId);
 }
 
 function normalizeDeviceSelection(device) {
@@ -1521,7 +1553,10 @@ function loadDeviceList() {
         return;
     }
 
-    fetch(`/api/model/device/list?llamaBinPath=${encodeURIComponent(llamaBinPath)}`)
+    const deviceNodeId = modal && modal.__nodeId && modal.__nodeId !== 'local' ? modal.__nodeId : '';
+    let deviceUrl = `/api/model/device/list?llamaBinPath=${encodeURIComponent(llamaBinPath)}`;
+    if (deviceNodeId) deviceUrl += `&nodeId=${encodeURIComponent(deviceNodeId)}`;
+    fetch(deviceUrl)
         .then(response => response.json())
         .then(data => {
             if (window.__loadDeviceListRequestToken !== requestToken) {

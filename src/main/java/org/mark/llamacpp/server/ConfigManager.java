@@ -34,6 +34,7 @@ public class ConfigManager {
     private static final String CONFIG_DIR = "config";
     private static final String MODELS_CONFIG_FILE = CONFIG_DIR + "/models.json";
     private static final String LAUNCH_CONFIG_FILE = CONFIG_DIR + "/launch_config.json";
+    private static final String NODES_CONFIG_FILE = CONFIG_DIR + "/nodes.json";
     private static final String DEFAULT_CONFIG_NAME = "默认配置";
     
     private final Gson gson;
@@ -43,6 +44,7 @@ public class ConfigManager {
 
     private final Object modelsFileLock = new Object();
     private final Object launchFileLock = new Object();
+    private final Object nodesFileLock = new Object();
     
     private ConfigManager() {
         // 创建Gson实例，设置美观格式化
@@ -510,5 +512,114 @@ public class ConfigManager {
         } catch (AtomicMoveNotSupportedException e) {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    /**
+     * 加载节点配置
+     * @return 节点列表，如果加载失败返回空列表
+     */
+    public List<LlamaHubNode> loadNodesConfig() {
+        synchronized (nodesFileLock) {
+            return loadNodesConfigUnsafe();
+        }
+    }
+
+    /**
+     * 保存节点配置
+     * @param nodes 节点列表
+     * @return 是否保存成功
+     */
+    public boolean saveNodesConfig(List<LlamaHubNode> nodes) {
+        synchronized (nodesFileLock) {
+            try {
+                Map<String, Object> wrapper = new HashMap<>();
+                wrapper.put("nodes", nodes);
+                writeJsonFileAtomic(NODES_CONFIG_FILE, wrapper);
+                logger.info("节点配置已保存到: {}", NODES_CONFIG_FILE);
+                return true;
+            } catch (IOException e) {
+                logger.info("保存节点配置失败: {}", e);
+                return false;
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<LlamaHubNode> loadNodesConfigUnsafe() {
+        File configFile = new File(NODES_CONFIG_FILE);
+        if (!configFile.exists()) {
+            logger.info("节点配置文件不存在，返回空列表: {}", NODES_CONFIG_FILE);
+            return new java.util.ArrayList<>();
+        }
+
+        try (FileReader reader = new FileReader(configFile)) {
+            Type mapType = new TypeToken<Map<String, Object>>() {}.getType();
+            Map<String, Object> wrapper = gson.fromJson(reader, mapType);
+            if (wrapper == null) {
+                return new java.util.ArrayList<>();
+            }
+            Object nodesObj = wrapper.get("nodes");
+            if (nodesObj == null) {
+                return new java.util.ArrayList<>();
+            }
+            List<Map<String, Object>> nodesData = (List<Map<String, Object>>) nodesObj;
+            List<LlamaHubNode> nodes = new java.util.ArrayList<>();
+            for (Map<String, Object> nodeData : nodesData) {
+                LlamaHubNode node = mapToNode(nodeData);
+                nodes.add(node);
+            }
+            logger.info("成功加载节点配置，共 {} 个节点: {}", nodes.size(), NODES_CONFIG_FILE);
+            return nodes;
+        } catch (IOException | JsonSyntaxException | ClassCastException e) {
+            logger.info("加载节点配置失败: {}", e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private LlamaHubNode mapToNode(Map<String, Object> data) {
+        LlamaHubNode node = new LlamaHubNode();
+        node.nodeId = (String) data.get("nodeId");
+        node.name = (String) data.get("name");
+        node.baseUrl = (String) data.get("baseUrl");
+        node.apiKey = (String) data.get("apiKey");
+
+        Object tagsObj = data.get("tags");
+        if (tagsObj instanceof List<?>) {
+            List<String> tags = new java.util.ArrayList<>();
+            for (Object tag : (List<?>) tagsObj) {
+                if (tag != null) tags.add(String.valueOf(tag));
+            }
+            node.tags = tags;
+        }
+
+        Object enabledObj = data.get("enabled");
+        node.enabled = enabledObj == null || (boolean) enabledObj;
+
+        Object statusObj = data.get("status");
+        if (statusObj != null) {
+            try {
+                node.status = LlamaHubNode.NodeStatus.valueOf(String.valueOf(statusObj));
+            } catch (IllegalArgumentException e) {
+                node.status = LlamaHubNode.NodeStatus.PENDING;
+            }
+        }
+
+        Object lastHeartbeatObj = data.get("lastHeartbeat");
+        if (lastHeartbeatObj instanceof Number) {
+            node.lastHeartbeat = ((Number) lastHeartbeatObj).longValue();
+        }
+
+        Object createdAtObj = data.get("createdAt");
+        if (createdAtObj instanceof Number) {
+            node.createdAt = ((Number) createdAtObj).longValue();
+        }
+
+        Object metadataObj = data.get("metadata");
+        if (metadataObj instanceof Map<?, ?>) {
+            node.metadata = new HashMap<>((Map<String, Object>) metadataObj);
+        }
+
+        return node;
     }
 }

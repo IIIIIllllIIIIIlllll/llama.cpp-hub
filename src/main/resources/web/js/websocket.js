@@ -75,7 +75,13 @@ function handleWebSocketMessage(message) {
                         } else if (typeof data.line === 'string') {
                             text = data.line;
                         }
-                        if (text && typeof appendLogLine === 'function') appendLogLine(text);
+                        if (text && typeof appendLogLine === 'function') {
+                            if (data.nodeId) {
+                                const nodeKey = data.modelId ? '[' + data.nodeId + '/' + data.modelId + ']' : '[' + data.nodeId + ']';
+                                text = nodeKey + ' ' + text;
+                            }
+                            appendLogLine(text);
+                        }
                     }
                     break;
             }
@@ -83,11 +89,16 @@ function handleWebSocketMessage(message) {
     } catch (error) {}
 }
 
-function applyModelPatch(modelId, patch) {
+function applyModelPatch(modelId, patch, nodeId) {
     try {
         if (!modelId) return;
         if (!Array.isArray(currentModelsData)) return;
-        const i = currentModelsData.findIndex(m => m && m.id === modelId);
+        let i;
+        if (nodeId) {
+            i = currentModelsData.findIndex(m => m && m.id === modelId && m.nodeId === nodeId);
+        } else {
+            i = currentModelsData.findIndex(m => m && m.id === modelId);
+        }
         if (i < 0) return;
         const prev = currentModelsData[i] || {};
         currentModelsData[i] = Object.assign({}, prev, patch || {});
@@ -103,7 +114,7 @@ function applyModelPatch(modelId, patch) {
 function handleModelLoadStartEvent(data) {
     if (!data || !data.modelId) return;
     if (typeof showModelLoadingState === 'function') showModelLoadingState(data.modelId);
-    applyModelPatch(data.modelId, { isLoading: true, isLoaded: false, status: 'stopped', port: data.port ?? null, slots: [] });
+    applyModelPatch(data.modelId, { isLoading: true, isLoaded: false, status: 'stopped', port: data.port ?? null, slots: [] }, data.nodeId);
     if (typeof updateModelSlotsDom === 'function') {
         updateModelSlotsDom(data.modelId, []);
     }
@@ -111,23 +122,23 @@ function handleModelLoadStartEvent(data) {
 
 function handleModelStatusUpdate(data) {
     if (data.modelId && data.status) {
-        applyModelPatch(data.modelId, { status: data.status });
+        applyModelPatch(data.modelId, { status: data.status }, data.nodeId);
     }
 }
 
 function handleModelLoadEvent(data) {
     if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId);
+    const nodeLabel = data.nodeId ? `[${data.nodeId}]` : '';
     const action = data.success ? '成功' : '失败';
-    showToast('模型加载', `模型 ${data.modelId} 加载${action}`, data.success ? 'success' : 'error');
+    showToast('模型加载', `模型 ${nodeLabel}${data.modelId} 加载${action}`, data.success ? 'success' : 'error');
 
     if (window.pendingModelLoad && window.pendingModelLoad.modelId === data.modelId) {
-        //closeModal('loadModelModal');
         window.pendingModelLoad = null;
     }
     if (data.success) {
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: true, status: 'running', port: data.port ?? null, slots: [] });
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: true, status: 'running', port: data.port ?? null, slots: [] }, data.nodeId);
     } else {
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] });
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
     }
     if (typeof updateModelSlotsDom === 'function') {
         updateModelSlotsDom(data.modelId, []);
@@ -135,10 +146,11 @@ function handleModelLoadEvent(data) {
 }
 
 function handleModelStopEvent(data) {
-    showToast('模型停止', `模型 ${data.modelId} 停止${data.success ? '成功' : '失败'}`, data.success ? 'success' : 'error');
+    const nodeLabel = data.nodeId ? `[${data.nodeId}]` : '';
+    showToast('模型停止', `模型 ${nodeLabel}${data.modelId} 停止${data.success ? '成功' : '失败'}`, data.success ? 'success' : 'error');
     if (data.success) {
         if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId);
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] });
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
         if (typeof updateModelSlotsDom === 'function') {
             updateModelSlotsDom(data.modelId, []);
         }
@@ -148,7 +160,12 @@ function handleModelStopEvent(data) {
 function handleModelSlotsUpdate(data) {
     if (!data || !data.modelId) return;
     const slots = Array.isArray(data.slots) ? data.slots : [];
-    const i = Array.isArray(currentModelsData) ? currentModelsData.findIndex(m => m && m.id === data.modelId) : -1;
+    let i;
+    if (data.nodeId) {
+        i = Array.isArray(currentModelsData) ? currentModelsData.findIndex(m => m && m.id === data.modelId && m.nodeId === data.nodeId) : -1;
+    } else {
+        i = Array.isArray(currentModelsData) ? currentModelsData.findIndex(m => m && m.id === data.modelId) : -1;
+    }
     if (i >= 0) {
         currentModelsData[i].slots = slots;
     }

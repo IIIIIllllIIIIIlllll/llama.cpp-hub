@@ -1738,10 +1738,12 @@
             if (el) el.remove();
         }
 
-        function stopModel(modelId) {
+        function stopModel(modelId, nodeId) {
+             const body = { modelId };
+             if (nodeId && nodeId !== 'local') body.nodeId = nodeId;
              fetch('/api/models/stop', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ modelId })
+                body: JSON.stringify(body)
             }).then(r => r.json()).then(d => {
                 if (!d.success) {
                     showToast(t('toast.error', '错误'), d.error, 'error');
