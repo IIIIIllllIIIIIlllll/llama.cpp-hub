@@ -668,7 +668,7 @@
     ],
     "description": "param.server.spec_type.desc",
     "sort": 0,
-    "defaultEnabled": true,
+    "defaultEnabled": false,
     "group": "page.params.group.speculative_decoding",
     "groupOrder": 70,
     "groupCollapsed": true
@@ -681,7 +681,7 @@
     "defaultValue": "64",
     "description": "param.server.draft_max.desc",
     "sort": 1,
-    "defaultEnabled": true,
+    "defaultEnabled": false,
     "group": "page.params.group.speculative_decoding",
     "groupOrder": 70,
     "groupCollapsed": true
@@ -694,7 +694,7 @@
     "defaultValue": "48",
     "description": "param.server.draft_min.desc",
     "sort": 2,
-    "defaultEnabled": true,
+    "defaultEnabled": false,
     "group": "page.params.group.speculative_decoding",
     "groupOrder": 70,
     "groupCollapsed": true
@@ -720,7 +720,7 @@
     "defaultValue": "24",
     "description": "param.server.spec_ngram_size_n.desc",
     "sort": 4,
-    "defaultEnabled": true,
+    "defaultEnabled": false,
     "group": "page.params.group.speculative_decoding",
     "groupOrder": 70,
     "groupCollapsed": true
