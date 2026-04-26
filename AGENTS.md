@@ -588,9 +588,11 @@ SslHandler (可选)
 所有字段可通过 `PATCH /api/sys/setting` 动态修改，修改后立即写入磁盘。
 
 **节点角色（`nodeRole`）：**
-- `"master"` — 主节点，主动连接所有子节点的 WebSocket 并执行健康检查（默认）
+- `"master"` — 主节点，主动连接所有子节点的 WebSocket 并执行健康检查
 - `"slave"` — 子节点，跳过远程节点 WebSocket 连接和健康检查，避免循环依赖
-- 判断方法：`LlamaServer.isMasterNode()`
+- **默认值为 `null`**（等同于 slave）。`application.json` 中无此字段时不视为 master。
+- 判断方法：`LlamaServer.isMasterNode()` 检查 `nodeRole != null && "master".equalsIgnoreCase(nodeRole)`
+- **`NodeManager.listEnabledNodes()`** 返回空列表，所有依赖该方法的代码路径（模型列表合并、API 转发、聊天路由）自动对 slave 节点禁用。
 
 ### `config/modelpaths.json`
 ```json
@@ -644,7 +646,7 @@ llama.cpp 二进制目录列表。默认目录 `llamacpp/` 自动扫描。
 ```json
 { "nodes": [{ "nodeId": "server2", "name": "远程服务器", "baseUrl": "https://10.8.0.6:8080", "apiKey": "...", "enabled": true }] }
 ```
-远程节点配置。
+远程节点配置。对应 POJO `NodesConfigData.java`（`List<LlamaHubNode> nodes`），通过 Gson 直接读写，避免手动 Map 转换。
 
 ### `config/mcp-tools.json`
 MCP 客户端注册的外部工具服务器。
@@ -989,7 +991,10 @@ MCP 客户端注册的外部工具服务器。
 - `javac-win.bat` / `javac-linux.sh` 需要手工添加新 `.java` 文件到编译列表
 - 实际上编译脚本使用 `for /r` 递归扫描全部源文件，新增文件自动包含
 
-**前端 `websocket.js` 配套修改：**
+**前端模型列表配套修改（`model-list.js` / `websocket.js` / `index.html`）：**
 - `applyModelPatch(modelId, patch, nodeId)` 新增 `nodeId` 参数，存在时按 `id + nodeId` 联合查找 `currentModelsData`
 - 所有事件处理器（`handleModelLoad*`/`handleModelStopEvent`/`handleModelStatusUpdate`/`handleModelSlotsUpdate`）传入 `data.nodeId`
 - 控制台日志：远程节点行显示 `[nodeId/modelId] 前缀`
+- **复合键函数 `modelCompositeKey(id, nodeId)`** — 格式 `id::nodeId`，用于 `loadModels()` 匹配已加载状态、`renderModelsList()` slots DOM ID、`updateModelSlotsDom()` 查 DOM、`toggleFavouriteModel()` 定位模型
+- **节点筛选下拉框**（`#modelNodeFilter`）— 位于排序下拉框旁边，三个选项：全部（默认）、本机、远程。与排序联动，筛选后的结果再排序
+- **空状态适配** — 筛选到远程但无节点时显示"没有远程模型"，本机无模型时显示"本机没有发现模型"
