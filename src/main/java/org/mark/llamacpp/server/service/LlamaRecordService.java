@@ -83,8 +83,7 @@ public class LlamaRecordService {
 					timing.setPredicted_ms(timing.getPredicted_ms() + data.getPredicted_ms());
 					timing.setPredicted_per_token_ms(timing.getPredicted_per_token_ms() + data.getPredicted_per_token_ms());
 					timing.setPredicted_per_second(timing.getPredicted_per_second() + data.getPredicted_per_second());
-					
-					this.recordTiming(modelId, timing);
+					this.recordTiming(modelId, timing, data);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -105,15 +104,17 @@ public class LlamaRecordService {
 
 	/**
 	 * 将累积的 timings 数据以 JSON 格式覆盖写入本地文件。
+	 * 同时将本次请求的 timings 逐行追加到日志文件。
 	 * 
-	 * @param modelId 模型ID，用作文件名
-	 * @param timing  需要保存的性能数据
+	 * @param modelId    模型ID，用作文件名
+	 * @param timing     累计的性能数据，写入 .json
+	 * @param requestTiming 本次请求的原始性能数据，逐行追加到 .log
 	 */
-	private void recordTiming(String modelId, Timing timing) {
+	private void recordTiming(String modelId, Timing timing, Timing requestTiming) {
 		if (modelId == null || timing == null) {
 			return;
 		}
-		
+		// 累计计算
 		String filePath = RECORD_DIR + modelId + ".json";
 		String content = this.gson.toJson(timing);
 		
@@ -121,6 +122,17 @@ public class LlamaRecordService {
 			writer.write(content);
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+		// 请求记录，以模型名字.log 逐行追加
+		if (requestTiming != null) {
+			String logPath = RECORD_DIR + modelId + ".log";
+			String logLine = this.gson.toJson(requestTiming);
+			try (BufferedWriter writer = new BufferedWriter(new FileWriter(logPath, true))) {
+				writer.write(logLine);
+				writer.newLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 }
