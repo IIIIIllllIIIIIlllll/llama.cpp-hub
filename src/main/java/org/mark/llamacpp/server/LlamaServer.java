@@ -339,7 +339,7 @@ public class LlamaServer {
 	private static volatile String httpsPassword = "changeit";
 	private static volatile SslContext httpsSslContext;
 
-	private static volatile String nodeRole = "master";
+	private static volatile String nodeRole = null;
 
 	//##############################################################################################################################
 	
@@ -521,7 +521,9 @@ public class LlamaServer {
 			try {
 				JsonObject root = new JsonObject();
 
-				root.addProperty("nodeRole", nodeRole);
+				if (nodeRole != null) {
+					root.addProperty("nodeRole", nodeRole);
+				}
 
 				JsonObject server = new JsonObject();
 				server.addProperty("webPort", webPort);
@@ -773,7 +775,7 @@ public static boolean isMcpServerRunning() {
     }
 
     public static boolean isMasterNode() {
-    	return "master".equalsIgnoreCase(nodeRole);
+    	return nodeRole != null && "master".equalsIgnoreCase(nodeRole);
     }
     
     public static void updateOllamaCompatConfig(boolean enabled, int port) {

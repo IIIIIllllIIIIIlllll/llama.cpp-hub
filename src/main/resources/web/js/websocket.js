@@ -113,10 +113,10 @@ function applyModelPatch(modelId, patch, nodeId) {
 
 function handleModelLoadStartEvent(data) {
     if (!data || !data.modelId) return;
-    if (typeof showModelLoadingState === 'function') showModelLoadingState(data.modelId);
+    if (typeof showModelLoadingState === 'function') showModelLoadingState(data.modelId, data.nodeId);
     applyModelPatch(data.modelId, { isLoading: true, isLoaded: false, status: 'stopped', port: data.port ?? null, slots: [] }, data.nodeId);
     if (typeof updateModelSlotsDom === 'function') {
-        updateModelSlotsDom(data.modelId, []);
+        updateModelSlotsDom(data.modelId, [], data.nodeId);
     }
 }
 
@@ -127,7 +127,7 @@ function handleModelStatusUpdate(data) {
 }
 
 function handleModelLoadEvent(data) {
-    if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId);
+    if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId, data.nodeId);
     const nodeLabel = data.nodeId ? `[${data.nodeId}]` : '';
     const action = data.success ? '成功' : '失败';
     showToast('模型加载', `模型 ${nodeLabel}${data.modelId} 加载${action}`, data.success ? 'success' : 'error');
@@ -141,7 +141,7 @@ function handleModelLoadEvent(data) {
         applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
     }
     if (typeof updateModelSlotsDom === 'function') {
-        updateModelSlotsDom(data.modelId, []);
+        updateModelSlotsDom(data.modelId, [], data.nodeId);
     }
 }
 
@@ -149,10 +149,10 @@ function handleModelStopEvent(data) {
     const nodeLabel = data.nodeId ? `[${data.nodeId}]` : '';
     showToast('模型停止', `模型 ${nodeLabel}${data.modelId} 停止${data.success ? '成功' : '失败'}`, data.success ? 'success' : 'error');
     if (data.success) {
-        if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId);
+        if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId, data.nodeId);
         applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
         if (typeof updateModelSlotsDom === 'function') {
-            updateModelSlotsDom(data.modelId, []);
+            updateModelSlotsDom(data.modelId, [], data.nodeId);
         }
     }
 }
@@ -170,6 +170,6 @@ function handleModelSlotsUpdate(data) {
         currentModelsData[i].slots = slots;
     }
     if (typeof updateModelSlotsDom === 'function') {
-        updateModelSlotsDom(data.modelId, slots);
+        updateModelSlotsDom(data.modelId, slots, data.nodeId);
     }
 }

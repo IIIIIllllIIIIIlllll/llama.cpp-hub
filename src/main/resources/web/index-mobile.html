@@ -25,7 +25,8 @@
             min-height: 0;
         }
         .model-list-container { border-radius: 0.75rem; }
-        .model-item { padding: 0.9rem 1rem; align-items: flex-start; flex-wrap: nowrap; gap: 0.5rem; }
+        .model-item { padding: 0.9rem 1rem; align-items: flex-start; flex-wrap: nowrap; gap: 0.5rem; border-left: 3px solid transparent; }
+        .model-item-remote { border-left-color: #a78bfa; }
         .model-fav-btn { width: 100%; height: 24px; margin-right: 0; border-radius: 7px; font-size: 0.95rem; }
         .model-icon-wrapper { margin-right: 0.25rem; }
         .model-details { min-width: 0; margin-right: 0; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -1226,26 +1227,29 @@
                 const modelIconSrc = modelIconPath ? (getCachedModelIconObjectUrl(modelIconPath) || modelIconPath) : null;
                 const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
                 const modelId = encodeURIComponent(model.id);
+                const nodeId = model.nodeId || 'local';
+                const nodeName = model.nodeName || '';
+                const nodeBadge = nodeId && nodeId !== 'local' ? `<span class="node-badge" title="${nodeName || nodeId}"><i class="fas fa-server"></i> ${nodeName || nodeId}</span>` : '';
 
                 html += `
-                    <div class="model-item">
+                    <div class="model-item${nodeId !== 'local' ? ' model-item-remote' : ''}">
                 		<div>
-	                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${isFavourite ? '取消喜好' : '标记喜好'}">
+	                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId}')" title="${isFavourite ? '取消喜好' : '标记喜好'}">
 	                            <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
 	                        </button>
 	                        <div class="model-icon-wrapper">
-                            	${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
-                        	</div>	                        
+                             	${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                         	</div>	                        
                         </div>
                         <div class="model-details">
-                            <div class="model-name" title="${model.name}">${displayName}${model.supportsVision ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}${model.supportsAudio ? '<span class="audio-badge"><i class="fas fa-headphones"></i></span>' : ''}</div>
+                            <div class="model-name" title="${model.name}">${displayName}${model.supportsVision ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}${model.supportsAudio ? '<span class="audio-badge"><i class="fas fa-headphones"></i></span>' : ''}${nodeBadge}</div>
                             <div class="model-mobile-actions">
                                 <div class="model-status-badge ${statusClass}">
                                     <i class="fas ${statusIcon}"></i> <span>${statusText}</span>
                                 </div>
                                 ${isLoading
-                                    ? `<button class="btn btn-danger btn-sm mobile-action-btn" onclick="stopModel(decodeURIComponent('${modelId}'))">取消加载</button>`
-                                    : `<button class="btn btn-secondary btn-sm mobile-action-btn" onclick="openModelActionsModal(decodeURIComponent('${modelId}'))">操作</button>`
+                                    ? `<button class="btn btn-danger btn-sm mobile-action-btn" onclick="stopModel(decodeURIComponent('${modelId}'), '${nodeId}')">取消加载</button>`
+                                    : `<button class="btn btn-secondary btn-sm mobile-action-btn" onclick="openModelActionsModal(decodeURIComponent('${modelId}'), '${nodeId}')">操作</button>`
                                 }
                             </div>
                             <div class="model-meta model-mobile-meta">
@@ -1264,8 +1268,8 @@
             if (input) filterModels(input.value);
         }
 
-        function openModelActionsModal(modelId) {
-            const model = (currentModelsData || []).find(m => m && m.id === modelId);
+        function openModelActionsModal(modelId, nodeId) {
+            const model = (currentModelsData || []).find(m => m && m.id === modelId && (m.nodeId || 'local') === (nodeId || 'local'));
             if (!model) {
                 showToast('错误', '未找到模型信息', 'error');
                 return;
@@ -1293,12 +1297,12 @@
                 const canLoad = !model.isLoaded && !model.isLoading;
                 const canStop = model.isLoaded && model.status === 'running';
                 const actionList = [
-                    { label: isFavourite ? '取消喜好' : '标记喜好', className: 'btn-secondary', enabled: true, action: () => toggleFavouriteModel(null, model.id) },
-                    { label: '加载模型', className: 'btn-primary', enabled: canLoad, action: () => loadModel(model.id, model.name) },
+                    { label: isFavourite ? '取消喜好' : '标记喜好', className: 'btn-secondary', enabled: true, action: () => toggleFavouriteModel(null, model.id, model.nodeId) },
+                    { label: '加载模型', className: 'btn-primary', enabled: canLoad, action: () => loadModel(model.id, model.name, '', model.nodeId) },
                     { label: '性能测试', className: 'btn-secondary', enabled: true, action: () => openModelBenchmarkDialog(decodeURIComponent(modelIdEsc), decodeURIComponent(displayNameEsc)) },
                     { label: '测试结果', className: 'btn-secondary', enabled: true, action: () => openModelBenchmarkList(decodeURIComponent(modelIdEsc), decodeURIComponent(displayNameEsc)) },
-                    { label: '模型详情', className: 'btn-secondary', enabled: true, action: () => viewModelDetails(model.id) },
-                    { label: '停止模型', className: 'btn-danger', enabled: canStop, action: () => stopModel(model.id) }
+                    { label: '模型详情', className: 'btn-secondary', enabled: true, action: () => viewModelDetails(model.id, model.nodeId) },
+                    { label: '停止模型', className: 'btn-danger', enabled: canStop, action: () => stopModel(model.id, model.nodeId) }
                 ];
                 buttons.innerHTML = actionList.map((item, idx) => {
                     const disabled = item.enabled ? '' : 'disabled';
@@ -1319,12 +1323,13 @@
             if (modal) modal.classList.add('show');
         }
 
-        function showModelLoadingState(modelId) {
-            let loadingToast = document.getElementById('loading-toast-' + modelId);
+        function showModelLoadingState(modelId, nodeId) {
+            const key = modelId + '::' + (nodeId || 'local');
+            let loadingToast = document.getElementById('loading-toast-' + key);
             if (!loadingToast) {
                 const toastContainer = document.getElementById('toastContainer');
                 const toastHtml = `
-                    <div class="toast info" id="loading-toast-${modelId}">
+                    <div class="toast info" id="loading-toast-${key}">
                         <div class="toast-icon"><i class="fas fa-spinner fa-spin"></i></div>
                         <div class="toast-content"><div class="toast-title">加载中</div><div class="toast-message">正在加载...</div></div>
                     </div>`;
@@ -1332,21 +1337,24 @@
             }
         }
 
-        function removeModelLoadingState(modelId) {
-            const el = document.getElementById('loading-toast-' + modelId);
+        function removeModelLoadingState(modelId, nodeId) {
+            const key = modelId + '::' + (nodeId || 'local');
+            const el = document.getElementById('loading-toast-' + key);
             if (el) el.remove();
         }
 
-        function stopModel(modelId) {
+        function stopModel(modelId, nodeId) {
+            const body = { modelId };
+            if (nodeId && nodeId !== 'local') body.nodeId = nodeId;
             fetch('/api/models/stop', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ modelId })
+                body: JSON.stringify(body)
             }).then(r => r.json()).then(d => {
                 if (!d.success) {
                     showToast('错误', d.error, 'error');
                     return;
                 }
-                removeModelLoadingState(modelId);
+                removeModelLoadingState(modelId, nodeId);
             });
         }
 

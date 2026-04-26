@@ -1,7 +1,6 @@
 package org.mark.llamacpp.server;
 
 import com.google.gson.JsonObject;
-import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.websocket.RemoteWebSocketClient;
 import org.slf4j.Logger;
@@ -170,6 +169,9 @@ public class NodeManager {
      * 获取启用的节点列表
      */
     public List<LlamaHubNode> listEnabledNodes() {
+        if (!LlamaServer.isMasterNode()) {
+            return new ArrayList<>();
+        }
         List<LlamaHubNode> result = new ArrayList<>();
         for (LlamaHubNode node : nodes.values()) {
             if (node.isEnabled()) {

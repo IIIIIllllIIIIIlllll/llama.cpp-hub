@@ -159,7 +159,12 @@
             <div class="model-list-container">
                 <div class="model-list-header">
                     <h2 data-i18n="page.model.section.all">page.model.section.all</h2>
-                    <div style="margin-left: auto;">
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+                        <select id="modelNodeFilter" class="form-control" style="padding: 4px 8px; width: auto; font-size: 0.875rem;" onchange="sortAndRenderModels()">
+                            <option value="all" data-i18n="page.model.filter.all">page.model.filter.all</option>
+                            <option value="local" data-i18n="page.model.filter.local">page.model.filter.local</option>
+                            <option value="remote" data-i18n="page.model.filter.remote">page.model.filter.remote</option>
+                        </select>
                         <select id="modelSortSelect" class="form-control" style="padding: 4px 8px; width: auto; font-size: 0.875rem;" onchange="sortAndRenderModels()">
                             <option value="name_asc" data-i18n="page.model.sort.name_asc">page.model.sort.name_asc</option>
                             <option value="name_desc" data-i18n="page.model.sort.name_desc">page.model.sort.name_desc</option>
@@ -1721,20 +1726,22 @@
             return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
         }
 
-        function showModelLoadingState(modelId) {
-            let loadingToast = document.getElementById('loading-toast-' + modelId);
+        function showModelLoadingState(modelId, nodeId) {
+            const key = modelId + '::' + (nodeId || 'local');
+            let loadingToast = document.getElementById('loading-toast-' + key);
             if (!loadingToast) {
                 const toastContainer = document.getElementById('toastContainer');
                 const toastHtml = `
-                    <div class="toast info" id="loading-toast-${modelId}">
+                    <div class="toast info" id="loading-toast-${key}">
                         <div class="toast-icon"><i class="fas fa-spinner fa-spin"></i></div>
                         <div class="toast-content"><div class="toast-title">${t('toast.loading.title', '加载中')}</div><div class="toast-message">${t('toast.loading.message', '正在加载...')}</div></div>
                     </div>`;
                 toastContainer.insertAdjacentHTML('beforeend', toastHtml);
             }
         }
-        function removeModelLoadingState(modelId) {
-            const el = document.getElementById('loading-toast-' + modelId);
+        function removeModelLoadingState(modelId, nodeId) {
+            const key = modelId + '::' + (nodeId || 'local');
+            const el = document.getElementById('loading-toast-' + key);
             if (el) el.remove();
         }
 
@@ -1749,7 +1756,7 @@
                     showToast(t('toast.error', '错误'), d.error, 'error');
                     return;
                 }
-                removeModelLoadingState(modelId);
+                removeModelLoadingState(modelId, nodeId);
             });
         }
 

@@ -257,10 +257,12 @@
             padding: 1.25rem 1.5rem;
             border-bottom: 1px solid var(--border-color);
             transition: background-color 0.2s;
+            border-left: 3px solid transparent;
         }
 
         .model-item:last-child { border-bottom: none; }
         .model-item:hover { background-color: #f9fafb; }
+        .model-item-remote { border-left-color: #a78bfa; }
 
         .model-fav-btn {
             width: 36px;

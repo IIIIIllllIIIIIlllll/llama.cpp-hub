@@ -64,20 +64,20 @@ function loadModels() {
                     .then(response => response.json())
                     .then(loadedData => {
                         const loadedModels = loadedData.success ? (loadedData.models || []) : [];
-                        const loadedModelIds = loadedModels.map(m => m.id);
+                        const loadedByKey = {};
+                        loadedModels.forEach(m => {
+                            const key = modelCompositeKey(m.id, m.nodeId);
+                            loadedByKey[key] = m;
+                        });
                         const modelsWithStatus = allModels.map(model => {
-                            const isLoaded = loadedModelIds.includes(model.id);
-                            const loadedModel = loadedModels.find(m => m.id === model.id);
-                            const modelNodeId = model.nodeId || (loadedModel ? loadedModel.nodeId : null);
-                            const modelNodeName = model.nodeName || (loadedModel ? loadedModel.nodeName : null);
+                            const key = modelCompositeKey(model.id, model.nodeId);
+                            const loadedModel = loadedByKey[key];
                             return {
                                 ...model,
                                 isLoading: !!model.isLoading,
-                                isLoaded: isLoaded,
-                                status: isLoaded ? (loadedModel ? loadedModel.status : 'loaded') : 'stopped',
-                                port: isLoaded && loadedModel ? loadedModel.port : null,
-                                nodeId: modelNodeId,
-                                nodeName: modelNodeName
+                                isLoaded: !!loadedModel,
+                                status: loadedModel ? (loadedModel.status || 'loaded') : 'stopped',
+                                port: loadedModel ? loadedModel.port : null
                             };
                         });
                         currentModelsData = modelsWithStatus;
@@ -221,6 +221,10 @@ function hydrateModelIcons(container) {
 
 let currentModelsData = [];
 
+function modelCompositeKey(id, nodeId) {
+    return id + '::' + (nodeId || 'local');
+}
+
 function getParamsCount(name) {
     if (!name) return 0;
     name = name.toUpperCase();
@@ -243,8 +247,16 @@ function sortAndRenderModels() {
     const sortType = document.getElementById('modelSortSelect').value;
     if (!currentModelsData) return;
 
+    const nodeFilter = document.getElementById('modelNodeFilter').value;
+    let filtered = currentModelsData;
+    if (nodeFilter === 'local') {
+        filtered = currentModelsData.filter(m => m && (!m.nodeId || m.nodeId === 'local'));
+    } else if (nodeFilter === 'remote') {
+        filtered = currentModelsData.filter(m => m && m.nodeId && m.nodeId !== 'local');
+    }
+
     const comparator = getModelSortComparator(sortType);
-    const all = [...currentModelsData];
+    const all = [...filtered];
 
     const favourites = [];
     const nonFavourites = [];
@@ -283,12 +295,26 @@ function getModelSortComparator(sortType) {
 function renderModelsList(models) {
     const modelsList = document.getElementById('modelsList');
     if (!models || models.length === 0) {
+        const nodeFilter = document.getElementById('modelNodeFilter').value;
+        let emptyTitle, emptyText, emptyBtn = '';
+        if (nodeFilter === 'remote') {
+            emptyTitle = t('page.model.empty_remote_title', '没有远程模型');
+            emptyText = t('page.model.empty_remote_desc', '当前没有配置远程节点');
+        } else if (nodeFilter === 'local') {
+            emptyTitle = t('page.model.empty_title', '没有模型');
+            emptyText = t('page.model.empty_local_desc', '本机没有发现模型');
+            emptyBtn = `<button class="btn btn-primary" onclick="showModelPathSetting()">${t('page.model.empty_action', '去配置')}</button>`;
+        } else {
+            emptyTitle = t('page.model.empty_title', '没有模型');
+            emptyText = t('page.model.empty_desc', '请先在"模型路径配置"中添加模型目录');
+            emptyBtn = `<button class="btn btn-primary" onclick="showModelPathSetting()">${t('page.model.empty_action', '去配置')}</button>`;
+        }
         modelsList.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon"><i class="fas fa-box-open"></i></div>
-                        <div class="empty-state-title">${t('page.model.empty_title', '没有模型')}</div>
-                        <div class="empty-state-text">${t('page.model.empty_desc', '请先在“模型路径配置”中添加模型目录')}</div>
-                        <button class="btn btn-primary" onclick="showModelPathSetting()">${t('page.model.empty_action', '去配置')}</button>
+                        <div class="empty-state-title">${emptyTitle}</div>
+                        <div class="empty-state-text">${emptyText}</div>
+                        ${emptyBtn}
                     </div>
                 `;
         return;
@@ -352,9 +378,10 @@ function renderModelsList(models) {
                     `;
         }
 
+        const isRemote = nodeId && nodeId !== 'local';
         html += `
-                    <div class="model-item">
-                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${isFavourite ? t('page.model.fav.remove', '取消喜好') : t('page.model.fav.add', '标记喜好')}">
+                    <div class="model-item ${isRemote ? 'model-item-remote' : ''}">
+                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${isFavourite ? t('page.model.fav.remove', '取消喜好') : t('page.model.fav.add', '标记喜好')}">
                             <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
                         </button>
                         <div class="model-icon-wrapper">
@@ -373,7 +400,7 @@ function renderModelsList(models) {
                                 <span><i class="fas fa-hdd"></i> ${formatFileSize(model.size)}</span>
                                 ${model.port ? `<span><i class="fas fa-network-wired"></i> ${model.port}</span>` : ''}
                             </div>
-						<span class="model-slots" id="slots-${encodeURIComponent(model.id)}" style="visibility:${Array.isArray(model.slots) && model.slots.length > 0 ? 'visible' : 'hidden'};">${renderSlotsSquaresInner(model.slots)}</span>
+							<span class="model-slots" id="slots-${encodeURIComponent(modelCompositeKey(model.id, model.nodeId))}" style="visibility:${Array.isArray(model.slots) && model.slots.length > 0 ? 'visible' : 'hidden'};">${renderSlotsSquaresInner(model.slots)}</span>
                         </div>
                         <div class="model-status-badge ${statusClass}">
                             <i class="fas ${statusIcon}"></i> <span>${statusText}</span>
@@ -407,28 +434,29 @@ function renderSlotsSquaresInner(slots) {
     }
 }
 
-function updateModelSlotsDom(modelId, slots) {
+function updateModelSlotsDom(modelId, slots, nodeId) {
     try {
-        const el = document.getElementById(`slots-${encodeURIComponent(modelId)}`);
+        const key = modelCompositeKey(modelId, nodeId);
+        const el = document.getElementById(`slots-${encodeURIComponent(key)}`);
         if (!el) return;
         const hasSlots = Array.isArray(slots) && slots.length > 0;
         el.style.visibility = hasSlots ? 'visible' : 'hidden';
         el.innerHTML = renderSlotsSquaresInner(slots);
     } catch (e) {}
 }
-function toggleFavouriteModel(event, modelId) {
+function toggleFavouriteModel(event, modelId, nodeId) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
     }
-    const idx = (currentModelsData || []).findIndex(m => m && m.id === modelId);
+    const idx = (currentModelsData || []).findIndex(m => m && m.id === modelId && (m.nodeId || 'local') === (nodeId || 'local'));
     if (idx < 0) return;
 
     const prev = !!currentModelsData[idx].favourite;
     currentModelsData[idx].favourite = !prev;
     sortAndRenderModels();
 
-    const nodeId = currentModelsData[idx].nodeId || '';
+    nodeId = nodeId || currentModelsData[idx].nodeId || '';
     const payload = { modelId };
     if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/models/favourite', {
@@ -442,14 +470,14 @@ function toggleFavouriteModel(event, modelId) {
                 throw new Error((res && res.error) ? res.error : t('page.model.fav.set_failed', '设置喜好失败'));
             }
             const favourite = !!(res.data && res.data.favourite);
-            const i = (currentModelsData || []).findIndex(m => m && m.id === modelId);
+            const i = (currentModelsData || []).findIndex(m => m && m.id === modelId && (m.nodeId || 'local') === (nodeId || 'local'));
             if (i >= 0) {
                 currentModelsData[i].favourite = favourite;
                 sortAndRenderModels();
             }
         })
         .catch(err => {
-            const i = (currentModelsData || []).findIndex(m => m && m.id === modelId);
+            const i = (currentModelsData || []).findIndex(m => m && m.id === modelId && (m.nodeId || 'local') === (nodeId || 'local'));
             if (i >= 0) {
                 currentModelsData[i].favourite = prev;
                 sortAndRenderModels();
