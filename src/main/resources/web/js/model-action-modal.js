@@ -391,21 +391,18 @@ function applyCmdToDynamicFields(modal, cmd) {
         const values = getParamOptionValues(p);
         if (!values.length) continue;
         const defaultValue = p.defaultValue === null || p.defaultValue === undefined ? values[0] : String(p.defaultValue).trim();
-        const candidates = values.filter(v => v !== defaultValue);
 
         let picked = defaultValue;
         let hasExplicitValue = false;
-        if (candidates.length) {
-            for (let ti = 0; ti < tokens.length; ti++) {
-                if (consumed[ti]) continue;
-                const t = tokens[ti] === null || tokens[ti] === undefined ? '' : String(tokens[ti]).trim();
-                if (!t) continue;
-                if (candidates.includes(t)) {
-                    picked = t;
-                    consumed[ti] = true;
-                    hasExplicitValue = true;
-                    break;
-                }
+        for (let ti = 0; ti < tokens.length; ti++) {
+            if (consumed[ti]) continue;
+            const t = tokens[ti] === null || tokens[ti] === undefined ? '' : String(tokens[ti]).trim();
+            if (!t) continue;
+            if (values.includes(t)) {
+                picked = t;
+                consumed[ti] = true;
+                hasExplicitValue = true;
+                break;
             }
         }
 
@@ -1076,17 +1073,16 @@ function buildLoadModelPayload(modal) {
             const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
             if (!el || !('value' in el)) continue;
             const selected = String(el.value || '').trim();
-            const defaultTrimmed = String(defaultValue || '').trim();
             if (!selected) continue;
-            if (defaultTrimmed && selected === defaultTrimmed) continue;
             if (values.some(v => String(v).trim() === selected)) {
                 cmdParts.push(quoteArgIfNeeded(selected));
             }
             continue;
         }
 
-        if (!fullNameTrimmed) continue;
-        const fieldName = fieldNameFromFullName(fullNameTrimmed);
+        if (!fullNameTrimmed && !abbrTrimmed) continue;
+        const effectiveName = fullNameTrimmed || abbrTrimmed;
+        const fieldName = fieldNameFromFullName(effectiveName);
         if (!fieldName) continue;
         if (!isLoadModelParamEnabled(modal, fieldName)) continue;
 
@@ -1096,14 +1092,14 @@ function buildLoadModelPayload(modal) {
 
         if (typeUpper === 'LOGIC') {
             if (isTruthyLogicValue(rawValue)) {
-                cmdParts.push(fullNameTrimmed);
+                cmdParts.push(effectiveName);
             }
             continue;
         }
 
         const trimmed = rawValue.trim();
         if (!trimmed) continue;
-        cmdParts.push(fullNameTrimmed, quoteArgIfNeeded(trimmed));
+        cmdParts.push(effectiveName, quoteArgIfNeeded(trimmed));
     }
 
     const extraParams = getFieldString(modal, ['extraParams']).trim();

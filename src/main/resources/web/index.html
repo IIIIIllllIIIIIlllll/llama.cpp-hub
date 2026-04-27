@@ -1621,7 +1621,7 @@
             const fieldId = 'param_' + fieldName;
             const enableId = 'param_enable_' + fieldName;
             // 也改为国际化的格式
-            const displayName = t(param.name, param.fullName);
+            const displayName = t(param.name, param.fullName || param.abbreviation || param.name);
             const description = t(param.description, '');
             const defaultValue = param.defaultValue || '';
             const type = param.type || 'STRING';

@@ -455,8 +455,8 @@
   },
   {
     "name": "param.server.directio.name",
-    "fullName": "-dio",
-    "abbreviation": "-dio",
+    "fullName": "",
+    "abbreviation": "",
     "type": "STRING",
     "defaultValue": "-dio",
     "description": "param.server.directio.desc",
