@@ -3215,7 +3215,7 @@
       article.appendChild(head);
       article.appendChild(bubble);
 
-      if (!isEditing && (message.content || message.reasoning || getMessageImages(message).length || getMessageTextFiles(message).length || getMessageAudioFiles(message).length || getAssistantPerformanceText(message) || hasAssistantToolCalls(message))) {
+      if (!isEditing && (message.content || message.reasoning || getMessageImages(message).length || getMessageTextFiles(message).length || getMessageAudioFiles(message).length || getAssistantPerformanceText(message) || hasAssistantToolCalls(message) || message.role === 'assistant')) {
         const actions = document.createElement('div');
         actions.className = 'message-actions';
 
@@ -3456,7 +3456,7 @@
         existingToolResult.remove();
       }
 
-      const shouldShowActions = !!(message.content || message.reasoning || getAssistantPerformanceText(message) || hasAssistantToolCalls(message) || hasToolResultContent(message));
+      const shouldShowActions = message.role === 'assistant' || !!(message.content || message.reasoning || getAssistantPerformanceText(message) || hasAssistantToolCalls(message) || hasToolResultContent(message));
       let actions = article.querySelector('.message-actions');
       if (!actions && shouldShowActions) {
         return false;
@@ -4197,14 +4197,15 @@
           updateStatus('ready', '回复生成完成', '已完成');
           break;
         }
-       } catch (error) {
-        removeTypingIndicator();
-        if (error.name === 'AbortError') {
-          if (Number.isInteger(currentAssistantIndex)) {
-            setAssistantResponseStreaming(currentAssistantIndex, false);
-          }
-          updateStatus('error', '生成已停止', '已停止');
-        } else {
+        } catch (error) {
+          removeTypingIndicator();
+          if (error.name === 'AbortError') {
+            if (Number.isInteger(currentAssistantIndex)) {
+              updateLastAssistantMessage('生成已停止', '', requestModel, null, currentAssistantIndex);
+              setAssistantResponseStreaming(currentAssistantIndex, false);
+            }
+            updateStatus('error', '生成已停止', '已停止');
+          } else {
           if (Number.isInteger(currentAssistantIndex)) {
             updateLastAssistantMessage('请求失败：' + (error.message || '未知错误'), '', requestModel, null, currentAssistantIndex);
             setAssistantResponseStreaming(currentAssistantIndex, false);
