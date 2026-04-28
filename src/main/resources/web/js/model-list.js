@@ -93,6 +93,7 @@ function loadModels() {
                         });
                         currentModelsData = modelsWithStatus;
                         sortAndRenderModels();
+                        populateNodeFilter();
                         if (loadedData.success) {
                             const loadedCount = (loadedData.models || []).length;
                             const el = document.getElementById('loadedModelsCount');
@@ -254,6 +255,36 @@ function getParamsCount(name) {
     return 0;
 }
 
+function populateNodeFilter() {
+    var sel = document.getElementById('modelNodeFilter');
+    if (!sel) return;
+    var nodes = {};
+    if (Array.isArray(currentModelsData)) {
+        currentModelsData.forEach(function (m) {
+            if (m && m.nodeId && m.nodeId !== 'local') {
+                if (!nodes[m.nodeId]) {
+                    nodes[m.nodeId] = m.nodeName || m.nodeId;
+                }
+            }
+        });
+    }
+    var current = sel.value;
+    while (sel.options.length > 2) sel.remove(2);
+    var keys = Object.keys(nodes);
+    keys.sort();
+    for (var i = 0; i < keys.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = keys[i];
+        opt.textContent = nodes[keys[i]];
+        sel.appendChild(opt);
+    }
+    if (current === 'all' || current === 'local' || nodes[current]) {
+        sel.value = current;
+    } else {
+        sel.value = 'all';
+    }
+}
+
 function sortAndRenderModels() {
     const sortType = document.getElementById('modelSortSelect').value;
     if (!currentModelsData) return;
@@ -262,8 +293,8 @@ function sortAndRenderModels() {
     let filtered = currentModelsData;
     if (nodeFilter === 'local') {
         filtered = currentModelsData.filter(m => m && (!m.nodeId || m.nodeId === 'local'));
-    } else if (nodeFilter === 'remote') {
-        filtered = currentModelsData.filter(m => m && m.nodeId && m.nodeId !== 'local');
+    } else if (nodeFilter && nodeFilter !== 'all') {
+        filtered = currentModelsData.filter(m => m && m.nodeId === nodeFilter);
     }
 
     const comparator = getModelSortComparator(sortType);
@@ -308,7 +339,16 @@ function renderModelsList(models) {
     if (!models || models.length === 0) {
         const nodeFilter = document.getElementById('modelNodeFilter').value;
         let emptyTitle, emptyText, emptyBtn = '';
-        if (nodeFilter === 'remote') {
+        if (nodeFilter && nodeFilter !== 'all' && nodeFilter !== 'local') {
+            var nodeName = '';
+            var sel = document.getElementById('modelNodeFilter');
+            if (sel) {
+                var opt = sel.querySelector('option[value="' + nodeFilter + '"]');
+                if (opt) nodeName = opt.textContent;
+            }
+            emptyTitle = nodeName ? t('page.model.empty_node_title', '节点 [{name}] 没有模型').replace('{name}', nodeName) : t('page.model.empty_node_title', '节点没有模型');
+            emptyText = t('page.model.empty_node_desc', '该远程节点上没有发现模型');
+        } else if (nodeFilter === 'local') {
             emptyTitle = t('page.model.empty_remote_title', '没有远程模型');
             emptyText = t('page.model.empty_remote_desc', '当前没有配置远程节点');
         } else if (nodeFilter === 'local') {
