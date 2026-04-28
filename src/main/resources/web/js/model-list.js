@@ -5,6 +5,17 @@
     return fallback == null ? key : fallback;
 }
 
+function getNodeColor(nodeId) {
+    if (!nodeId || nodeId === 'local') return '';
+    var hash = 0;
+    for (var i = 0; i < nodeId.length; i++) {
+        hash = ((hash << 5) - hash) + nodeId.charCodeAt(i);
+        hash |= 0;
+    }
+    var hue = ((Math.abs(hash) * 137.508) % 360).toFixed(1);
+    return hue;
+}
+
 function formatBuildCreatedTime(createdTime) {
     if (!createdTime) return '';
     const date = new Date(createdTime);
@@ -347,7 +358,10 @@ function renderModelsList(models) {
         const isFavourite = !!model.favourite;
         const nodeId = model.nodeId || '';
         const nodeName = model.nodeName || '';
-        const nodeBadge = nodeId && nodeId !== 'local' ? `<span class="node-badge" title="${nodeName || nodeId}"><i class="fas fa-server"></i> ${nodeName || nodeId}</span>` : '';
+        const nodeColor = getNodeColor(nodeId);
+        const nodeBadge = nodeId && nodeId !== 'local'
+            ? '<span class="node-badge" style="color:hsl(' + nodeColor + ',65%,70%);background-color:hsl(' + nodeColor + ',50%,12%);" title="' + (nodeName || nodeId) + '"><i class="fas fa-server"></i> ' + (nodeName || nodeId) + '</span>'
+            : '';
 
         let actionButtons = '';
         if (isLoading) {
@@ -379,8 +393,9 @@ function renderModelsList(models) {
         }
 
         const isRemote = nodeId && nodeId !== 'local';
+        const borderStyle = isRemote ? ' style="border-left-color:hsl(' + nodeColor + ',65%,50%);"' : '';
         html += `
-                    <div class="model-item ${isRemote ? 'model-item-remote' : ''}">
+                    <div class="model-item"${borderStyle}>
                         <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${isFavourite ? t('page.model.fav.remove', '取消喜好') : t('page.model.fav.add', '标记喜好')}">
                             <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
                         </button>

@@ -26,7 +26,6 @@
         }
         .model-list-container { border-radius: 0.75rem; }
         .model-item { padding: 0.9rem 1rem; align-items: flex-start; flex-wrap: nowrap; gap: 0.5rem; border-left: 3px solid transparent; }
-        .model-item-remote { border-left-color: #a78bfa; }
         .model-fav-btn { width: 100%; height: 24px; margin-right: 0; border-radius: 7px; font-size: 0.95rem; }
         .model-icon-wrapper { margin-right: 0.25rem; }
         .model-details { min-width: 0; margin-right: 0; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -1187,6 +1186,16 @@
             });
         }
 
+        function getNodeColor(nodeId) {
+            if (!nodeId || nodeId === 'local') return '';
+            var hash = 0;
+            for (var i = 0; i < nodeId.length; i++) {
+                hash = ((hash << 5) - hash) + nodeId.charCodeAt(i);
+                hash |= 0;
+            }
+            return ((Math.abs(hash) * 137.508) % 360).toFixed(1);
+        }
+
         function renderModelsList(models) {
             const modelsList = document.getElementById('modelsList');
             if (!models || models.length === 0) {
@@ -1229,10 +1238,14 @@
                 const modelId = encodeURIComponent(model.id);
                 const nodeId = model.nodeId || 'local';
                 const nodeName = model.nodeName || '';
-                const nodeBadge = nodeId && nodeId !== 'local' ? `<span class="node-badge" title="${nodeName || nodeId}"><i class="fas fa-server"></i> ${nodeName || nodeId}</span>` : '';
+                const nodeColor = getNodeColor(nodeId);
+                const nodeBadge = nodeId && nodeId !== 'local'
+                    ? '<span class="node-badge" style="color:hsl(' + nodeColor + ',65%,70%);background-color:hsl(' + nodeColor + ',50%,12%);" title="' + (nodeName || nodeId) + '"><i class="fas fa-server"></i> ' + (nodeName || nodeId) + '</span>'
+                    : '';
 
+                var borderStyle = nodeId !== 'local' ? ' style="border-left-color:hsl(' + nodeColor + ',65%,50%);"' : '';
                 html += `
-                    <div class="model-item${nodeId !== 'local' ? ' model-item-remote' : ''}">
+                    <div class="model-item"${borderStyle}>
                 		<div>
 	                        <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId}')" title="${isFavourite ? '取消喜好' : '标记喜好'}">
 	                            <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>

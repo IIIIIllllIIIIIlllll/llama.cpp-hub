@@ -262,7 +262,6 @@
 
         .model-item:last-child { border-bottom: none; }
         .model-item:hover { background-color: #f9fafb; }
-        .model-item-remote { border-left-color: #a78bfa; }
 
         .model-fav-btn {
             width: 36px;
