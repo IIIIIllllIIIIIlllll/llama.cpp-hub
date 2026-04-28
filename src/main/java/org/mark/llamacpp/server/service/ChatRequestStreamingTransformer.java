@@ -50,6 +50,7 @@ public class ChatRequestStreamingTransformer {
 		JsonObject bufferedFields = new JsonObject();
 		int totalBufferedBytes = 0;
 		String modelName = null;
+		String nodeId = null;
 		boolean isStream = false;
 		boolean modelResolved = false;
 
@@ -137,6 +138,8 @@ public class ChatRequestStreamingTransformer {
 				if (streamValue != null) {
 					isStream = streamValue.booleanValue();
 				}
+			} else if ("nodeId".equals(fieldName) && element != null && element.isJsonPrimitive()) {
+				nodeId = element.getAsString();
 			}
 		}
 		// 注入请求体中的思维链开关
@@ -160,6 +163,7 @@ public class ChatRequestStreamingTransformer {
 			isStream = streamValue.booleanValue();
 		}
 
+		bufferedFields.remove("nodeId");
 		for (Map.Entry<String, JsonElement> entry : bufferedFields.entrySet()) {
 			if (!firstOutputField) {
 				output.write(',');
@@ -169,7 +173,7 @@ public class ChatRequestStreamingTransformer {
 		}
 		output.write('}');
 		output.flush();
-		return new TransformResult(modelName, isStream);
+		return new TransformResult(modelName, isStream, nodeId);
 	}
 	
 	private static final byte[] MESSAGES_FIELD_PREFIX = "\"messages\":".getBytes(StandardCharsets.UTF_8);
@@ -449,10 +453,16 @@ public class ChatRequestStreamingTransformer {
 
 		private final String modelName;
 		private final boolean stream;
+		private final String nodeId;
 
 		public TransformResult(String modelName, boolean stream) {
+			this(modelName, stream, null);
+		}
+
+		public TransformResult(String modelName, boolean stream, String nodeId) {
 			this.modelName = modelName;
 			this.stream = stream;
+			this.nodeId = nodeId;
 		}
 
 		public String getModelName() {
@@ -461,6 +471,10 @@ public class ChatRequestStreamingTransformer {
 
 		public boolean isStream() {
 			return this.stream;
+		}
+
+		public String getNodeId() {
+			return this.nodeId;
 		}
 	}
 	

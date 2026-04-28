@@ -148,14 +148,14 @@ public class ChatStreamSession {
 			ChatRequestStreamingTransformer.TransformResult result = this.transformer.transform(
 					this.requestBodyStream,
 					this.deferredOutput,
-					this::openConnectionForModel);
+					modelName -> openConnectionForModel(modelName, null));
 
 			if (!this.receivedBody) {
 				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 400, null, "Request body is empty", "messages");
 				return;
 			}
 
-			this.openConnectionForModel(result.getModelName());
+			this.openConnectionForModel(result.getModelName(), result.getNodeId());
 			this.deferredOutput.close();
 			if (this.connection == null) {
 				throw new IOException("llama.cpp connection was not created");
@@ -199,7 +199,7 @@ public class ChatStreamSession {
 	 * @param modelName
 	 * @throws IOException
 	 */
-	private synchronized void openConnectionForModel(String modelName) throws IOException {
+	private synchronized void openConnectionForModel(String modelName, String nodeIdFromBody) throws IOException {
 		if (this.connection != null) {
 			return;
 		}
@@ -211,15 +211,11 @@ public class ChatStreamSession {
 
 		String targetUrl;
 
-		if (modelName.contains(":")) {
-			logger.info("[Node路由] 检测到 nodeId 前缀，尝试解析远程节点");
-			String[] parts = modelName.split(":", 2);
-			String nodeId = parts[0];
-			String actualModelName = parts[1];
-			logger.info("[Node路由] nodeId={}, actualModelName={}", nodeId, actualModelName);
-			targetUrl = this.resolveRemoteModelUrl(nodeId, actualModelName);
+		if (nodeIdFromBody != null && !nodeIdFromBody.isBlank()) {
+			logger.info("[Node路由] 请求体指定 nodeId，直接路由远程节点: nodeId={}, model={}", nodeIdFromBody, modelName);
+			targetUrl = this.resolveRemoteModelUrl(nodeIdFromBody, modelName);
 		} else {
-			logger.info("[Node路由] 无 nodeId 前缀，先查本地模型");
+			logger.info("[Node路由] 无 nodeId，先查本地模型");
 			targetUrl = this.resolveLocalModelUrl(modelName);
 			if (targetUrl == null) {
 				logger.info("[Node路由] 本地未找到模型，开始搜索远程节点: model={}", modelName);
@@ -304,7 +300,7 @@ public class ChatStreamSession {
 	}
 
 	/**
-	 * 解析远程节点模型 URL（带 nodeId 前缀时调用）
+	 * 解析远程节点模型 URL
 	 */
 	private String resolveRemoteModelUrl(String nodeId, String modelName) {
 		NodeManager nodeManager = NodeManager.getInstance();

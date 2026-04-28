@@ -445,6 +445,7 @@
     };
 
     let modelCapabilitiesMap = {};
+    let modelNodeIdMap = {};
 
     function isAudioSupported() {
       const modelName = typeof state.model === 'string' ? state.model : '';
@@ -4478,6 +4479,10 @@
         stream: !!assistant?.stream,
         enable_thinking: !!assistant?.enableThinking
       };
+      const nd = state.model ? modelNodeIdMap[state.model] : '';
+      if (nd) {
+        payload.nodeId = nd;
+      }
       if (enabledTools.length && mcpModule) {
         payload.tools = enabledTools.map(tool => mcpModule.toModelTool(tool));
       }
@@ -4665,6 +4670,7 @@
         const json = await fetchJson(MODELS_ENDPOINT, { headers: getHeaders() });
         const models = Array.isArray(json?.data) ? json.data : [];
         modelCapabilitiesMap = {};
+        modelNodeIdMap = {};
         els.modelSelect.innerHTML = '';
         if (!models.length) {
           const option = document.createElement('option');
@@ -4680,8 +4686,12 @@
             }
             const option = document.createElement('option');
             option.value = id;
-            option.textContent = id;
+            const nodeId = typeof item?.nodeId === 'string' && item.nodeId !== 'local' ? item.nodeId : '';
+            option.textContent = nodeId ? '[' + nodeId + '] ' + id : id;
             els.modelSelect.appendChild(option);
+            if (nodeId) {
+              modelNodeIdMap[id] = nodeId;
+            }
             const caps = item?.my_capabilities;
             if (caps && typeof caps === 'object') {
               modelCapabilitiesMap[id] = caps;

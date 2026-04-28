@@ -308,14 +308,11 @@ public class OpenAIService {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 
 			String body = JsonUtil.toJson(requestJson);
-
-			if (modelName.contains(":")) {
-				String[] parts = modelName.split(":", 2);
-				String nodeId = parts[0];
-				String actualModelName = parts[1];
-				requestJson.addProperty("model", actualModelName);
+			String bodyNodeId = JsonUtil.getJsonString(requestJson, "nodeId", "");
+			if (bodyNodeId != null && !bodyNodeId.isBlank()) {
+				requestJson.remove("nodeId");
 				body = JsonUtil.toJson(requestJson);
-				NodeProxyService.getInstance().proxyStreamRequest(ctx, request, nodeId, "v1/chat/completions", requestJson);
+				NodeProxyService.getInstance().proxyStreamRequest(ctx, request, bodyNodeId, "v1/chat/completions", requestJson);
 			} else if (manager.getLoadedProcesses().containsKey(modelName)) {
 				Integer modelPort = manager.getModelPort(modelName);
 				if (modelPort == null) {
