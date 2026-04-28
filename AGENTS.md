@@ -867,6 +867,73 @@ MCP 客户端注册的外部工具服务器。
 | `js/model-path-setting-mobile.js` | 246 | 移动端模型路径管理 |
 | `js/model-llamacpp-setting.js` | 335 | llama.cpp 路径设置渲染（桌面） |
 
+### 动态参数表单系统（`server-params.json` + `model-action-modal.js`）
+
+#### `server-params.json` 参数结构
+每个参数是一个 JSON 对象，字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `name` | string | i18n 翻译 key，用于 `t(param.name, param.fullName\|abbr\|name)` 取显示名 |
+| `fullName` | string | 长格式 CLI flag，如 `--ctx-size`。为空时参数字段将使用缩写或回退到 `unnamed_` 方案 |
+| `abbreviation` | string | 短格式或别名，如 `-c`。为空不影响参数工作 |
+| `type` | enum | `STRING` / `INTEGER` / `FLOAT` / `LOGIC` / `BOOLEAN`。决定表单控件类型和命令行序列化逻辑 |
+| `defaultValue` | string | 默认值，用于初始状态和配置回读 |
+| `values` | array | 可选项列表。元素可以是简单字符串或 `{value, label}` 对象 |
+| `uiType` | string | 特殊控件标记：`ordered-multiselect`（排序多选控件） |
+| `delimiter` | string | `ordered-multiselect` 的分隔符，默认 `;` |
+| `defaultEnabled` | bool | 是否默认启用该参数（勾选框默认勾选） |
+| `sort` | number | 排序权重，越小越靠前 |
+| `group` | string | i18n 分组名，如 `page.params.group.basic` |
+| `groupOrder` | number | 分组排序权重 |
+| `groupCollapsed` | bool | 分组默认是否折叠 |
+
+#### 纯值/裸标记参数模式（如 `param.server.directio`）
+某些参数没有 flag 名，其值本身就是 CLI flag（`-dio` / `-ndio`）。这种参数的 `fullName` 和 `abbreviation` 均为空字符串，`type` 为 `STRING`，`values` 为可选 flag 列表，`defaultValue` 为默认 flag。
+
+处理上与其他参数不同：
+- **构建命令行：** `buildLoadModelPayload()` 中走 `type==='STRING' && !fullName && !abbr` 分支，直接将 `values` 中的选中值（如 `-ndio`）作为裸 token 追加到 `cmd`，不加 flag 前缀
+- **解析命令行：** `applyCmdToDynamicFields()` 第三阶段通过 `buildAllowedBareTokenSetFromParamConfig()` 将此类参数的值注册到 `allowedBareTokens` 集合；`sanitizeExtraParamTokens()` 据此放行这些裸 token，防止被过滤
+- **启用/禁用：** 当 cmd 中包含对应值时勾选框自动启用；为空时按照 `defaultEnabled` 决定初始状态
+
+#### 参数管道：表单 ↔ 命令行字符串
+```
+renderDynamicParams()          ← 从 /api/models/param/server/list 获取 paramConfig
+  → renderParamGroup()
+    → renderParamField()       ← 生成 HTML：勾选框 + 控件（select/number/ordered-multiselect 等）
+    → initOrderedMultiSelects()
+
+applyCmdToDynamicFields()      ← 将已有的 cmd 字符串回填到表单
+  第一遍 (342-381): 按 optionLookup 匹配已知 flag，设置值和启用状态
+  第二遍 (383-417): 处理 bare token 类型参数（directio 模式），匹配 values 列表
+  第三遍 (419-428): 未设置的 LOGIC 参数初始化为 "0"
+
+buildLoadModelPayload()        ← 将表单状态序列化为 cmd 字符串
+  STRING+空fullName+空abbr:    直接输出选中值作为裸 token
+  其他 STRING/INTEGER/FLOAT:   输出 "fullName 值"
+  LOGIC:                      如果值为真则输出 "fullName"
+  ordered-multiselect:        输出 "fullName 分号连接值"
+  extraParams:                原样透传
+```
+
+#### 关键辅助函数
+| 函数 | 位置 | 作用 |
+|------|------|------|
+| `fieldNameFromParamConfig(p)` | `model-action-modal.js:133` | 从 fullName → abbreviation → name 逐步 fallback，生成字段名（如 `mlock`、`unnamed_param_server_directio_name_25`） |
+| `fieldNameFromFullName(s)` | `model-action-modal.js:122` | 去除 `--`/`-` 前缀，如 `--ctx-size` → `ctx_size` |
+| `buildOptionLookupFromParamConfig()` | `model-action-modal.js:201` | 将非空 fullName/abbreviation 注册到 lookup map，用于快速判断 token 是否为已知 flag |
+| `buildAllowedBareTokenSetFromParamConfig()` | `model-action-modal.js:235` | 收集 bare token 参数中以 `-` 开头的值，用于 `sanitizeExtraParamTokens()` 放行 |
+| `getParamUiType(p)` | `model-action-modal.js:214` | 获取 uiType（如 `ordered-multiselect`） |
+| `getParamOptionValues(p)` | `model-action-modal.js:219` | 抽取 `values` 数组中的值列表（支持简单值和 `{value,label}` 对象） |
+| `getParamOptionItems(param)` | `index.html:1452` / `index-mobile.html:906` | 渲染端抽取 values，对 `{value,label}` 对象做 i18n 翻译 |
+| `isLoadModelParamEnabled()` | `model-action-modal.js:144` | 检查 `param_enable_{fieldName}` 勾选框是否选中 |
+| `setParamEnabled()` | `model-action-modal.js:288` | 设置 `param_enable_{fieldName}` 勾选框状态 |
+
+#### 关于 `fullName`/`abbreviation` 为空的重要约定
+- 当 `fullName` 为空时，`fieldNameFromParamConfig()` 会尝试 `abbreviation`，再回退到 `unnamed_{sanitizedName}_{sort}` 方案
+- `buildOptionLookupFromParamConfig()` **不会**向 lookup 注册空字符串，所以 bare token 参数不被视为"已知 flag"，需要走 `buildAllowedBareTokenSetFromParamConfig()` 白名单放行
+- `buildLoadModelPayload()` 中 `if (!fullNameTrimmed && !abbrTrimmed) continue;` 确保只有两者都空才跳过（修复前是 `if (!fullNameTrimmed) continue;`）
+
 ### i18n 国际化
 - 语言检测顺序：`?lang=` 查询参数 → `localStorage.getItem('lang')` → `navigator.language`
 - 兜底：`zh-CN`
