@@ -535,20 +535,24 @@ function getSelectedModelConfigName(modal) {
     return String(select.value).trim() || getDefaultConfigName();
 }
 
-function buildConfigSetPayload(modelId, configName, cfg) {
-    return {
+function buildConfigSetPayload(modelId, configName, cfg, nodeId) {
+    const p = {
         modelId: modelId,
         configName: configName,
         setSelected: true,
         config: cfg
     };
+    if (nodeId && nodeId !== 'local') p.nodeId = nodeId;
+    return p;
 }
 
-function buildConfigDeletePayload(modelId, configName) {
-    return {
+function buildConfigDeletePayload(modelId, configName, nodeId) {
+    const p = {
         modelId: modelId,
         configName: configName
     };
+    if (nodeId && nodeId !== 'local') p.nodeId = nodeId;
+    return p;
 }
 
 function setModelConfigControlsDisabled(modal, disabled) {
@@ -623,7 +627,8 @@ function addModelConfigOption() {
     bundle.selectedConfig = name;
     renderModelConfigSelect(modal, bundle);
     onModelConfigSelectionChange();
-    const payload = buildConfigSetPayload(modelId, name, bundle.configs[name]);
+    const nodeId = modal && modal.__nodeId ? modal.__nodeId : '';
+    const payload = buildConfigSetPayload(modelId, name, bundle.configs[name], nodeId);
     setModelConfigControlsDisabled(modal, true);
     fetch('/api/models/config/set', {
         method: 'POST',
@@ -651,7 +656,8 @@ function deleteModelConfigOption() {
     if (!name) return;
     const ok = window.confirm(t('modal.model_action.config.delete_confirm', '确认删除配置「{name}」吗？').replace('{name}', name));
     if (!ok) return;
-    const payload = buildConfigDeletePayload(modelId, name);
+    const nodeId = modal && modal.__nodeId ? modal.__nodeId : '';
+    const payload = buildConfigDeletePayload(modelId, name, nodeId);
     setModelConfigControlsDisabled(modal, true);
     fetch('/api/models/config/delete', {
         method: 'POST',
@@ -1227,10 +1233,13 @@ function submitModelAction() {
             : `<i class="fas fa-spinner fa-spin"></i> ${t('common.processing', '处理中...')}`;
     }
 
+    const saveBody = mode === 'config' ? payload : configPayload;
+    const cfgNodeId = modal && modal.__nodeId ? modal.__nodeId : '';
+    if (cfgNodeId && cfgNodeId !== 'local') saveBody.nodeId = cfgNodeId;
     const saveConfigRequest = () => fetch('/api/models/config/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mode === 'config' ? payload : configPayload)
+        body: JSON.stringify(saveBody)
     }).then(r => r.json());
 
     const doLoadRequest = () => {
@@ -1303,7 +1312,8 @@ function saveModelConfigAction() {
         return;
     }
     const configName = getSelectedModelConfigName(modal);
-    const payload = buildConfigSetPayload(modelIdForUi, configName, buildPersistableLaunchConfig(modal));
+    const cfgNodeId = modal && modal.__nodeId ? modal.__nodeId : '';
+    const payload = buildConfigSetPayload(modelIdForUi, configName, buildPersistableLaunchConfig(modal), cfgNodeId);
 
     const saveBtn = findById(modal, 'modelActionSaveBtn');
     const submitBtn = findById(modal, 'modelActionSubmitBtn');

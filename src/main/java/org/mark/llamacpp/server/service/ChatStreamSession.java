@@ -148,7 +148,7 @@ public class ChatStreamSession {
 			ChatRequestStreamingTransformer.TransformResult result = this.transformer.transform(
 					this.requestBodyStream,
 					this.deferredOutput,
-					modelName -> openConnectionForModel(modelName, null));
+					modelName -> logger.info("聊天流式请求已解析到模型字段，等待完整解析后路由: {}", modelName));
 
 			if (!this.receivedBody) {
 				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 400, null, "Request body is empty", "messages");

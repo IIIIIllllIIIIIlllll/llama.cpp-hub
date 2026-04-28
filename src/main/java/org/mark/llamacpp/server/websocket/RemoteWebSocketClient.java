@@ -3,6 +3,7 @@ package org.mark.llamacpp.server.websocket;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import java.net.http.WebSocket;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -262,11 +264,22 @@ public class RemoteWebSocketClient {
             json.addProperty("nodeId", nodeId);
 
             if ("console".equals(type)) {
-                if (json.has("line") && json.get("line").isJsonPrimitive()) {
-                    String raw = json.get("line").getAsString();
+                String rawLine = null;
+                if (json.has("line64") && json.get("line64").isJsonPrimitive()) {
+                    try {
+                        rawLine = new String(Base64.getDecoder().decode(json.get("line64").getAsString()),
+                                java.nio.charset.StandardCharsets.UTF_8);
+                    } catch (Exception ignore) {}
+                } else if (json.has("line") && json.get("line").isJsonPrimitive()) {
+                    rawLine = json.get("line").getAsString();
                     json.addProperty("line64", java.util.Base64.getEncoder().encodeToString(
-                            raw.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                            rawLine.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
                     json.remove("line");
+                }
+                if (rawLine != null) {
+                    String modelId = json.has("modelId") && !json.get("modelId").isJsonNull()
+                            ? json.get("modelId").getAsString() : null;
+                    LlamaServer.sendConsoleLineEvent(modelId, rawLine);
                 }
             }
 
