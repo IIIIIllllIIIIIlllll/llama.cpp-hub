@@ -636,7 +636,11 @@
         for (const m of models) {
           const opt = document.createElement('option');
           opt.value = m.id;
-          opt.textContent = m.id;
+          const nodeId = typeof m.nodeId === 'string' && m.nodeId !== 'local' ? m.nodeId : '';
+          if (nodeId) {
+            opt.dataset.nodeId = nodeId;
+          }
+          opt.textContent = nodeId ? `[${nodeId}] ${m.id}` : m.id;
           els.modelSelect.appendChild(opt);
         }
         if (current && models.some(m => m.id === current)) {
@@ -668,13 +672,13 @@
       return base + tf('page.chat.concurrency.user.appendix', null, { n: String(requestIndex) });
     }
 
-    function buildRequestBody(endpointKind, model, promptText, params, systemLines) {
+    function buildRequestBody(endpointKind, model, promptText, params, systemLines, nodeId) {
       if (endpointKind === 'chat') {
         const messages = [];
         const systemContent = [systemLines.fixed, systemLines.randomLine].filter(Boolean).join('\n');
         messages.push({ role: 'system', content: systemContent });
         messages.push({ role: 'user', content: promptText });
-        return {
+        const body = {
           model,
           messages,
           max_tokens: params.max_tokens,
@@ -682,8 +686,10 @@
           top_p: params.top_p,
           stream: params.stream
         };
+        if (nodeId) body.nodeId = nodeId;
+        return body;
       }
-      return {
+      const body = {
         model,
         prompt: ('System: ' + systemLines.fixed + '\nSystem: ' + systemLines.randomLine + '\n\n' + promptText),
         max_tokens: params.max_tokens,
@@ -691,6 +697,8 @@
         top_p: params.top_p,
         stream: params.stream
       };
+      if (nodeId) body.nodeId = nodeId;
+      return body;
     }
 
     async function singleRequest(runId, index, cfg) {
@@ -723,7 +731,7 @@
       try {
         const systemLines = buildSystemLines(index);
         const userText = buildUserText(cfg.promptText, index);
-        const body = buildRequestBody(endpointKind, cfg.model, userText, cfg.params, systemLines);
+        const body = buildRequestBody(endpointKind, cfg.model, userText, cfg.params, systemLines, cfg.nodeId);
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -796,6 +804,8 @@
         setHint(t('page.chat.concurrency.hint.select_model_first'));
         return;
       }
+      const opt = els.modelSelect.options[els.modelSelect.selectedIndex];
+      const nodeId = opt ? opt.dataset.nodeId : '';
       const promptText = (els.promptInput.value || '').trim();
       if (!promptText) {
         setHint(t('page.chat.concurrency.hint.enter_content'));
@@ -823,7 +833,7 @@
       const t0 = nowMs();
       const promises = [];
       for (let i = 1; i <= n; i++) {
-        promises.push(singleRequest(runId, i, { endpointKind, model, promptText, params }));
+        promises.push(singleRequest(runId, i, { endpointKind, model, promptText, params, nodeId }));
       }
 
       const settled = await Promise.allSettled(promises);

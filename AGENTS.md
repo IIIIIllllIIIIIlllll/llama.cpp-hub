@@ -239,7 +239,7 @@ SslHandler (可选)
 | 端点 | 方法 | 说明 | 请求参数 |
 |------|------|------|----------|
 | `/v1/models` | GET | 列出已加载模型（含能力标记） | - |
-| `/v1/chat/completions` | POST | 聊天补全（流式/非流式） | 标准 OpenAI 格式 + `model` 支持 `nodeId:modelName` |
+| `/v1/chat/completions` | POST | 聊天补全（流式/非流式） | 标准 OpenAI 格式 + 可选 `nodeId` 字段直达远程节点 |
 | `/v1/completions` | POST | 文本补全 | `{model, prompt, stream, max_tokens, ...}` |
 | `/v1/embeddings` | POST | 文本嵌入 | `{model, input, ...}` |
 | `/v1/responses` | POST | Responses API | `{model, input, ...}` |
@@ -251,11 +251,12 @@ SslHandler (可选)
 **流式聊天流程（`OpenAIChatStreamingHandler` → `ChatStreamSession`）：**
 1. `OpenAIChatStreamingHandler` 在 `HttpObjectAggregator` 之前拦截请求
 2. 创建 `ChatStreamSession`，用 `BoundedQueueInputStream` 接收请求体分片
-3. `ChatRequestStreamingTransformer` **流式解析** JSON，提取 `model` 字段后立即触发后端连接
+3. `ChatRequestStreamingTransformer` **流式解析** JSON，提取 `model` 和 `nodeId` 字段
 4. 三大注入：`applyThinkingInjection()`（thinking 参数）、`applyChatTemplateKwargsInjection()`（模型 kwargs）、`applySamplingInjection()`（采样预设）
-5. 模型名含 `:` 时路由到远程节点（`NodeProxyService`），否则路由到本地子进程
-6. `DeferredConnectionOutputStream` 缓冲输出（先内存最大 1MB → 溢出到临时文件），连接建立后写入
-7. 响应通过 SSE 转发回客户端，支持 `tool_call_id` 修复
+5. `nodeId` 字段在写入输出前被剥离，不转发给子进程；`TransformResult` 携带 `modelName` + `nodeId`
+6. 完整解析后根据 `nodeId` 路由：有 `nodeId` 则直达远程节点（`resolveRemoteModelUrl`），否则查本地 → 查所有远程节点兜底
+7. `DeferredConnectionOutputStream` 缓冲输出（先内存最大 1MB → 溢出到临时文件），连接建立后写入
+8. 响应通过 SSE 转发回客户端，支持 `tool_call_id` 修复
 
 ### Anthropic 兼容 API（`AnthropicRouterHandler` → `AnthropicService`）
 | 端点 | 方法 | 说明 |
@@ -276,7 +277,7 @@ SslHandler (可选)
 | `/api/tags` | GET | 列出所有可用模型 | `OllamaTagsService` |
 | `/api/ps` | GET | 列出已加载模型 | `OllamaTagsService` |
 | `/api/show` | GET/POST | 模型详情（含元数据、张量、能力） | `OllamaShowService` |
-| `/api/chat` | POST | 聊天（含流式+工具调用） | `OllamaChatService` |
+| `/api/chat` | POST | 聊天（含流式+工具调用，支持请求体 `nodeId` 字段直达远程节点） | `OllamaChatService` |
 | `/api/embed` | POST | 文本嵌入 | `OllamaEmbedService` |
 | `/v1/models` | GET | OpenAI 兼容 | `OpenAIService` |
 | `/v1/chat/completions` | POST | OpenAI 兼容 | `OpenAIService` |
@@ -289,6 +290,7 @@ SslHandler (可选)
 - 选项转换：`options.temperature/top_p/top_k/repeat_penalty/frequency_penalty/presence_penalty/seed/num_predict/stop`
 - 流式：ndjson 格式，支持 tool_calls
 - 内置 `thinking` 注入
+- **远程路由：** 同样支持请求体中添加 `nodeId` 字段直达远程节点
 
 ### LM Studio 兼容 API（端口 1234，独立 Netty 服务器）
 | 端点 | 方法 | 说明 |
@@ -322,7 +324,7 @@ SslHandler (可选)
 | `/api/models/load` | POST | 加载模型。Body: `{modelId, cmd, extraParams, enableVision, llamaBinPathSelect, device, mg, nodeId}` |
 | `/api/models/stop` | POST | 停止模型。Body: `{modelId, nodeId}` |
 | `/api/models/favourite` | POST | 切换收藏。Body: `{modelId}` |
-| `/api/models/alias/set` | POST | 设置别名。Body: `{modelId, alias}` |
+| `/api/models/alias/set` | POST | 设置别名。Body: `{modelId, alias, nodeId}` |
 | `/api/models/openai/list` | GET | 获取 OpenAI 格式的模型列表（合并 `models` 和 `data` 数组） |
 | `/api/models/details` | GET | 模型详情。Query: `modelId`、`nodeId` |
 | `/api/models/record` | GET | 模型推理性能记录。Query: `modelId` |
@@ -333,8 +335,8 @@ SslHandler (可选)
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/models/config/get` | GET | 获取启动配置。Query: `modelId`、`nodeId` |
-| `/api/models/config/set` | POST | 保存启动配置。Body: `{modelId, configName, setSelected, config:{...}}` |
-| `/api/models/config/delete` | POST | 删除启动配置。Body: `{modelId, configName}` |
+| `/api/models/config/set` | POST | 保存启动配置。Body: `{modelId, configName, setSelected, config:{...}, nodeId}` |
+| `/api/models/config/delete` | POST | 删除启动配置。Body: `{modelId, configName, nodeId}` |
 
 #### 模型能力
 | 端点 | 方法 | 说明 |
@@ -1026,6 +1028,8 @@ buildLoadModelPayload()        ← 将表单状态序列化为 cmd 字符串
 - `ModelActionController.stopRemoteModel()` 创建新 body 不含 `nodeId`，安全
 - GET 类代理请求无 body，通过 URL path 转发，不存在回环风险
 
+**聊天 API 的远程路由：** 前端在 `/v1/chat/completions` / `/v1/completions` / `/api/chat`（Ollama）请求体中添加 `nodeId` 字段，后端 `ChatStreamSession`（流式）和 `OpenAIService`（非流式）检测到 `nodeId` 后直接调用 `resolveRemoteModelUrl()` 将请求转发到远程节点，不再回退到遍历全部节点的兜底路径。`ChatRequestStreamingTransformer` 会在写入子进程输出前自动剥离 `nodeId` 字段。
+
 ### WebSocket 事件转发（后端中继）
 
 `RemoteWebSocketClient.java` 作为 WebSocket 客户端从后端连接到每个远程节点的 `/ws` 端点，将远程事件中继到本地前端，避免前端直接连接多个远程 WS。
@@ -1045,7 +1049,7 @@ buildLoadModelPayload()        ← 将表单状态序列化为 cmd 字符串
 **中继逻辑（`relayMessage()`）：**
 - 过滤过滤 `heartbeat`/`connect_ack`/`welcome`（远程节点内部消息，不转发）
 - 注入 `nodeId` 字段到所有事件 JSON
-- `console` 事件将远程节点的 `line` 字段统一转为 `line64`（base64）
+- `console` 事件：解码 `line64` 或 `line`，调用 `LlamaServer.sendConsoleLineEvent()` 写入本地 CONSOLE_BUFFER（确保 `/api/sys/console` 快照包含远程日志），然后统一转为 `line64` 格式广播
 - 其余字段原样透传，通过 `WebSocketManager.broadcast()` 广播到本地前端
 
 **生命周期管理：**

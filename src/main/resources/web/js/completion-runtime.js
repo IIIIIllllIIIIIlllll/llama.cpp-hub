@@ -773,6 +773,8 @@ async function executeToolCalls(toolCalls, preparedQuery) {
 }
 
 async function generateIntoMessage(contextMessages, assistantMsgId) {
+  const _selectedOpt = els.modelSelect.options[els.modelSelect.selectedIndex];
+  const _nodeId = _selectedOpt ? _selectedOpt.dataset.nodeId : '';
   const model = els.modelSelect.value || '';
   const params = currentParams();
   state.abortController = new AbortController();
@@ -826,6 +828,7 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
             stream: useStream,
             stop
           };
+          if (_nodeId) b.nodeId = _nodeId;
           if (allowTools) {
             b.tools = allTools;
             b.tool_choice = 'auto';
@@ -833,21 +836,25 @@ async function generateIntoMessage(contextMessages, assistantMsgId) {
           }
           return b;
         })()
-        : {
-          model,
-          prompt: buildPrompt(state.messages),
-          max_tokens: params.max_tokens,
-          temperature: params.temperature,
-          top_p: params.top_p,
-          min_p: params.min_p,
-          repeat_penalty: params.repeat_penalty,
-          top_k: params.top_k,
-          presence_penalty: params.presence_penalty,
-          frequency_penalty: params.frequency_penalty,
-          enable_thinking: !!els.thinkingToggle.checked,
-          stream: useStream,
-          stop
-        };
+        : (() => {
+          const b = {
+            model,
+            prompt: buildPrompt(state.messages),
+            max_tokens: params.max_tokens,
+            temperature: params.temperature,
+            top_p: params.top_p,
+            min_p: params.min_p,
+            repeat_penalty: params.repeat_penalty,
+            top_k: params.top_k,
+            presence_penalty: params.presence_penalty,
+            frequency_penalty: params.frequency_penalty,
+            enable_thinking: !!els.thinkingToggle.checked,
+            stream: useStream,
+            stop
+          };
+          if (_nodeId) b.nodeId = _nodeId;
+          return b;
+        })();
 
       const res = await fetch(url, {
         method: 'POST',
@@ -1149,9 +1156,11 @@ async function loadModels() {
       for (const m of models) {
         const opt = document.createElement('option');
         opt.value = m.id;
-        const nodeId = m.nodeId || (m.id && m.id.includes(':')) ? m.id.split(':')[0] : '';
-        const display = nodeId && nodeId !== 'local' ? `[${nodeId}] ${m.id}` : m.id;
-        opt.textContent = display;
+        const nodeId = typeof m.nodeId === 'string' && m.nodeId !== 'local' ? m.nodeId : '';
+        if (nodeId) {
+          opt.dataset.nodeId = nodeId;
+        }
+        opt.textContent = nodeId ? `[${nodeId}] ${m.id}` : m.id;
         els.modelSelect.appendChild(opt);
       }
       if (current && models.some(m => m.id === current)) {
