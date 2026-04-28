@@ -401,6 +401,14 @@
             border: 1px solid #f3df9b;
         }
         .status-loaded { background-color: #e6e6e6; color: #000000; }
+        .model-busy-indicator {
+            font-size: 0.7rem;
+            color: #d97706;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-left: 0.5rem;
+        }
 
         .model-actions {
             display: flex;

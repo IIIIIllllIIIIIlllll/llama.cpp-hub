@@ -81,6 +81,11 @@ public class LlamaCppProcess {
 	private int ctxSize;
 	
 	/**
+	 * 	并发数
+	 */
+	private int slotNum;
+	
+	/**
 	 * 	llamacpp进程的路径，没啥用途，主要为了定位。
 	 */
 	private final String llamaBinPath;
@@ -127,6 +132,22 @@ public class LlamaCppProcess {
 	 */
 	public int getCtxSize() {
 		return this.ctxSize;
+	}
+	
+	/**
+	 * 	
+	 * @param slotNum
+	 */
+	public void setSlotNum(int slotNum) {
+		this.slotNum = slotNum;
+	}
+	
+	/**
+	 * 	
+	 * @return
+	 */
+	public int getSlotNum() {
+		return this.slotNum;
 	}
 	
 	/**

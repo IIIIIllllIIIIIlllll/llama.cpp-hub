@@ -148,13 +148,79 @@ SslHandler (可选)
 | `McpClientService` | MCP 客户端：注册 SSE/Streamable HTTP 服务器、工具索引、工具调用 |
 | `GpuService` | 启动时 GPU 检测快照 + 实时状态查询 |
 | `DownloadManager` | 下载任务管理（并发限制 4、断点续传、进度通知） |
-| `LlamaRecordService` | 累积模型推理性能记录（timings） |
+| `LlamaRecordService` | 累积模型推理性能记录（timings）|
+| `ModelRequestTracker` | 模型工作状态机：追踪活跃推理请求，广播 `model_busy` WebSocket 事件 |
 | `AnthropicService` | Anthropic ↔ OpenAI 消息格式转换 |
 | `OpenAIService` | OpenAI API 请求转发到模型子进程 |
 
 ### 线程模型
 - 所有请求处理使用虚拟线程：`Executors.newVirtualThreadPerTaskExecutor()`
 - 模型加载使用单虚拟线程执行器：`Executors.newSingleThreadExecutor(Thread.ofVirtual().name("llama-loader-", 0).factory())`
+
+---
+
+### 模型工作状态机（`ModelRequestTracker`）
+
+追踪每个模型当前是否有活跃的推理请求，通过 WebSocket 实时广播给前端。
+
+#### 数据结构
+
+| 类 | 包 | 说明 |
+|----|----|------|
+| `ActiveRequest` | `struct` | 单次请求结构体：requestId、modelId、endpoint、startTime、Timing、状态枚举、Phase 枚举 |
+| `ModelRequestTracker` | `service` | 单例，维护两重 `ConcurrentHashMap`：`modelId → Set<requestId>` 和 `requestId → ActiveRequest` |
+
+**状态枚举（`RequestStatus`）：** `CREATED` → `PROXYING` → `COMPLETED` / `FAILED`
+
+**阶段枚举（`Phase`，仅后端内部使用，不暴露给前端）：** `PREFILL`（等待 llama.cpp 返回 HTTP 200）、`GENERATION`（llama.cpp 已返回 200，正在生成 token）
+
+#### 核心方法
+
+| 方法 | 说明 |
+|------|------|
+| `createRequest(modelId, endpoint) → requestId` | 创建请求记录，返回 UUID，初始 phase=`PREFILL` |
+| `removeRequest(requestId)` | 移除请求记录。内部判断该模型是否还有其他活跃请求，避免并发下误报空闲 |
+| `updatePhase(requestId, Phase)` | 更新请求的推理阶段（PREFILL → GENERATION）|
+| `updateTiming(requestId, Timing)` | 回填 Timing 数据 |
+| `isModelBusy(modelId) → boolean` | 查询模型是否有活跃请求 |
+| `getModelActiveCount(modelId) → int` | 模型当前活跃请求数 |
+| `getModelAggregatedPhase(modelId) → String` | 聚合阶段：任一活跃请求为 GENERATION 返回 `"generation"`，否则 `"prefill"` |
+
+#### 集成点位
+
+每次推理请求经过以下 4 处 `connection.getResponseCode()` 后调用 `updatePhase(GENERATION)`：
+1. `OpenAIService.forwardRequestToLlamaCpp()` — 聊天/补全/嵌入/rerank/responses/音频
+2. `ChatStreamSession.run()` — 流式聊天
+3. `OllamaChatService.handleChat()` — Ollama 聊天
+4. `OllamaEmbedService.handleEmbed()` — Ollama 嵌入
+
+请求结束时（正常/异常/网络断开）在 `finally` 或 `cancel()` 中调用 `removeRequest()`。
+
+#### 并发安全
+
+- `modelActiveRequests` 使用 `ConcurrentHashMap< String, Set<String>>`，Value 为 `ConcurrentHashMap.newKeySet()`（线程安全 Set）
+- `allActiveRequests` 使用 `ConcurrentHashMap`
+- 每个 ActiveRequest 只被所属虚拟线程写入，无跨线程竞争
+- `removeRequest()` 在移除前通过 `modelActiveRequests.containsKey(modelId)` 判断是否还有其它活跃请求，避免多请求并发下误报 `busy=false`
+
+#### WebSocket 事件
+
+`ModelRequestTracker` 在 create/remove 时广播 `model_busy` 事件：
+
+```json
+{
+  "type": "model_busy",
+  "modelId": "Qwen3-0.6B-GGUF",
+  "busy": true,
+  "activeCount": 2
+}
+```
+
+前端 `websocket.js` 监听此事件，调用 `applyModelPatch()` 更新 `currentModelsData` 中的 `busy` 字段。
+
+#### 记录持久化
+
+`ModelRequestTracker.removeRequest()` 在 `timing != null` 时调用 `LlamaRecordService.recordRequest(activeRequest)`，将完整请求记录（含 requestId、modelId、endpoint、耗时、Phase 时间线、Timing）追加写入 `cache/record/{modelId}.requests.log`，每行一个 JSON 对象。
 
 ---
 

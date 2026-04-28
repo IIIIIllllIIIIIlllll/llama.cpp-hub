@@ -3,11 +3,13 @@ package org.mark.llamacpp.server.service;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.mark.llamacpp.server.struct.ActiveRequest;
 import org.mark.llamacpp.server.struct.Timing;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentHashMap;
@@ -100,6 +102,35 @@ public class LlamaRecordService {
 	 */
 	public Timing getRecord(String modelId) {
 		return this.recordMap.get(modelId);
+	}
+
+	/**
+	 * 记录一次完整的请求记录，包含包裹了 Timing 的 ActiveRequest。
+	 * 追加写入 cache/record/{modelId}.requests.log，每行一个 JSON 对象。
+	 */
+	public void recordRequest(ActiveRequest request) {
+		if (request == null || request.getModelId() == null) return;
+		String logPath = RECORD_DIR + request.getModelId() + ".requests.log";
+		try {
+			Map<String, Object> record = new LinkedHashMap<>();
+			record.put("requestId", request.getRequestId());
+			record.put("modelId", request.getModelId());
+			record.put("endpoint", request.getEndpoint());
+			record.put("startTime", request.getStartTime());
+			record.put("elapsedMs", request.elapsedMs());
+			record.put("status", request.getStatus().name());
+			record.put("phase", request.getPhase().name());
+			if (request.getTiming() != null) {
+				record.put("timing", request.getTiming());
+			}
+			String line = this.gson.toJson(record);
+			try (BufferedWriter writer = new BufferedWriter(new FileWriter(logPath, true))) {
+				writer.write(line);
+				writer.newLine();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**

@@ -530,6 +530,7 @@
   "page.model.status.loading": "加载中",
   "page.model.status.running": "运行中",
   "page.model.status.loaded": "已加载",
+  "page.model.status.busy": "工作中",
   "page.model.action.load": "加载",
   "page.model.action.cancel_loading": "取消加载",
   "page.model.action.stop": "停止",

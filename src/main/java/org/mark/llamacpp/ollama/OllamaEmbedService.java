@@ -10,6 +10,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.service.ModelRequestTracker;
+import org.mark.llamacpp.server.struct.ActiveRequest;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,6 +105,7 @@ public class OllamaEmbedService {
 		String requestBody = JsonUtil.toJson(openAiReq);
 		
 		this.worker.execute(() -> {
+			String requestId = ModelRequestTracker.getInstance().createRequest(modelName, "/api/embed");
 			HttpURLConnection connection = null;
 			try {
 				long startNs = System.nanoTime();
@@ -121,6 +124,7 @@ public class OllamaEmbedService {
 				}
 				
 				int responseCode = connection.getResponseCode();
+				ModelRequestTracker.getInstance().updatePhase(requestId, ActiveRequest.Phase.GENERATION);
 				String responseBody = OllamaApiTool.readBody(connection, responseCode >= 200 && responseCode < 300);
 				long totalDurationNs = Math.max(0L, System.nanoTime() - startNs);
 				if (!(responseCode >= 200 && responseCode < 300)) {
@@ -141,6 +145,7 @@ public class OllamaEmbedService {
 				logger.info("处理Ollama embed请求时发生错误", e);
 				Ollama.sendOllamaError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 			} finally {
+				ModelRequestTracker.getInstance().removeRequest(requestId);
 				if (connection != null) {
 					connection.disconnect();
 				}

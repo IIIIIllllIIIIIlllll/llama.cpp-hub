@@ -18,7 +18,10 @@ import java.util.concurrent.Executors;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.service.ChatTemplateKwargsService;
 import org.mark.llamacpp.server.service.LlamaRecordService;
+import org.mark.llamacpp.server.service.ModelRequestTracker;
 import org.mark.llamacpp.server.service.ModelSamplingService;
+import org.mark.llamacpp.server.struct.ActiveRequest;
+import org.mark.llamacpp.server.struct.Timing;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -176,6 +179,7 @@ public class OllamaChatService {
 		
 		boolean finalIsStream = isStream;
 		this.worker.execute(() -> {
+			String requestId = ModelRequestTracker.getInstance().createRequest(modelName, "/api/chat");
 			try {
 				String targetUrl = String.format("http://localhost:%d/v1/chat/completions", port.intValue());
 				
@@ -189,25 +193,26 @@ public class OllamaChatService {
 				this.connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
 				this.connection.setDoOutput(true);
 				byte[] input = requestBody.getBytes(StandardCharsets.UTF_8);
-				//this.connection.setRequestProperty("Content-Length", String.valueOf(input.length));
 				try (OutputStream os = this.connection.getOutputStream()) {
 					os.write(input, 0, input.length);
 					logger.info("已发送请求体到llama.cpp进程，大小: {} 字节", input.length);
 				}
 				long t = System.currentTimeMillis();
 				int responseCode = this.connection.getResponseCode();
+				ModelRequestTracker.getInstance().updatePhase(requestId, ActiveRequest.Phase.GENERATION);
 				
 				logger.info("llama.cpp进程响应码: {}，等待时间：{}", responseCode, System.currentTimeMillis() - t);
 				
 				if (finalIsStream) {
-					this.handleOllamaChatStreamResponse(ctx, this.connection, responseCode, modelName);
+					this.handleOllamaChatStreamResponse(ctx, this.connection, responseCode, modelName, requestId);
 				} else {
-					this.handleOllamaChatNonStreamResponse(ctx, this.connection, responseCode, modelName);
+					this.handleOllamaChatNonStreamResponse(ctx, this.connection, responseCode, modelName, requestId);
 				}
 			} catch (Exception e) {
 				logger.info("处理Ollama chat请求时发生错误", e);
 				Ollama.sendOllamaError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 			} finally {
+				ModelRequestTracker.getInstance().removeRequest(requestId);
 				if (this.connection != null) {
 					this.connection.disconnect();
 				}
@@ -225,6 +230,10 @@ public class OllamaChatService {
 	 * @throws IOException
 	 */
 	private void handleOllamaChatNonStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName) throws IOException {
+		this.handleOllamaChatNonStreamResponse(ctx, connection, responseCode, modelName, null);
+	}
+
+	private void handleOllamaChatNonStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName, String requestId) throws IOException {
 		String responseBody = OllamaApiTool.readBody(connection, responseCode >= 200 && responseCode < 300);
 		if (!(responseCode >= 200 && responseCode < 300)) {
 			String msg = OllamaApiTool.extractOpenAIErrorMessage(responseBody);
@@ -262,7 +271,10 @@ public class OllamaChatService {
 				evalCount = OllamaApiTool.readLong(timingFields, "eval_count");
 				evalDuration = OllamaApiTool.readLong(timingFields, "eval_duration");
 				
-				LlamaRecordService.getInstance().handleStream(modelName, responseBody);
+				Timing timing = LlamaRecordService.getInstance().handleStream(modelName, responseBody);
+				if (requestId != null && timing != null) {
+					ModelRequestTracker.getInstance().updateTiming(requestId, timing);
+				}
 			}
 			try {
 				JsonArray choices = parsed.getAsJsonArray("choices");
@@ -329,6 +341,10 @@ public class OllamaChatService {
 	 * @throws IOException
 	 */
 	private void handleOllamaChatStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName) throws IOException {
+		this.handleOllamaChatStreamResponse(ctx, connection, responseCode, modelName, null);
+	}
+
+	private void handleOllamaChatStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName, String requestId) throws IOException {
 		if (!(responseCode >= 200 && responseCode < 300)) {
 			String responseBody = OllamaApiTool.readBody(connection, false);
 			String msg = OllamaApiTool.extractOpenAIErrorMessage(responseBody);
@@ -385,7 +401,10 @@ public class OllamaChatService {
 				JsonObject extractedTimings = chunk.has("timings") && chunk.get("timings").isJsonObject() ? chunk.getAsJsonObject("timings") : null;
 				if (extractedTimings != null) {
 					timings = extractedTimings;
-					LlamaRecordService.getInstance().handleStream(modelName, data);
+					Timing timing = LlamaRecordService.getInstance().handleStream(modelName, data);
+					if (requestId != null && timing != null) {
+						ModelRequestTracker.getInstance().updateTiming(requestId, timing);
+					}
 				}
 				
 				String deltaContent = null;

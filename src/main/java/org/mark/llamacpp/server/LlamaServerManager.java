@@ -1130,6 +1130,7 @@ public class LlamaServerManager {
 					try {
 						JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
 						int ctxSize = 0;
+						int slotNum = 1;
 						if (slotsResponse != null && slotsResponse.has("slots") && slotsResponse.get("slots").isJsonArray()) {
 							JsonArray slots = slotsResponse.getAsJsonArray("slots");
 							if (slots.size() > 0 && slots.get(0).isJsonObject()) {
@@ -1138,8 +1139,10 @@ public class LlamaServerManager {
 									ctxSize = (int) Math.round(slot0.get("n_ctx").getAsDouble());
 								}
 							}
+							slotNum = slots.size();
 						}
 						process.setCtxSize(ctxSize);
+						process.setSlotNum(slotNum);
 					}catch (Exception e) {
 						e.printStackTrace();
 						process.setCtxSize(0);

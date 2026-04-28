@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.mark.llamacpp.server.LlamaHubNode;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.NodeManager;
+import org.mark.llamacpp.server.service.ModelRequestTracker;
+import org.mark.llamacpp.server.struct.ActiveRequest;
 import org.mark.llamacpp.server.io.BoundedQueueInputStream;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.slf4j.Logger;
@@ -66,6 +68,7 @@ public class ChatStreamSession {
 	private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
 	private volatile HttpURLConnection connection;
+	private volatile String requestId;
 	private volatile boolean receivedBody;
 	
 	
@@ -124,6 +127,7 @@ public class ChatStreamSession {
 	 */
 	public void cancel() {
 		if (this.cancelled.compareAndSet(false, true)) {
+			ModelRequestTracker.getInstance().removeRequest(this.requestId);
 			this.requestBodyStream.fail(new IOException("client disconnected"));
 			if (this.connection != null) {
 				this.connection.disconnect();
@@ -161,8 +165,10 @@ public class ChatStreamSession {
 				throw new IOException("llama.cpp connection was not created");
 			}
 
+			this.requestId = ModelRequestTracker.getInstance().createRequest(result.getModelName(), "/v1/chat/completions");
 			int responseCode = this.connection.getResponseCode();
-			this.openAIService.handleProxyResponse(this.ctx, this.connection, responseCode, result.isStream(), result.getModelName());
+			ModelRequestTracker.getInstance().updatePhase(this.requestId, ActiveRequest.Phase.GENERATION);
+			this.openAIService.handleProxyResponse(this.ctx, this.connection, responseCode, result.isStream(), result.getModelName(), this.requestId);
 		} catch (ChatRequestStreamingTransformer.StreamingRequestException e) {
 			if (!this.cancelled.get()) {
 				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, e.getHttpStatus(), null, e.getMessage(), e.getParam());
@@ -186,6 +192,7 @@ public class ChatStreamSession {
 			logger.info("处理聊天流式请求时发生错误", e);
 			this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 500, null, e.getMessage(), null);
 		} finally {
+			ModelRequestTracker.getInstance().removeRequest(this.requestId);
 			try {
 				this.deferredOutput.close();
 			} catch (IOException e) {

@@ -27,6 +27,7 @@ import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.service.BenchmarkService;
+import org.mark.llamacpp.server.service.ModelRequestTracker;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.struct.StopModelRequest;
 import org.mark.llamacpp.server.tools.ChatTemplateFileTool;
@@ -390,7 +391,7 @@ public class ModelActionController implements BaseController {
 			}
 
 			LlamaServerManager manager = LlamaServerManager.getInstance();
-			if (manager.getLoadedProcesses().containsKey(modelId)) {
+			if (manager.getLoadedProcesses().containsKey(modelId) || manager.isLoading(modelId)) {
 				logger.info("[模型操作] 本地停止模型: modelId={}", modelId);
 				boolean success = manager.stopModel(modelId);
 				if (success) {
@@ -516,6 +517,7 @@ public class ModelActionController implements BaseController {
 			modelData.put("path", modelInfo != null ? modelInfo.getPath() : "");
 			modelData.put("nodeId", "local");
 			modelData.put("nodeName", "本机");
+			modelData.put("busy", ModelRequestTracker.getInstance().isModelBusy(modelId));
 
 			loadedModels.add(modelData);
 		}

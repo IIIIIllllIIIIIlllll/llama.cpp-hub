@@ -88,7 +88,8 @@ function loadModels() {
                                 isLoading: !!model.isLoading,
                                 isLoaded: !!loadedModel,
                                 status: loadedModel ? (loadedModel.status || 'loaded') : 'stopped',
-                                port: loadedModel ? loadedModel.port : null
+                                port: loadedModel ? loadedModel.port : null,
+                                busy: loadedModel ? !!loadedModel.busy : false
                             };
                         });
                         currentModelsData = modelsWithStatus;
@@ -459,6 +460,7 @@ function renderModelsList(models) {
                         </div>
                         <div class="model-status-badge ${statusClass}">
                             <i class="fas ${statusIcon}"></i> <span>${statusText}</span>
+                            ${model.busy && model.isLoaded ? '<span class="model-busy-indicator"><i class="fas fa-sync-alt fa-spin"></i> ' + t('page.model.status.busy', '工作中') + '</span>' : ''}
                         </div>
                         <div class="model-actions">${actionButtons}</div>
                     </div>

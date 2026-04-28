@@ -530,6 +530,7 @@
   "page.model.status.loading": "Loading",
   "page.model.status.running": "Running",
   "page.model.status.loaded": "Loaded",
+  "page.model.status.busy": "Processing",
   "page.model.action.load": "Load",
   "page.model.action.cancel_loading": "Cancel loading",
   "page.model.action.stop": "Stop",

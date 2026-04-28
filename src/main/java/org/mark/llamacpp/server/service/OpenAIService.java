@@ -21,7 +21,10 @@ import java.util.concurrent.Executors;
 
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaServerManager;
+import org.mark.llamacpp.server.service.ModelRequestTracker;
+import org.mark.llamacpp.server.struct.ActiveRequest;
 import org.mark.llamacpp.server.NodeManager;
+import org.mark.llamacpp.server.struct.Timing;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -603,15 +606,13 @@ public class OpenAIService {
 		logger.info("转发请求到llama.cpp进程: {} {} 端口: {} 请求体长度: {}", method.name(), endpoint, port, requestBodyLength);
 		
 		worker.execute(() -> {
-			// 添加断开连接的事件监听
+			String requestId = ModelRequestTracker.getInstance().createRequest(modelName, endpoint);
 			HttpURLConnection connection = null;
 			try {
-				// 构建目标URL
 				String targetUrl = String.format("http://localhost:%d%s", port, endpoint);
 				logger.info("连接到llama.cpp进程: {}", targetUrl);
 				connection = this.openTrackedConnection(ctx, targetUrl, method, headers, false);
 				
-				// 对于POST请求，设置请求体
 				if (method == HttpMethod.POST && requestBodyBytes != null && requestBodyBytes.length > 0) {
 					try (OutputStream os = connection.getOutputStream()) {
 						os.write(requestBodyBytes, 0, requestBodyBytes.length);
@@ -619,18 +620,18 @@ public class OpenAIService {
 					}
 				}
 				long t = System.currentTimeMillis();
-				// 获取响应码
 				int responseCode = connection.getResponseCode();
 				logger.info("llama.cpp进程响应码: {}，等待时间：{}", responseCode, System.currentTimeMillis() - t);
-				this.handleProxyResponse(ctx, connection, responseCode, isStream, modelName);
+				ModelRequestTracker.getInstance().updatePhase(requestId, ActiveRequest.Phase.GENERATION);
+				this.handleProxyResponse(ctx, connection, responseCode, isStream, modelName, requestId);
 			} catch (Exception e) {
 				logger.info("转发请求到llama.cpp进程时发生错误", e);
-				// 检查是否是客户端断开连接导致的异常
 				if (e.getMessage() != null && e.getMessage().contains("Connection reset by peer")) {
 					
 				}
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
 			} finally {
+				ModelRequestTracker.getInstance().removeRequest(requestId);
 				this.cleanupTrackedConnection(ctx, connection);
 			}
 		});
@@ -773,11 +774,15 @@ public class OpenAIService {
 	}
 
 	public void handleProxyResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, boolean isStream, String modelName) throws IOException {
+		this.handleProxyResponse(ctx, connection, responseCode, isStream, modelName, null);
+	}
+
+	public void handleProxyResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, boolean isStream, String modelName, String requestId) throws IOException {
 		if (isStream) {
-			this.handleStreamResponse(ctx, connection, responseCode, modelName);
+			this.handleStreamResponse(ctx, connection, responseCode, modelName, requestId);
 			return;
 		}
-		this.handleNonStreamResponse(ctx, connection, responseCode, modelName);
+		this.handleNonStreamResponse(ctx, connection, responseCode, modelName, requestId);
 	}
 
 	public void cleanupTrackedConnection(ChannelHandlerContext ctx, HttpURLConnection connection) {
@@ -804,6 +809,10 @@ public class OpenAIService {
 	 * @throws IOException
 	 */
 	private void handleNonStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName) throws IOException {
+		this.handleNonStreamResponse(ctx, connection, responseCode, modelName, null);
+	}
+
+	private void handleNonStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName, String requestId) throws IOException {
 		// 读取响应
 		String responseBody;
 		if (responseCode >= 200 && responseCode < 300) {
@@ -864,7 +873,10 @@ public class OpenAIService {
 			}
 		});
 		// 缓存生成信息。
-		LlamaRecordService.getInstance().handleStream(modelName, responseBody);
+		Timing timing = LlamaRecordService.getInstance().handleStream(modelName, responseBody);
+		if (requestId != null && timing != null) {
+			ModelRequestTracker.getInstance().updateTiming(requestId, timing);
+		}
 	}
 	
 	/**
@@ -876,6 +888,10 @@ public class OpenAIService {
 	 * @throws IOException
 	 */
 	private void handleStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName) throws IOException {
+		this.handleStreamResponse(ctx, connection, responseCode, modelName, null);
+	}
+
+	private void handleStreamResponse(ChannelHandlerContext ctx, HttpURLConnection connection, int responseCode, String modelName, String requestId) throws IOException {
 		// 创建响应头
 		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
 		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/event-stream; charset=UTF-8");
@@ -922,7 +938,10 @@ public class OpenAIService {
 					else 
 					// 统计生成信息 — timings 只在最后一个 chunk 出现，天然作为结束标记
 					if(data.contains("\"timings\"")) {
-						LlamaRecordService.getInstance().handleStream(modelName, data);
+						Timing timing = LlamaRecordService.getInstance().handleStream(modelName, data);
+						if (requestId != null && timing != null) {
+							ModelRequestTracker.getInstance().updateTiming(requestId, timing);
+						}
 					}
 					
 					String outLine = line;
