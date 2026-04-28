@@ -388,7 +388,7 @@ function renderModelsList(models) {
                             ${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
                         </div>
                         <div class="model-details">
-                            <div class="model-name" title="${model.name}" onclick="openAliasModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), decodeURIComponent('${encodeURIComponent(model.alias || '')}'))">
+                             <div class="model-name" title="${model.name}" onclick="openAliasModal(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), decodeURIComponent('${encodeURIComponent(model.alias || '')}'), '${nodeId || 'local'}')">
                                 ${displayName}
                                 ${model.supportsVision ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}
                                 ${model.supportsAudio ? '<span class="audio-badge"><i class="fas fa-headphones"></i></span>' : ''}

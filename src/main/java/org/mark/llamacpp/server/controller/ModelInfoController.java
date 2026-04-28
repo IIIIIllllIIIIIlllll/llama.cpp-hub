@@ -364,6 +364,12 @@ public class ModelInfoController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的参数: modelId 或 alias"));
 				return;
 			}
+			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank()) {
+				logger.info("[模型信息] 远程代理设置别名: nodeId={}, modelId={}", nodeId, JsonUtil.getJsonString(json, "modelId", ""));
+				this.proxyPostRemote(ctx, request, nodeId, "api/models/alias/set");
+				return;
+			}
 			String modelId = json.get("modelId").getAsString();
 			String alias = json.get("alias").getAsString();
 			if (modelId == null || modelId.trim().isEmpty()) {

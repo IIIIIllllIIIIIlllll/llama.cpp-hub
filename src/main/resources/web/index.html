@@ -1810,7 +1810,7 @@
         }
         
         // Alias Logic
-         function openAliasModal(modelId, originalName, currentAlias) {
+          function openAliasModal(modelId, originalName, currentAlias, nodeId) {
             const modalId = 'aliasModal';
             let modal = document.getElementById(modalId);
             if (!modal) {
@@ -1839,16 +1839,20 @@
                 document.body.appendChild(modal);
             }
             window.__aliasEditingModelId = modelId;
+            window.__aliasEditingNodeId = nodeId || '';
             document.getElementById('aliasOriginalName').value = originalName;
             document.getElementById('aliasInput').value = currentAlias;
             modal.classList.add('show');
         }
         function submitAlias() {
             const modelId = window.__aliasEditingModelId;
+            const nodeId = window.__aliasEditingNodeId;
             const alias = document.getElementById('aliasInput').value;
+            const payload = { modelId, alias };
+            if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
              fetch('/api/models/alias/set', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ modelId, alias })
+                body: JSON.stringify(payload)
             }).then(r => r.json()).then(d => {
                 if (d.success) { showToast(t('toast.success', '成功'), t('modal.alias.saved', '别名已保存'), 'success'); closeModal('aliasModal'); refreshModels(); }
                 else { showToast(t('toast.error', '错误'), d.error, 'error'); }
