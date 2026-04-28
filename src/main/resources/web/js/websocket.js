@@ -80,7 +80,7 @@ function handleWebSocketMessage(message) {
                                 const nodeKey = data.modelId ? '[' + data.nodeId + '/' + data.modelId + ']' : '[' + data.nodeId + ']';
                                 text = nodeKey + ' ' + text;
                             }
-                            appendLogLine(text);
+                            appendLogLine(text, data.timestamp);
                         }
                     }
                     break;

@@ -517,7 +517,7 @@ SslHandler (可选)
 | `modelStop` | 服务端→客户端 | 模型已停止 | `{modelId, success, message}` |
 | `model_status` | 服务端→客户端 | 模型状态更新 | - |
 | `model_slots` | 服务端→客户端 | Slots 状态更新 | `{modelId, slots: [{id, speculative, is_processing}]}` |
-| `console` | 服务端→客户端 | 控制台日志行（base64 或纯文本） | `{modelId, line}` |
+| `console` | 服务端→客户端 | 控制台日志行（base64 编码），远程节点事件含 `nodeId` 字段，前端按 `timestamp` 排序 | `{modelId, line64, nodeId?, timestamp}` |
 | `notification` | 服务端→客户端 | 通用通知 | - |
 | `download_update` | 服务端→客户端 | 下载状态变更 | `{taskId, state, ...}` |
 | `download_progress` | 服务端→客户端 | 下载进度 | `{taskId, bytes, speed, ...}` |
@@ -526,6 +526,8 @@ SslHandler (可选)
 **心跳：** 服务端 30 秒一次 Ping，60 秒一次系统状态广播（Linux 下执行 `system_monitor_json.sh` 脚本）
 
 **控制台缓冲区：** 最大 2MB（`CONSOLE_BUFFER_MAX_BYTES`），UTF-8 安全截断。从 `logs/app.log` 尾部预加载。
+
+**远程节点日志：** 远程节点的日志通过 `RemoteWebSocketClient` 中继，WebSocket 事件带有 `nodeId` 和 `timestamp` 字段。远程日志**不写入**本地 CONSOLE_BUFFER（避免 snapshot 与 WS 推送重复），而是由前端 `console-modal.js` 的 `remoteLinesBuffer` 缓存，在 `fetchConsole()` snapshot 替换后恢复。`websocket.js` 传递 `data.timestamp` 给 `appendLogLine`，`flushPendingLogs()` 按 `timestamp` 排序后写入 DOM，保证跨节点日志按生成时间排列。
 
 ---
 
@@ -850,7 +852,7 @@ MCP 客户端注册的外部工具服务器。
 | 文件 | 行数 | 用途 |
 |------|------|------|
 | `js/i18n.js` | 127 | 国际化：自动检测 `?lang=` → localStorage → 浏览器语言 → `zh-CN` 兜底。设置 `window.I18N`、派发 `i18n:ready` 事件、DOM 属性翻译 |
-| `js/websocket.js` | 158 | WebSocket 客户端：1s 重连、事件分发（`modelLoadStart`/`modelLoad`/`modelStop`/`notification`/`model_status`/`model_slots`/`console`/`download_update`/`download_progress`）。与 `model-list.js` 紧耦合调用其内部函数 |
+| `js/websocket.js` | 175 | WebSocket 客户端：1s 重连、事件分发（`modelLoadStart`/`modelLoad`/`modelStop`/`notification`/`model_status`/`model_slots`/`console`/`download_update`/`download_progress`）。与 `model-list.js` 紧耦合调用其内部函数 |
 | `js/model-icon.js` | 29 | 架构名到图标 Font Awesome CSS class 映射表 |
 | `js/model-list.js` | 476 | 模型列表渲染（`sortAndRenderModels()`/`updateModelSlotsDom()`）、搜索、排序（名称/大小/参数）、收藏、加载状态 |
 | `js/model-detail.js` | 1312 | 模型详情弹窗：标签页（概览/采样/template/token 计数/kwargs/slots）、能力编辑、chat template kwargs 编辑、采样参数绑定、tokenize 测试 |
@@ -862,7 +864,7 @@ MCP 客户端注册的外部工具服务器。
 | `js/hf-mobile.js` | 463 | HuggingFace 搜索（移动）：搜索、加载更多、GGUF 文件弹窗、复制/下载 |
 | `js/download.js` | 690 | 下载管理（桌面）：列表/统计/进度条/暂停/恢复/删除、创建下载弹窗、路径设置 |
 | `js/download-mobile.js` | 531 | 下载管理（移动）：列表/统计/创建/暂停/恢复/删除、路径设置 |
-| `js/console-modal.js` | 104 | 控制台弹窗（桌面） |
+| `js/console-modal.js` | 124 | 控制台弹窗（桌面）：`remoteLinesBuffer` 缓存远程行，snapshot 恢复；按 `timestamp` 排序避免乱序 |
 | `js/console-modal-mobile.js` | 128 | 控制台弹窗（移动）：自动刷新、间隔设置 |
 | `js/index-mobile-nav.js` | 80 | 移动端底部导航切换（show/hide 对应 `<main>`） |
 | `js/llamacpp-setting-mobile.js` | 349 | 移动端 llama.cpp 路径管理 |
@@ -1049,7 +1051,7 @@ buildLoadModelPayload()        ← 将表单状态序列化为 cmd 字符串
 **中继逻辑（`relayMessage()`）：**
 - 过滤过滤 `heartbeat`/`connect_ack`/`welcome`（远程节点内部消息，不转发）
 - 注入 `nodeId` 字段到所有事件 JSON
-- `console` 事件：解码 `line64` 或 `line`，调用 `LlamaServer.sendConsoleLineEvent()` 写入本地 CONSOLE_BUFFER（确保 `/api/sys/console` 快照包含远程日志），然后统一转为 `line64` 格式广播
+- `console` 事件：将 `line` 统一转为 `line64`（base64），**不写入本地 CONSOLE_BUFFER**（避免 snapshot 与 WS 推送重复）
 - 其余字段原样透传，通过 `WebSocketManager.broadcast()` 广播到本地前端
 
 **生命周期管理：**
