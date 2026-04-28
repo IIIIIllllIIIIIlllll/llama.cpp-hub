@@ -145,7 +145,7 @@ public class RemoteWebSocketClient {
             logger.info("正在连接远程节点 WebSocket {}: {} -> {}", nodeId, baseUrl, wsUri);
 
             HttpClient.Builder clientBuilder = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(10));
+                    .connectTimeout(Duration.ofSeconds(2));
             if ("wss".equals(wsScheme)) {
                 clientBuilder.sslContext(createTrustAllSSLContext());
             }

@@ -203,7 +203,7 @@ public class NodeManager {
         stopWebSocketClient(nodeId);
         RemoteWebSocketClient client = new RemoteWebSocketClient(nodeId, baseUrl);
         wsClients.put(nodeId, client);
-        client.startAndWait(10);
+        client.startAndWait(2);
         logger.info("远程节点 WebSocket 初始化完成: {} ({})", nodeId, baseUrl);
     }
 
@@ -272,7 +272,7 @@ public class NodeManager {
             }
 
             connection.setRequestMethod(method);
-            connection.setConnectTimeout(10000);
+            connection.setConnectTimeout(2000);
             connection.setReadTimeout(60000);
 
             if (node.apiKey != null && !node.apiKey.isBlank()) {
