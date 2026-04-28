@@ -839,7 +839,11 @@ function loadModelCapabilities(modelId, modal) {
     const els = getModelCapabilitiesEls(modal);
     if (!mid || !els.group) return;
     window.__capabilitiesApplying = true;
-    fetch(`/api/models/capabilities/get?modelId=${encodeURIComponent(mid)}`)
+    var url = '/api/models/capabilities/get?modelId=' + encodeURIComponent(mid);
+    if (modal && modal.__nodeId && modal.__nodeId !== 'local') {
+        url += '&nodeId=' + encodeURIComponent(modal.__nodeId);
+    }
+    fetch(url)
         .then(r => r.json())
         .then(res => {
             const data = res && res.data ? res.data : null;
