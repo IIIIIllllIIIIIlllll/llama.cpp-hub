@@ -784,8 +784,10 @@ function applyModelCapabilitiesToUi(modal, caps) {
     enforceModelCapabilitiesRules(modal, '');
 }
 
-function saveModelCapabilitiesNow(modelId, caps) {
+function saveModelCapabilitiesNow(modelId, caps, modal) {
     const payload = Object.assign({ modelId: modelId }, normalizeModelCapabilities(caps));
+    const nodeId = modal && modal.__nodeId && modal.__nodeId !== 'local' ? modal.__nodeId : '';
+    if (nodeId) payload.nodeId = nodeId;
     fetch('/api/models/capabilities/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -809,7 +811,7 @@ function scheduleSaveModelCapabilities(modelId, modal) {
     }
     window.__capabilitiesSaveTimers[mid] = setTimeout(() => {
         window.__capabilitiesSaveTimers[mid] = null;
-        saveModelCapabilitiesNow(mid, caps);
+        saveModelCapabilitiesNow(mid, caps, modal);
     }, 350);
 }
 
