@@ -287,10 +287,12 @@ function populateNodeFilter() {
 }
 
 function sortAndRenderModels() {
-    const sortType = document.getElementById('modelSortSelect').value;
-    if (!currentModelsData) return;
+    const sortTypeEl = document.getElementById('modelSortSelect');
+    if (!sortTypeEl || !currentModelsData) return;
+    const sortType = sortTypeEl.value;
 
-    const nodeFilter = document.getElementById('modelNodeFilter').value;
+    const nodeFilterEl = document.getElementById('modelNodeFilter');
+    const nodeFilter = nodeFilterEl ? nodeFilterEl.value : 'all';
     let filtered = currentModelsData;
     if (nodeFilter === 'local') {
         filtered = currentModelsData.filter(m => m && (!m.nodeId || m.nodeId === 'local'));
@@ -338,7 +340,8 @@ function getModelSortComparator(sortType) {
 function renderModelsList(models) {
     const modelsList = document.getElementById('modelsList');
     if (!models || models.length === 0) {
-        const nodeFilter = document.getElementById('modelNodeFilter').value;
+    const nodeFilterEl = document.getElementById('modelNodeFilter');
+    const nodeFilter = nodeFilterEl ? nodeFilterEl.value : 'all';
         let emptyTitle, emptyText, emptyBtn = '';
         if (nodeFilter && nodeFilter !== 'all' && nodeFilter !== 'local') {
             var nodeName = '';
