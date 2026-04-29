@@ -6,7 +6,10 @@
     "type": "INTEGER",
     "defaultValue": "5",
     "description": "param.benchmark.repetitions.desc",
-    "sort": 0
+    "sort": 0,
+    "group": "基础参数",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.benchmark.output.name",
@@ -15,14 +18,11 @@
     "type": "STRING",
     "defaultValue": "md",
     "description": "param.benchmark.output.desc",
-    "values": [
-      "md",
-      "csv",
-      "json",
-      "jsonl",
-      "sql"
-    ],
-    "sort": 1
+    "values": ["md","csv","json","jsonl","sql"],
+    "sort": 1,
+    "group": "基础参数",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.benchmark.output_err.name",
@@ -31,15 +31,11 @@
     "type": "STRING",
     "defaultValue": "",
     "description": "param.benchmark.output_err.desc",
-    "values": [
-      "",
-      "md",
-      "csv",
-      "json",
-      "jsonl",
-      "sql"
-    ],
-    "sort": 2
+    "values": ["","md","csv","json","jsonl","sql"],
+    "sort": 2,
+    "group": "基础参数",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.benchmark.delay.name",
@@ -48,7 +44,10 @@
     "type": "INTEGER",
     "defaultValue": "0",
     "description": "param.benchmark.delay.desc",
-    "sort": 7
+    "sort": 7,
+    "group": "基础参数",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.benchmark.verbose.name",
@@ -57,172 +56,10 @@
     "type": "LOGIC",
     "defaultValue": "0",
     "description": "param.benchmark.verbose.desc",
-    "sort": 8
-  },
-  {
-    "name": "param.benchmark.n_prompt.name",
-    "fullName": "--n-prompt",
-    "abbreviation": "-p",
-    "type": "STRING",
-    "defaultValue": "512",
-    "description": "param.benchmark.n_prompt.desc",
-    "sort": 10
-  },
-  {
-    "name": "param.benchmark.n_gen.name",
-    "fullName": "--n-gen",
-    "abbreviation": "-n",
-    "type": "STRING",
-    "defaultValue": "128",
-    "description": "param.benchmark.n_gen.desc",
-    "sort": 11
-  },
-  {
-    "name": "param.benchmark.pg.name",
-    "fullName": "--pg",
-    "abbreviation": "-pg",
-    "type": "STRING",
-    "defaultValue": "",
-    "description": "param.benchmark.pg.desc",
-    "sort": 12
-  },
-  {
-    "name": "param.benchmark.n_depth.name",
-    "fullName": "--n-depth",
-    "abbreviation": "-d",
-    "type": "STRING",
-    "defaultValue": "0",
-    "description": "param.benchmark.n_depth.desc",
-    "sort": 13
-  },
-  {
-    "name": "param.benchmark.batch_size.name",
-    "fullName": "--batch-size",
-    "abbreviation": "-b",
-    "type": "STRING",
-    "defaultValue": "2048",
-    "description": "param.benchmark.batch_size.desc",
-    "sort": 14
-  },
-  {
-    "name": "param.benchmark.ubatch_size.name",
-    "fullName": "--ubatch-size",
-    "abbreviation": "-ub",
-    "type": "STRING",
-    "defaultValue": "512",
-    "description": "param.benchmark.ubatch_size.desc",
-    "sort": 15
-  },
-  {
-    "name": "param.benchmark.cache_type_k.name",
-    "fullName": "--cache-type-k",
-    "abbreviation": "-ctk",
-    "type": "STRING",
-    "defaultValue": "f16",
-    "description": "param.benchmark.cache_type_k.desc",
-    "values": [
-      "f32",
-      "f16",
-      "bf16",
-      "q8_0",
-      "q4_0",
-      "q4_1",
-      "iq4_nl",
-      "q5_0",
-      "q5_1",
-	  "turbo3"
-    ],
-    "sort": 16
-  },
-  {
-    "name": "param.benchmark.cache_type_v.name",
-    "fullName": "--cache-type-v",
-    "abbreviation": "-ctv",
-    "type": "STRING",
-    "defaultValue": "f16",
-    "description": "param.benchmark.cache_type_v.desc",
-    "values": [
-      "f32",
-      "f16",
-      "bf16",
-      "q8_0",
-      "q4_0",
-      "q4_1",
-      "iq4_nl",
-      "q5_0",
-      "q5_1",
-	  "turbo3"
-    ],
-    "sort": 17
-  },
-  {
-    "name": "param.benchmark.threads.name",
-    "fullName": "--threads",
-    "abbreviation": "-t",
-    "type": "STRING",
-    "defaultValue": "16",
-    "description": "param.benchmark.threads.desc",
-    "sort": 18
-  },
-  {
-    "name": "param.benchmark.n_gpu_layers.name",
-    "fullName": "--n-gpu-layers",
-    "abbreviation": "-ngl",
-    "type": "STRING",
-    "defaultValue": "99",
-    "description": "param.benchmark.n_gpu_layers.desc",
-    "sort": 22
-  },
-  {
-    "name": "param.benchmark.n_cpu_moe.name",
-    "fullName": "--n-cpu-moe",
-    "abbreviation": "-ncmoe",
-    "type": "STRING",
-    "defaultValue": "0",
-    "description": "param.benchmark.n_cpu_moe.desc",
-    "sort": 23
-  },
-  {
-    "name": "param.benchmark.split_mode.name",
-    "fullName": "--split-mode",
-    "abbreviation": "-sm",
-    "type": "STRING",
-    "defaultValue": "",
-    "description": "param.benchmark.split_mode.desc",
-    "values": [
-      "",
-      "none",
-      "layer",
-      "row"
-    ],
-    "sort": 24
-  },
-  {
-    "name": "param.benchmark.no_kv_offload.name",
-    "fullName": "--no-kv-offload",
-    "abbreviation": "-nkvo",
-    "type": "INTEGER",
-    "defaultValue": "",
-    "description": "param.benchmark.no_kv_offload.desc",
-    "values": [
-      "",
-      "0",
-      "1"
-    ],
-    "sort": 26
-  },
-  {
-    "name": "param.benchmark.flash_attn.name",
-    "fullName": "--flash-attn",
-    "abbreviation": "-fa",
-    "type": "STRING",
-    "defaultValue": "1",
-    "description": "param.benchmark.flash_attn.desc",
-    "values": [
-      "1",
-      "0"
-    ],
-    "sort": 27
+    "sort": 8,
+    "group": "基础参数",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
     "name": "param.benchmark.mmap.name",
@@ -231,20 +68,145 @@
     "type": "STRING",
     "defaultValue": "0",
     "description": "param.benchmark.mmap.desc",
-	  "values": [
-	    "0",
-	    "1"
-	  ],
-    "sort": 2
+    "values": ["0","1"],
+    "sort": 3,
+    "group": "基础参数",
+    "groupOrder": 10,
+    "groupCollapsed": false
   },
   {
-    "name": "param.benchmark.tensor_split.name",
-    "fullName": "--tensor-split",
-    "abbreviation": "-ts",
+    "name": "param.benchmark.n_prompt.name",
+    "fullName": "--n-prompt",
+    "abbreviation": "-p",
+    "type": "STRING",
+    "defaultValue": "512",
+    "description": "param.benchmark.n_prompt.desc",
+    "sort": 10,
+    "group": "测试数据",
+    "groupOrder": 20,
+    "groupCollapsed": false
+  },
+  {
+    "name": "param.benchmark.n_gen.name",
+    "fullName": "--n-gen",
+    "abbreviation": "-n",
+    "type": "STRING",
+    "defaultValue": "128",
+    "description": "param.benchmark.n_gen.desc",
+    "sort": 11,
+    "group": "测试数据",
+    "groupOrder": 20,
+    "groupCollapsed": false
+  },
+  {
+    "name": "param.benchmark.pg.name",
+    "fullName": "--pg",
+    "abbreviation": "-pg",
     "type": "STRING",
     "defaultValue": "",
-    "description": "param.benchmark.tensor_split.desc",
-    "sort": 30
+    "description": "param.benchmark.pg.desc",
+    "sort": 12,
+    "group": "测试数据",
+    "groupOrder": 20,
+    "groupCollapsed": false
+  },
+  {
+    "name": "param.benchmark.n_depth.name",
+    "fullName": "--n-depth",
+    "abbreviation": "-d",
+    "type": "STRING",
+    "defaultValue": "0",
+    "description": "param.benchmark.n_depth.desc",
+    "sort": 13,
+    "group": "测试数据",
+    "groupOrder": 20,
+    "groupCollapsed": false
+  },
+  {
+    "name": "param.benchmark.batch_size.name",
+    "fullName": "--batch-size",
+    "abbreviation": "-b",
+    "type": "STRING",
+    "defaultValue": "2048",
+    "description": "param.benchmark.batch_size.desc",
+    "sort": 14,
+    "group": "性能参数",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.ubatch_size.name",
+    "fullName": "--ubatch-size",
+    "abbreviation": "-ub",
+    "type": "STRING",
+    "defaultValue": "512",
+    "description": "param.benchmark.ubatch_size.desc",
+    "sort": 15,
+    "group": "性能参数",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.threads.name",
+    "fullName": "--threads",
+    "abbreviation": "-t",
+    "type": "STRING",
+    "defaultValue": "16",
+    "description": "param.benchmark.threads.desc",
+    "sort": 18,
+    "group": "性能参数",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.n_gpu_layers.name",
+    "fullName": "--n-gpu-layers",
+    "abbreviation": "-ngl",
+    "type": "STRING",
+    "defaultValue": "99",
+    "description": "param.benchmark.n_gpu_layers.desc",
+    "sort": 22,
+    "group": "性能参数",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.n_cpu_moe.name",
+    "fullName": "--n-cpu-moe",
+    "abbreviation": "-ncmoe",
+    "type": "STRING",
+    "defaultValue": "0",
+    "description": "param.benchmark.n_cpu_moe.desc",
+    "sort": 23,
+    "group": "性能参数",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.cache_type_k.name",
+    "fullName": "--cache-type-k",
+    "abbreviation": "-ctk",
+    "type": "STRING",
+    "defaultValue": "f16",
+    "description": "param.benchmark.cache_type_k.desc",
+    "values": ["f32","f16","bf16","q8_0","q4_0","q4_1","iq4_nl","q5_0","q5_1","turbo3"],
+    "sort": 16,
+    "group": "缓存与存储",
+    "groupOrder": 40,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.cache_type_v.name",
+    "fullName": "--cache-type-v",
+    "abbreviation": "-ctv",
+    "type": "STRING",
+    "defaultValue": "f16",
+    "description": "param.benchmark.cache_type_v.desc",
+    "values": ["f32","f16","bf16","q8_0","q4_0","q4_1","iq4_nl","q5_0","q5_1","turbo3"],
+    "sort": 17,
+    "group": "缓存与存储",
+    "groupOrder": 40,
+    "groupCollapsed": true
   },
   {
     "name": "param.benchmark.direct_io.name",
@@ -253,10 +215,61 @@
     "type": "STRING",
     "defaultValue": "1",
     "description": "param.benchmark.direct_io.desc",
-    "values": [
-	    "0",
-	    "1"
-    ],
-    "sort": 31
+    "values": ["0","1"],
+    "sort": 31,
+    "group": "缓存与存储",
+    "groupOrder": 40,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.split_mode.name",
+    "fullName": "--split-mode",
+    "abbreviation": "-sm",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "param.benchmark.split_mode.desc",
+    "values": ["","none","layer","row"],
+    "sort": 24,
+    "group": "高级功能",
+    "groupOrder": 50,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.no_kv_offload.name",
+    "fullName": "--no-kv-offload",
+    "abbreviation": "-nkvo",
+    "type": "INTEGER",
+    "defaultValue": "",
+    "description": "param.benchmark.no_kv_offload.desc",
+    "values": ["","0","1"],
+    "sort": 26,
+    "group": "高级功能",
+    "groupOrder": 50,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.flash_attn.name",
+    "fullName": "--flash-attn",
+    "abbreviation": "-fa",
+    "type": "STRING",
+    "defaultValue": "1",
+    "description": "param.benchmark.flash_attn.desc",
+    "values": ["1","0"],
+    "sort": 27,
+    "group": "高级功能",
+    "groupOrder": 50,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.benchmark.tensor_split.name",
+    "fullName": "--tensor-split",
+    "abbreviation": "-ts",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "param.benchmark.tensor_split.desc",
+    "sort": 30,
+    "group": "高级功能",
+    "groupOrder": 50,
+    "groupCollapsed": true
   }
 ]
