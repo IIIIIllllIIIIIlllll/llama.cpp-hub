@@ -32,9 +32,7 @@ const E = {
     paramsResetBtn: document.getElementById('benchParamsResetBtn'),
     paramsCloseBtn: document.getElementById('benchParamsCloseBtn'),
     paramsConfirmBtn: document.getElementById('benchParamsConfirmBtn'),
-    deviceCard: document.getElementById('benchDeviceCard'),
-    deviceContainer: document.getElementById('benchDeviceContainer'),
-    deviceCount: document.getElementById('benchDeviceCount'),
+    paramsDeviceList: document.getElementById('benchParamsDeviceList'),
     runBtn: document.getElementById('runBenchBtn'),
     progress: document.getElementById('benchProgress'),
     progressBar: document.getElementById('benchProgressBar'),
@@ -82,6 +80,11 @@ function getModelDisplayName(m) {
 function cloneDevices(v) {
   if (Array.isArray(v)) return v.map(x => safeText(x).trim()).filter(Boolean);
   const t = safeText(v).trim(); return t ? [t] : [];
+}
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(safeText(text)));
+  return div.innerHTML;
 }
 async function fetchJson(url, options) {
   const resp = await fetch(url, options || {});
@@ -233,46 +236,158 @@ function populateBenchLlamaBinSelect() {
     o.value = p; o.textContent = text; o.title = title;
     sel.appendChild(o);
   }
-  sel.onchange = function() { loadBenchDevices(); };
-  loadBenchDevices();
+  sel.onchange = function() {};
 }
 async function loadBenchParamConfig() {
   try {
     const data = await fetchJson('/api/models/param/benchmark/list', { method: 'GET' });
     if (data && data.success && Array.isArray(data.params)) {
       bench.paramConfig = data.params;
-      renderBenchParams();
+      if (window.I18N) {
+        renderBenchParams();
+      } else {
+        const onReady = function() {
+          window.removeEventListener('i18n:ready', onReady);
+          renderBenchParams();
+        };
+        window.addEventListener('i18n:ready', onReady);
+      }
     }
   } catch(e) {
-    if (E.bench.paramsContainer) E.bench.paramsContainer.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);">参数加载失败</div>';
+    if (E.bench.paramsContainer) E.bench.paramsContainer.innerHTML = '<div style="font-size:14px;color:var(--text-secondary);padding:24px;text-align:center;">参数加载失败</div>';
   }
 }
-function getParamFieldName(p) {
+function fieldNameFromParamConfig(p) {
   const fn = (p.fullName || '').trim();
   if (fn) return fn.replace(/^-+/g, '').replace(/-/g, '_');
   const ab = (p.abbreviation || '').trim();
   if (ab) return ab.replace(/^-+/g, '').replace(/-/g, '_');
-  return 'unnamed_' + (p.sort || 0);
+  const base = (p.name || '').trim().replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+  const sortRaw = p.sort == null ? '' : String(p.sort).trim();
+  return 'unnamed_' + (base || 'param') + (sortRaw ? '_' + sortRaw : '');
 }
+
+function getParamGroupName(p) {
+  const raw = p && p.group != null ? String(p.group).trim() : '';
+  if (!raw) return 'page.params.group.default';
+  if (raw.startsWith('page.params.group.')) return t(raw, raw);
+  const legacyMap = {
+    '基础参数': 'page.params.group.basic',
+    '测试数据': 'page.params.group.test_data',
+    '性能参数': 'page.params.group.performance',
+    '缓存与存储': 'page.params.group.cache_storage',
+    '高级功能': 'page.params.group.advanced'
+  };
+  return legacyMap[raw] || raw;
+}
+
+function getParamOptionItems(p) {
+  const rawValues = p && Array.isArray(p.values) ? p.values : [];
+  return rawValues.map(item => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const value = item.value == null ? '' : String(item.value).trim();
+      const labelKey = item.label == null ? '' : String(item.label).trim();
+      return { value, label: labelKey ? t(labelKey, value) : value };
+    }
+    const value = item == null ? '' : String(item).trim();
+    return { value, label: value };
+  }).filter(item => item.value != null);
+}
+
+function renderParamField(p) {
+  const fullName = (p.fullName || '').trim();
+  const abbr = (p.abbreviation || '').trim();
+  if (!fullName && !abbr) return '';
+
+  const fieldName = fieldNameFromParamConfig(p);
+  const fieldId = 'param_' + fieldName;
+  const enableId = 'param_enable_' + fieldName;
+  const displayName = t(p.name, fullName || abbr || p.name);
+  const description = t(p.description, '');
+  const defaultValue = p.defaultValue || '';
+  const type = (p.type || 'STRING').toUpperCase();
+  const optionItems = getParamOptionItems(p);
+  const defaultEnabled = p.defaultEnabled !== undefined ? p.defaultEnabled : (p.defaultValue != null && p.defaultValue !== '');
+
+  let html = '';
+  const flagText = abbr || fullName;
+  const flagHtml = ' <span style="font-weight:400;color:var(--text-secondary);font-size:12px;">' + escapeHtml(flagText) + '</span>';
+  const labelContent = description
+    ? displayName + flagHtml + ' <i class="fas fa-question-circle" style="color:#DCDCDC;cursor:help;margin-left:4px;" title="' + escapeHtml(description) + '"></i>'
+    : displayName + flagHtml;
+
+  const labelHtml = '<div class="param-label-row" style="display:flex;align-items:center;gap:0.4rem;line-height:1.1;">' +
+    '<input class="form-check-input param-enable-toggle" type="checkbox" id="' + escapeHtml(enableId) + '"' + (defaultEnabled ? ' checked' : '') + ' style="margin:0;width:14px;height:14px;flex:0 0 auto;transform:translateY(1px);">' +
+    '<label class="form-label" for="' + escapeHtml(fieldId) + '" style="margin:0;font-size:14px;line-height:1.1;">' + labelContent + '</label>' +
+    '</div>';
+
+  if (optionItems.length > 0) {
+    html += '<div class="form-group param-field">';
+    html += labelHtml;
+    html += '<select class="form-control" id="' + escapeHtml(fieldId) + '" name="' + escapeHtml(fieldName) + '">';
+    for (const opt of optionItems) {
+      const selected = opt.value === defaultValue ? ' selected' : '';
+      html += '<option value="' + escapeHtml(opt.value) + '"' + selected + '>' + escapeHtml(opt.label) + '</option>';
+    }
+    html += '</select></div>';
+  } else {
+    html += '<div class="form-group param-field">';
+    html += labelHtml;
+    switch (type) {
+      case 'INTEGER':
+        html += '<input type="number" class="form-control" id="' + escapeHtml(fieldId) + '" name="' + escapeHtml(fieldName) + '" value="' + escapeHtml(defaultValue) + '">';
+        break;
+      case 'FLOAT':
+        html += '<input type="number" step="any" class="form-control" id="' + escapeHtml(fieldId) + '" name="' + escapeHtml(fieldName) + '" value="' + escapeHtml(defaultValue) + '">';
+        break;
+      case 'LOGIC':
+      case 'BOOLEAN':
+        html += '<select class="form-control" id="' + escapeHtml(fieldId) + '" name="' + escapeHtml(fieldName) + '">';
+        html += '<option value="0"' + (defaultValue === '0' || defaultValue === 'false' ? ' selected' : '') + '>false</option>';
+        html += '<option value="1"' + (defaultValue === '1' || defaultValue === 'true' || defaultValue === 'on' ? ' selected' : '') + '>true</option>';
+        html += '</select>';
+        break;
+      case 'STRING':
+      default:
+        html += '<input type="text" class="form-control" id="' + escapeHtml(fieldId) + '" name="' + escapeHtml(fieldName) + '" value="' + escapeHtml(defaultValue) + '">';
+        break;
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+function renderParamGroup(group) {
+  const groupTitle = escapeHtml(t(group.name, group.name));
+  const openAttr = !group.collapsed ? ' open' : '';
+  let html = '<details class="param-group"' + openAttr + '>';
+  html += '<summary class="param-group-summary"><span class="param-group-title">' + groupTitle + '</span><span class="param-group-count">' + group.params.length + '</span></summary>';
+  html += '<div class="param-group-body">';
+  html += '<div class="param-group-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">';
+  for (const p of group.params) {
+    html += renderParamField(p);
+  }
+  html += '</div></div></details>';
+  return html;
+}
+
 function renderBenchParams() {
   const configs = (Array.isArray(bench.paramConfig) ? bench.paramConfig : []).slice();
   configs.sort((a, b) => (a.sort || 999) - (b.sort || 999));
 
-  // Build groups: collect group metadata
   const groupMap = new Map();
   const groups = [];
   for (const p of configs) {
-    if (!(p.fullName || '').trim() && !(p.abbreviation || '').trim()) continue;
-    const gName = (p.group || '').trim() || '其他参数';
-    let g = groupMap.get(gName);
+    const groupName = getParamGroupName(p);
+    let g = groupMap.get(groupName);
     if (!g) {
       g = {
-        name: gName,
+        name: groupName,
         order: Number.isFinite(p.groupOrder) ? p.groupOrder : 999,
         collapsed: p.groupCollapsed === true,
         params: []
       };
-      groupMap.set(gName, g);
+      groupMap.set(groupName, g);
       groups.push(g);
     } else {
       if (Number.isFinite(p.groupOrder)) g.order = Math.min(g.order, p.groupOrder);
@@ -281,70 +396,27 @@ function renderBenchParams() {
   }
   groups.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 
-  const wrapper = document.createElement('div'); wrapper.className = 'param-groups';
-  for (const g of groups) {
-    const details = document.createElement('details'); details.className = 'param-group';
-    if (!g.collapsed) details.open = true;
-
-    const summary = document.createElement('summary'); summary.className = 'param-group-summary';
-    const title = document.createElement('span'); title.className = 'param-group-title'; title.textContent = g.name;
-    const count = document.createElement('span'); count.className = 'param-group-count'; count.textContent = g.params.length;
-    summary.appendChild(title); summary.appendChild(count);
-    details.appendChild(summary);
-
-    const body = document.createElement('div'); body.className = 'param-group-body';
-    const grid = document.createElement('div'); grid.className = 'param-grid';
-    for (const p of g.params) {
-      const wrap = document.createElement('div'); wrap.className = 'field-wrap';
-      const label = document.createElement('label');
-      label.textContent = p.fullName || p.abbreviation || p.name;
-      const row = document.createElement('div'); row.className = 'field-row';
-      const enableChk = document.createElement('input');
-      enableChk.type = 'checkbox'; enableChk.className = 'param-enable';
-      const fName = getParamFieldName(p);
-      enableChk.id = 'bp_enable_' + fName;
-      const defaultEnabled = p.defaultEnabled !== undefined ? p.defaultEnabled : (p.defaultValue != null && p.defaultValue !== '');
-      enableChk.checked = defaultEnabled;
-      const ctrl = document.createElement(p.type === 'LOGIC' ? 'input' : (p.values ? 'select' : 'input'));
-      if (p.type === 'LOGIC') {
-        ctrl.type = 'checkbox'; ctrl.checked = (p.defaultValue === '1' || p.defaultValue === 'true');
-        ctrl.id = 'bp_val_' + fName;
-      } else if (p.values) {
-        (Array.isArray(p.values) ? p.values : []).forEach(v => {
-          const opt = document.createElement('option');
-          if (typeof v === 'object' && v.value != null) { opt.value = v.value; opt.textContent = v.label || v.value; }
-          else { opt.value = String(v); opt.textContent = String(v) || '(空)'; }
-          if (opt.value === String(p.defaultValue)) opt.selected = true;
-          ctrl.appendChild(opt);
-        });
-        ctrl.className = 'form-control'; ctrl.id = 'bp_val_' + fName;
-      } else {
-        ctrl.type = (p.type === 'INTEGER' || p.type === 'FLOAT') ? 'number' : 'text';
-        if (p.type === 'FLOAT') ctrl.step = 'any';
-        ctrl.value = p.defaultValue || ''; ctrl.className = 'form-control'; ctrl.id = 'bp_val_' + fName;
-      }
-      ctrl.disabled = !enableChk.checked;
-      enableChk.addEventListener('change', () => { ctrl.disabled = !enableChk.checked; });
-      row.appendChild(enableChk); row.appendChild(ctrl);
-      wrap.appendChild(label); wrap.appendChild(row);
-      grid.appendChild(wrap);
+  let html = '';
+  if (groups.length > 0) {
+    html += '<div class="param-groups">';
+    for (const g of groups) {
+      html += renderParamGroup(g);
     }
-    body.appendChild(grid);
-    details.appendChild(body);
-    wrapper.appendChild(details);
+    html += '</div>';
   }
-  E.bench.paramsContainer.innerHTML = '';
-  E.bench.paramsContainer.appendChild(wrapper);
+
+  E.bench.paramsContainer.innerHTML = html;
   updateBenchParamsCount();
 }
+
 function updateBenchParamsCount() {
   const configs = Array.isArray(bench.paramConfig) ? bench.paramConfig : [];
   let total = 0, enabled = 0;
   for (const p of configs) {
     const fn = (p.fullName || '').trim();
     if (!fn) continue;
-    const fName = getParamFieldName(p);
-    const chk = document.getElementById('bp_enable_' + fName);
+    const fName = fieldNameFromParamConfig(p);
+    const chk = document.getElementById('param_enable_' + fName);
     total++;
     if (chk && chk.checked) enabled++;
   }
@@ -355,6 +427,7 @@ function updateBenchParamsCount() {
 function openBenchParamsModal() {
   if (!bench.paramConfig.length) loadBenchParamConfig();
   else updateBenchParamsCount();
+  loadBenchParamsDevices();
   if (E.bench.paramsModal) E.bench.paramsModal.style.display = '';
 }
 function closeBenchParamsModal() {
@@ -371,56 +444,68 @@ function buildBenchCmd() {
   for (const p of configs) {
     const fn = (p.fullName || '').trim();
     if (!fn) continue;
-    const fName = getParamFieldName(p);
-    const enableChk = document.getElementById('bp_enable_' + fName);
+    const fName = fieldNameFromParamConfig(p);
+    const enableChk = document.getElementById('param_enable_' + fName);
     if (!enableChk || !enableChk.checked) continue;
-    const ctrl = document.getElementById('bp_val_' + fName);
+    const ctrl = document.getElementById('param_' + fName);
     if (!ctrl) continue;
-    if (p.type === 'LOGIC') { if (ctrl.checked) parts.push(fn); }
-    else { const val = String(ctrl.value || '').trim(); if (val) parts.push(fn + ' ' + val); }
+    const type = (p.type || 'STRING').toUpperCase();
+    if (type === 'LOGIC') {
+      if (ctrl.value === '1' || ctrl.value === 'true') parts.push(fn);
+    } else {
+      const val = String(ctrl.value || '').trim();
+      if (val) parts.push(fn + ' ' + val);
+    }
   }
   return parts.join(' ');
 }
-async function loadBenchDevices() {
+function buildBenchDeviceArg() {
+  const checks = E.bench.paramsDeviceList ? E.bench.paramsDeviceList.querySelectorAll('input[type=checkbox]') : [];
+  const enabled = []; const disabled = [];
+  checks.forEach(chk => { if (chk.checked) enabled.push(chk.dataset.deviceId); else disabled.push(chk.dataset.deviceId); });
+  if (!checks.length || !disabled.length) return '';
+  return '-dev ' + enabled.join(',');
+}
+async function loadBenchParamsDevices() {
+  const list = E.bench.paramsDeviceList;
+  if (!list) return;
   const llamaBinPath = (E.bench.llamaBinSelect && E.bench.llamaBinSelect.value || '').trim();
   if (!llamaBinPath) {
-    bench.devices = [];
-    if (E.bench.deviceCard) E.bench.deviceCard.style.display = 'none';
+    list.innerHTML = '<div class="device-placeholder">请先在主页面选择 llama.cpp 版本</div>';
     return;
   }
-  const url = '/api/model/device/list?llamaBinPath=' + encodeURIComponent(llamaBinPath);
+  list.innerHTML = '<div class="device-placeholder">加载中…</div>';
   try {
+    const url = '/api/model/device/list?llamaBinPath=' + encodeURIComponent(llamaBinPath);
     const data = await fetchJson(url, { method: 'GET' });
     if (data && data.success && data.data && Array.isArray(data.data.devices)) {
       bench.devices = data.data.devices;
+      renderBenchParamsDevices();
     } else {
+      list.innerHTML = '<div class="device-placeholder">获取设备列表失败</div>';
       bench.devices = [];
     }
-  } catch(e) { bench.devices = []; }
-  if (E.bench.deviceCard) {
-    if (bench.devices.length) {
-      E.bench.deviceCard.style.display = '';
-      if (E.bench.deviceCount) E.bench.deviceCount.textContent = bench.devices.length + ' 个设备';
-      E.bench.deviceContainer.innerHTML = '';
-      for (const d of bench.devices) {
-        const id = safeText(d && d.id).trim() || safeText(d).trim();
-        if (!id) continue;
-        const lbl = document.createElement('label');
-        const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = true; chk.dataset.deviceId = id;
-        lbl.appendChild(chk); lbl.appendChild(document.createTextNode(' ' + (d.name || d.brand || id)));
-        E.bench.deviceContainer.appendChild(lbl);
-      }
-    } else {
-      E.bench.deviceCard.style.display = 'none';
-    }
+  } catch(e) {
+    list.innerHTML = '<div class="device-placeholder">获取设备列表失败</div>';
+    bench.devices = [];
   }
 }
-function buildBenchDeviceArg() {
-  const checks = E.bench.deviceContainer ? E.bench.deviceContainer.querySelectorAll('input[type=checkbox]') : [];
-  const enabled = []; const disabled = [];
-  checks.forEach(chk => { if (chk.checked) enabled.push(chk.dataset.deviceId); else disabled.push(chk.dataset.deviceId); });
-  if (!disabled.length) return '';
-  return '-dev ' + enabled.join(',');
+function renderBenchParamsDevices() {
+  const list = E.bench.paramsDeviceList;
+  if (!list) return;
+  const devices = bench.devices;
+  if (!devices.length) {
+    list.innerHTML = '<div class="device-placeholder">未发现可用设备</div>';
+    return;
+  }
+  let html = '';
+  for (const d of devices) {
+    const id = safeText(d && d.id).trim() || safeText(d).trim();
+    if (!id) continue;
+    const label = safeText(d.name || d.brand || id);
+    html += '<label><input type="checkbox" checked data-device-id="' + escapeHtml(id) + '"><span class="device-label-text">' + escapeHtml(label) + '</span></label>';
+  }
+  list.innerHTML = html;
 }
 async function runBench() {
   if (bench.isRunning) { cancelBench(); return; }
