@@ -69,6 +69,7 @@ public class ChatStreamSession {
 	private volatile HttpURLConnection connection;
 	private volatile String requestId;
 	private volatile boolean receivedBody;
+	private volatile String routingNodeId;
 	
 	
 	
@@ -167,7 +168,7 @@ public class ChatStreamSession {
 			this.requestId = ModelRequestTracker.getInstance().createRequest(result.getModelName(), "/v1/chat/completions");
 			int responseCode = this.connection.getResponseCode();
 			ModelRequestTracker.getInstance().updatePhase(this.requestId, ActiveRequest.Phase.GENERATION);
-			this.openAIService.handleProxyResponse(this.ctx, this.connection, responseCode, result.isStream(), result.getModelName(), this.requestId);
+			this.openAIService.handleProxyResponse(this.ctx, this.connection, responseCode, result.isStream(), result.getModelName(), this.requestId, this.routingNodeId);
 		} catch (ChatRequestStreamingTransformer.StreamingRequestException e) {
 			if (!this.cancelled.get()) {
 				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, e.getHttpStatus(), null, e.getMessage(), e.getParam());
@@ -181,14 +182,14 @@ public class ChatStreamSession {
 				this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 400, null, "Request body is empty", "messages");
 				return;
 			}
-			logger.info("处理聊天流式请求时发生错误", e);
+			logger.info("处理聊天流式请求时发生错误 [{}]", this.resolveNodeName(this.routingNodeId), e);
 			this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 500, null, e.getMessage(), null);
 		} catch (Exception e) {
 			if (this.cancelled.get()) {
 				logger.info("聊天流式会话已取消: {}", e.getMessage());
 				return;
 			}
-			logger.info("处理聊天流式请求时发生错误", e);
+			logger.info("处理聊天流式请求时发生错误 [{}]", this.resolveNodeName(this.routingNodeId), e);
 			this.openAIService.sendOpenAIErrorResponseWithCleanup(this.ctx, 500, null, e.getMessage(), null);
 		} finally {
 			ModelRequestTracker.getInstance().removeRequest(this.requestId);
@@ -200,6 +201,21 @@ public class ChatStreamSession {
 		}
 	}
 	
+	/**
+	 * 解析节点名称
+	 */
+	private String resolveNodeName(String nodeId) {
+		if (nodeId == null || nodeId.isBlank()) return "本机";
+		try {
+			LlamaHubNode node = NodeManager.getInstance().getNode(nodeId);
+			if (node != null && node.getName() != null && !node.getName().isBlank()) {
+				return node.getName();
+			}
+		} catch (Exception e) {
+		}
+		return nodeId;
+	}
+
 	/**
 	 * 	连接到指定的llamacpp进程。
 	 * @param modelName
@@ -220,12 +236,17 @@ public class ChatStreamSession {
 		if (nodeIdFromBody != null && !nodeIdFromBody.isBlank()) {
 			logger.info("[Node路由] 请求体指定 nodeId，直接路由远程节点: nodeId={}, model={}", nodeIdFromBody, modelName);
 			targetUrl = this.resolveRemoteModelUrl(nodeIdFromBody, modelName);
+			this.routingNodeId = nodeIdFromBody;
 		} else {
 			logger.info("[Node路由] 无 nodeId，先查本地模型");
 			targetUrl = this.resolveLocalModelUrl(modelName);
 			if (targetUrl == null) {
 				logger.info("[Node路由] 本地未找到模型，开始搜索远程节点: model={}", modelName);
-				targetUrl = this.resolveFromRemoteNodes(modelName);
+				String[] remote = this.resolveFromRemoteNodes(modelName);
+				if (remote != null) {
+					targetUrl = remote[0];
+					this.routingNodeId = remote[1];
+				}
 			}
 		}
 
@@ -265,7 +286,7 @@ public class ChatStreamSession {
 	/**
 	 * 从远程节点中查找模型
 	 */
-	private String resolveFromRemoteNodes(String modelName) {
+	private String[] resolveFromRemoteNodes(String modelName) {
 		NodeManager nodeManager = NodeManager.getInstance();
 		List<LlamaHubNode> enabledNodes = nodeManager.listEnabledNodes();
 		logger.info("[Node路由] 远程节点列表: count={}", enabledNodes.size());
@@ -293,7 +314,7 @@ public class ChatStreamSession {
 						logger.info("[Node路由] 远程模型条目: nodeId={}, remoteModelKey={}", node.getNodeId(), remoteModelKey);
 						if (modelName.equals(remoteModelKey)) {
 							logger.info("[Node路由] 远程节点匹配成功: model={}, nodeId={}", modelName, node.getNodeId());
-							return node.getBaseUrl() + "/v1/chat/completions";
+							return new String[]{ node.getBaseUrl() + "/v1/chat/completions", node.getNodeId() };
 						}
 					}
 				}

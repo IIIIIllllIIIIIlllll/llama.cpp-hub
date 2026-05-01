@@ -119,7 +119,6 @@ public class OllamaChatService {
 
 		String targetUrl = null;
 		String remoteApiKey = null;
-		boolean isRemote = false;
 
 		if (nodeId != null && !nodeId.isBlank()) {
 			NodeManager nodeManager = NodeManager.getInstance();
@@ -130,7 +129,6 @@ public class OllamaChatService {
 			}
 			targetUrl = node.getBaseUrl() + "/v1/chat/completions";
 			remoteApiKey = node.getApiKey();
-			isRemote = true;
 			logger.info("[Ollama路由] 请求体指定 nodeId，直接路由远程节点: nodeId={}, model={}", nodeId, modelName);
 		} else {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -147,7 +145,6 @@ public class OllamaChatService {
 				if (remote != null) {
 					targetUrl = remote[0];
 					remoteApiKey = remote[1];
-					isRemote = true;
 				}
 			}
 		}
@@ -159,7 +156,6 @@ public class OllamaChatService {
 
 		final String finalTargetUrl = targetUrl;
 		final String finalRemoteApiKey = remoteApiKey;
-		final boolean finalIsRemote = isRemote;
 
 		// 是否开启流式传输
 		boolean isStream = true;

@@ -849,7 +849,7 @@ public class LMStudioService {
 			
 			logger.info("流式响应处理完成，共发送 {} 个数据块", chunkCount);
 		} catch (Exception e) {
-			logger.info("处理流式响应时发生错误", e);
+			logger.info("处理流式响应时发生错误 [本机]", e);
 			// 检查是否是客户端断开连接导致的异常
 			if (e.getMessage() != null &&
 				(e.getMessage().contains("Connection reset by peer") ||

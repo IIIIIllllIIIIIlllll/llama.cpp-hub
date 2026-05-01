@@ -96,7 +96,6 @@ public class OllamaEmbedService {
 
 		String targetUrl = null;
 		String remoteApiKey = null;
-		boolean isRemote = false;
 
 		if (nodeId != null && !nodeId.isBlank()) {
 			NodeManager nodeManager = NodeManager.getInstance();
@@ -107,7 +106,6 @@ public class OllamaEmbedService {
 			}
 			targetUrl = node.getBaseUrl() + "/v1/embeddings";
 			remoteApiKey = node.getApiKey();
-			isRemote = true;
 			logger.info("[OllamaEmbed路由] 请求体指定 nodeId，直接路由远程节点: nodeId={}, model={}", nodeId, modelName);
 		} else {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -123,7 +121,6 @@ public class OllamaEmbedService {
 				if (remote != null) {
 					targetUrl = remote[0];
 					remoteApiKey = remote[1];
-					isRemote = true;
 				}
 			}
 		}
