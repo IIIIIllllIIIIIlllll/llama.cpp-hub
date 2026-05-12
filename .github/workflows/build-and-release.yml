@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -83,7 +83,6 @@ jobs:
           python3 - << 'PY'
           import os
           from pathlib import Path
-
           path = Path("src/main/java/org/mark/llamacpp/server/BuildInfo.java")
           text = path.read_text(encoding="utf-8")
           replacements = {
@@ -146,7 +145,7 @@ jobs:
           rm jre-win.zip
           echo "Windows JRE 下载完成"
 
-      - name: 创建启动脚本 (Linux/Mac)
+      - name: 创建启动脚本 (Linux, 内置 JRE)
         run: |
           cat > build/run.sh << 'EOF'
           #!/bin/bash
@@ -157,13 +156,27 @@ jobs:
           EOF
           chmod +x build/run.sh
 
-      - name: 创建启动脚本 (Windows)
+      - name: 创建启动脚本 (Windows, 内置 JRE)
         run: |
           cat > build/run.bat << 'EOF'
           @echo off
           cd /d "%~dp0"
           start "" jre\bin\javaw.exe -Xms512m -Xmx512m -XX:MaxDirectMemorySize=256m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
+          EOF
 
+      - name: 创建启动脚本 (平台无关, 使用系统 Java)
+        run: |
+          cp -r build build-standalone
+          cat > build-standalone/run.sh << 'EOF'
+          #!/bin/bash
+          cd "$(dirname "$0")"
+          java -Xms512m -Xmx512m -XX:MaxDirectMemorySize=256m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer "$@"
+          EOF
+          chmod +x build-standalone/run.sh
+          cat > build-standalone/run.bat << 'EOF'
+          @echo off
+          cd /d "%~dp0"
+          start "" javaw.exe -Xms512m -Xmx512m -XX:MaxDirectMemorySize=256m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
           EOF
 
       - name: 复制 README 到 build 目录
@@ -180,7 +193,6 @@ jobs:
         id: download_llamacpp
         run: |
           mkdir -p build/llamacpp
-
           TAGS=$(python3 - << 'PY'
           import json
           with open("llama_releases.json","r",encoding="utf-8") as f:
@@ -189,12 +201,10 @@ jobs:
           print(" ".join(tags))
           PY
           )
-
           if [ -z "$TAGS" ]; then
             echo "无法获取 llama.cpp releases 列表"
             exit 1
           fi
-
           flatten_one_level_dir() {
             local target_dir="$1"
             local inner_dir
@@ -206,7 +216,6 @@ jobs:
               shopt -u dotglob
             fi
           }
-
           try_download() {
             local backend="$1"
             local asset_template="$2"
@@ -215,7 +224,6 @@ jobs:
             local extract_kind="$5"
             local optional_extra_asset="$6"
             local optional_extra_archive="$7"
-
             for tag in $TAGS; do
               local asset="${asset_template/\{tag\}/$tag}"
               local url="https://github.com/ggml-org/llama.cpp/releases/download/${tag}/${asset}"
@@ -229,7 +237,6 @@ jobs:
                 fi
                 rm -f "$archive_name"
                 flatten_one_level_dir "$out_dir"
-
                 if [ -n "$optional_extra_asset" ] && [ -n "$optional_extra_archive" ]; then
                   local extra_url="https://github.com/ggml-org/llama.cpp/releases/download/${tag}/${optional_extra_asset}"
                   echo "[$backend] 尝试下载附加依赖: $extra_url"
@@ -249,7 +256,6 @@ jobs:
                     rm -rf "${out_dir}-tmp-extra"
                   fi
                 fi
-
                 echo "${backend}_TAG=$tag" >> $GITHUB_ENV
                 echo "${backend}_AVAILABLE=1" >> $GITHUB_ENV
                 echo "[$backend] 下载完成，使用 tag: $tag"
@@ -257,12 +263,10 @@ jobs:
               fi
               rm -f "$archive_name" || true
             done
-
             echo "${backend}_AVAILABLE=0" >> $GITHUB_ENV
             echo "[$backend] 未找到可下载的版本，已跳过"
             return 0
           }
-
           try_download "WIN_CUDA12" "llama-{tag}-bin-win-cuda-12.4-x64.zip" "llama-win-cuda12.zip" "win-cuda12" "zip" "cudart-llama-bin-win-cuda-12.4-x64.zip" "cudart-win-cuda12.zip"
           try_download "WIN_CUDA13" "llama-{tag}-bin-win-cuda-13.1-x64.zip" "llama-win-cuda13.zip" "win-cuda13" "zip" "cudart-llama-bin-win-cuda-13.1-x64.zip" "cudart-win-cuda13.zip"
           try_download "WIN_VULKAN" "llama-{tag}-bin-win-vulkan-x64.zip" "llama-win-vulkan.zip" "win-vulkan" "zip" "" ""
@@ -274,7 +278,6 @@ jobs:
         id: package
         run: |
           mkdir -p dist
-
           make_zip() {
             local work_dir="$1"
             local root_name="$2"
@@ -282,17 +285,17 @@ jobs:
             mv "$work_dir" "$root_name"
             zip -r -9 -X "dist/$zip_name" "$root_name"
           }
-
+          cp -r build-standalone build-pkg
+          mkdir -p build-pkg/llamacpp
+          make_zip "build-pkg" "llama.cpp-hub-${VERSION}" "llama.cpp-hub-${VERSION}.zip"
           cp -r build build-linux-no-llamacpp
           cp -r jre-linux/jre build-linux-no-llamacpp/jre
           mkdir -p build-linux-no-llamacpp/llamacpp
           make_zip "build-linux-no-llamacpp" "llama.cpp-hub-${VERSION}-linux" "llama.cpp-hub-${VERSION}-linux.zip"
-
           cp -r build build-win-no-llamacpp
           cp -r jre-win/jre build-win-no-llamacpp/jre
           mkdir -p build-win-no-llamacpp/llamacpp
           make_zip "build-win-no-llamacpp" "llama.cpp-hub-${VERSION}-windows" "llama.cpp-hub-${VERSION}-windows.zip"
-
           if [ "${UBUNTU_VULKAN_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-linux-vulkan
             cp -r jre-linux/jre build-linux-vulkan/jre
@@ -300,7 +303,6 @@ jobs:
             cp -r ubuntu-vulkan build-linux-vulkan/llamacpp/
             make_zip "build-linux-vulkan" "llama.cpp-hub-${VERSION}-${UBUNTU_VULKAN_TAG}-linux-vulkan" "llama.cpp-hub-${VERSION}-${UBUNTU_VULKAN_TAG}-linux-vulkan.zip"
           fi
-
           if [ "${UBUNTU_ROCM72_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-linux-rocm72
             cp -r jre-linux/jre build-linux-rocm72/jre
@@ -308,7 +310,6 @@ jobs:
             cp -r ubuntu-rocm72 build-linux-rocm72/llamacpp/
             make_zip "build-linux-rocm72" "llama.cpp-hub-${VERSION}-${UBUNTU_ROCM72_TAG}-linux-rocm-7.2" "llama.cpp-hub-${VERSION}-${UBUNTU_ROCM72_TAG}-linux-rocm-7.2.zip"
           fi
-
           if [ "${WIN_CUDA12_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-win-cuda12
             cp -r jre-win/jre build-win-cuda12/jre
@@ -316,7 +317,6 @@ jobs:
             cp -r win-cuda12 build-win-cuda12/llamacpp/
             make_zip "build-win-cuda12" "llama.cpp-hub-${VERSION}-${WIN_CUDA12_TAG}-windows-cuda12" "llama.cpp-hub-${VERSION}-${WIN_CUDA12_TAG}-windows-cuda12.zip"
           fi
-
           if [ "${WIN_CUDA13_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-win-cuda13
             cp -r jre-win/jre build-win-cuda13/jre
@@ -324,7 +324,6 @@ jobs:
             cp -r win-cuda13 build-win-cuda13/llamacpp/
             make_zip "build-win-cuda13" "llama.cpp-hub-${VERSION}-${WIN_CUDA13_TAG}-windows-cuda13" "llama.cpp-hub-${VERSION}-${WIN_CUDA13_TAG}-windows-cuda13.zip"
           fi
-
           if [ "${WIN_VULKAN_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-win-vulkan
             cp -r jre-win/jre build-win-vulkan/jre
@@ -332,7 +331,6 @@ jobs:
             cp -r win-vulkan build-win-vulkan/llamacpp/
             make_zip "build-win-vulkan" "llama.cpp-hub-${VERSION}-${WIN_VULKAN_TAG}-windows-vulkan" "llama.cpp-hub-${VERSION}-${WIN_VULKAN_TAG}-windows-vulkan.zip"
           fi
-
           if [ "${WIN_HIP_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-win-hip
             cp -r jre-win/jre build-win-hip/jre
@@ -341,14 +339,13 @@ jobs:
             make_zip "build-win-hip" "llama.cpp-hub-${VERSION}-${WIN_HIP_TAG}-windows-hip" "llama.cpp-hub-${VERSION}-${WIN_HIP_TAG}-windows-hip.zip"
           fi
 
-
       - name: 生成 Release Notes
         id: release_notes
         run: |
           # 获取最新的 commit 信息
           LATEST_COMMIT=$(git log -1 --pretty=format:"%h - %s (%an, %ar)")
           COMMIT_MESSAGE=$(git log -1 --pretty=format:"%B")
-          
+
           # 获取自上一个 tag 以来的所有 commit
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -n "$PREV_TAG" ]; then
@@ -356,14 +353,19 @@ jobs:
           else
             COMMITS_SINCE_TAG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
           fi
-          
+
           LINUX_ZIPS=$(ls dist/*linux*.zip 2>/dev/null || true)
           WINDOWS_ZIPS=$(ls dist/*windows*.zip 2>/dev/null || true)
-
+          BASE_ZIP="dist/llama.cpp-hub-${VERSION}.zip"
           cat > release_notes.md << 'EOF'
           ## 🚀 Release Notes
-          
-          ### 📦 包含内容
+
+          ### 📦 基础版本
+          - 仅包含编译后的 class 文件和依赖库，不包含 JRE 和 llama.cpp
+          - 需要系统已安装 Java 21+ 运行环境
+          - 平台无关，Linux/Windows 通用
+
+          ### 📦 完整版本（内置 JRE）
           - 编译后的 class 文件
           - 所有依赖库（lib/*.jar）
           - 精简版 JRE 21.08（内置，无需额外安装 Java 运行环境）
@@ -372,9 +374,7 @@ jobs:
           ### 🧩 llama.cpp 版本
           - 本项目中打包的 llamacpp 二进制来自 llama.cpp 项目的 Release（最新版本发布页：https://github.com/ggml-org/llama.cpp/releases/latest）
           EOF
-
           ANY_BACKEND=0
-
           if [ "${UBUNTU_VULKAN_AVAILABLE:-0}" = "1" ]; then
             echo "- Linux Vulkan: ${UBUNTU_VULKAN_TAG}" >> release_notes.md
             ANY_BACKEND=1
@@ -402,9 +402,15 @@ jobs:
           if [ "$ANY_BACKEND" = "0" ]; then
             echo "- 无" >> release_notes.md
           fi
-
           echo "" >> release_notes.md
           echo "### 📦 可用版本" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "**平台无关（需系统 Java 21+）:**" >> release_notes.md
+          if [ -f "$BASE_ZIP" ]; then
+            echo "- \`llama.cpp-hub-${VERSION}.zip\`" >> release_notes.md
+          else
+            echo "- 无" >> release_notes.md
+          fi
           echo "" >> release_notes.md
           echo "**Linux:**" >> release_notes.md
           if [ -n "$LINUX_ZIPS" ]; then
@@ -414,7 +420,6 @@ jobs:
           else
             echo "- 无" >> release_notes.md
           fi
-
           echo "" >> release_notes.md
           echo "**Windows:**" >> release_notes.md
           if [ -n "$WINDOWS_ZIPS" ]; then
@@ -424,11 +429,10 @@ jobs:
           else
             echo "- 无" >> release_notes.md
           fi
-
           cat >> release_notes.md << 'EOF'
 
           ### 📝 使用方法
-          
+
           **Linux:**
           ```bash
           unzip <你下载的 linux zip 包>
@@ -437,14 +441,14 @@ jobs:
           chmod +x jre/bin/java
           ./run.sh
           ```
-          
+
           **Windows:**
           ```cmd
           unzip <你下载的 windows zip 包>
           cd <解压后的目录>
           run.bat
           ```
-          
+
           **注意：**
           - 本版本已内置精简版 JRE，无需额外安装 Java 环境。
           - Windows CUDA 版本文件较大，是因为使用了 `cudart` 包，包含了 CUDA 运行环境。
@@ -454,24 +458,23 @@ jobs:
             - 其他 GPU（如核显） 或不确定: 使用 vulkan 版本
             - 不需要llamacpp：使用无 llamacpp 版本
           ---
-
           ### 📌 最新提交
           EOF
-          
+
           echo "$LATEST_COMMIT" >> release_notes.md
           echo "" >> release_notes.md
-          
+
           # 添加提交详情
           if [ -n "$COMMITS_SINCE_TAG" ]; then
             echo "### 📋 自上次发布以来的变更" >> release_notes.md
             echo "" >> release_notes.md
             echo "$COMMITS_SINCE_TAG" >> release_notes.md
           fi
-          
+
           echo "" >> release_notes.md
           echo "---" >> release_notes.md
           echo "*构建时间: $(date -u +"%Y-%m-%d %H:%M:%S UTC")*" >> release_notes.md
-          
+
           # 输出内容供调试
           echo "生成的 Release Notes:"
           cat release_notes.md
