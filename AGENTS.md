@@ -31,17 +31,19 @@ mvn clean package
 **修改依赖：** 替换 `lib/` 中的 JAR → 更新 `.classpath` → **永远不碰 pom.xml**。
 
 ### 版本信息
-`BuildInfo.java` 包含 CI 占位符常量：
-```java
-TAG = "{tag}"; VERSION = "{version}"; CREATED_TIME = "{createdTime}";
-```
-`mvn clean package` 时会替换。本地开发显示原始 `{tag}` 等。
+`BuildInfo.java` 包含构建常量。Maven 构建时在原位替换 `{tag}`/`{version}`/`{createdTime}` 占位符。当前值为 `"v0.8.2"`。
 
 ---
 
 ## 测试 / Lint / 类型检查 / 格式化
 
-**无。** `src/test/` 为空。没有测试框架、linter、格式化工具、类型检查器。没有 pre-commit hooks。
+`src/test/java/com/mark/test/tools/` 下有诊断性测试工具（非单元测试）：
+- `GGUFMetaReaderTest.java` — 读取 GGUF 文件元数据并打印 KV 对
+- `GpuStatusTest.java` — 打印 `GpuService` 检测的 GPU 信息
+- `UsageReportTest.java` — 测试用量报告 API 并格式化输出
+- `VideoDescriptionTest.java` — 向 `/v1/chat/completions` 发送视频描述请求
+
+**无测试框架、无 linter、无格式化工具、无 pre-commit hooks。**
 
 ---
 
@@ -101,13 +103,17 @@ SslHandler（可选）
 
 **Anthropic 协议已合并到 8080 端口。** `LlamaRouterHandler`（原名 `OpenAIRouterHandler`）处理两种协议。Anthropic 端点（`/v1/messages`、`/v1/complete`、`/v1/messages/count_tokens`）在 OpenAI 路由之后匹配。`/v1/models` 通过 `anthropic-version` 或 `x-api-key` 请求头自动检测客户端类型。`bindAnthropic()` 和 `AnthropicRouterHandler` 是**死代码** — 不再绑定到任何端口。
 
+**Ollama 端口管道** 与 8080 类似，包含 `OpenAIChatStreamingHandler` + `OllamaRouterHandler`。
+
+**LM Studio 端口管道** 额外包含 `LMStudioWsPathSelectHandler`（拦截 `/llm` 和 `/system` 路径的 WebSocket 升级）。
+
 ---
 
 ## `BasicRouterHandler` 控制器链（严格顺序）
 
 URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-template`、`/infill`、`/models`、`/chat/completion`、`/completions`、`/embeddings`、`/rerank`、`/responses` 开头的请求进入该链。迭代控制器；在第一个返回 `true` 的控制器处停止。
 
-1. **`EasyChatController`** — `/api/easy-chat/*`
+1. **`EasyChatController`** — `/api/easy-chat/*`（乐观并发控制的状态同步系统）
 2. **`HuggingFaceController`** — `/api/hf/*`
 3. **`LlamacppController`** — `/api/llamacpp/*` + 代理端点 `/tokenize`、`/apply-template`、`/infill`
 4. **`ModelActionController`** — `/api/models/load/stop/list/loaded/refresh/benchmark/metrics/props`
@@ -134,6 +140,7 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 | `LlamaServerManager` | 模型发现、加载/停止、端口分配、能力检测、设备列表、VRAM 估算、槽管理。单个虚拟线程执行器用于顺序模型加载。 |
 | `NodeManager` | 远程节点 CRUD + 30 秒健康检查 + API 代理。管理每个节点的 `RemoteWebSocketClient` 生命周期。HTTPS 节点信任所有 SSL。 |
 | `WebSocketManager` | 8080 WebSocket 连接管理。通过 `ScheduledThreadPool(2)` 进行 30 秒心跳 + 60 秒系统状态广播。 |
+| `LMStudioWebSocketManager` | LM Studio 端口的独立 WS 连接管理器。与 `WebSocketManager` 结构相同的心跳/状态广播。 |
 | `ModelSamplingService` | 采样预设管理。两个配置文件：`model-sampling.json`（预设值）+ `model-sampling-settings.json`（模型→预设绑定）。基于 mtime 的缓存。`cmd` 字段的 CLI 参数注入解析。 |
 | `ChatTemplateKwargsService` | 每模型 `chat_template_kwargs`（例如 `enable_thinking`、`thinking_budget_tokens`）。存储在 `config/model-chat-template-kwargs.json`。基于 mtime 的缓存。 |
 | `McpClientService` | MCP 客户端：注册 SSE/Streamable HTTP 服务器、工具索引、工具调用。两种传输：短寿命 SSE（每次请求握手）和持久 Streamable HTTP（会话管理）。环境变量占位符解析（`${VAR_NAME}`）。120 秒工具调用超时。 |
@@ -153,6 +160,10 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 | `ComputerService` | 静态硬件信息工具：CPU 型号、物理内存、核心数、JVM 指标。由 `BenchmarkService` 使用。 |
 | `ZhipuWebSearchService` | 通过智谱 AI API 的内置网页搜索。15 秒连接 / 60 秒读取超时。每次调用重新读取 API 密钥。 |
 | `TimeServer` | 内置时间工具：`get_current_time`（时区感知）、`convert_time`（时区转换）。DST 间隙处理。 |
+| `SystemMonitorService` | 定时执行 `system_monitor_json.sh` 脚本并通过 WebSocket 广播系统指标。仅 Linux。 |
+| `LetsUpdate` | OTA 更新编排：下载 ZIP、解压、备份旧文件、替换文件、回滚。管理 `cache/update.zip`。 |
+| `UpdateDownloader` | 低级 HTTP 下载引擎，用于 `LetsUpdate`。8KB 分块下载，500ms 进度广播。 |
+| `GitHubTagFetcherNative` | 从 GitHub API 获取最新 release 标签，与本地 `BuildInfo.getTag()` 比较。 |
 
 ### 线程模型
 - 所有请求处理器：通过 `Executors.newVirtualThreadPerTaskExecutor()` 使用虚拟线程
@@ -162,6 +173,7 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 - 系统监控：`ScheduledThreadPool(1)` 守护线程
 - 下载管理器：固定线程池（4 个工作线程）
 - 远程 WS 客户端重连：每个节点使用单线程 `ScheduledExecutorService`
+- LM Studio WS 心跳/状态：`ScheduledExecutorService`，2 线程
 
 ### 模型工作状态机（`ModelRequestTracker`）
 
@@ -228,6 +240,9 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 ### 量化名称映射（`fileTypeToQuantizationName()`）
 将 GGUF `file_type` 整数映射到名称：`F32`、`F16`、`Q4_0`、`Q4_1`、`Q8_0`、`Q2_K`…`Q6_K`、`IQ2_XXS`、`IQ3_XXS`、`IQ1_S`、`IQ4_NL`、`IQ3_M`、`IQ2_M`、`IQ4_XS`、`IQ1_M`、`BF16`、`MXFP4`（两个 ID）、`UNKNOWN(N)`。
 
+### MTP 检测（`MtpHelper.java`）
+多 Token 预测（MTP）检测、提取和合并工具。支持 `qwen35` 和 `qwen35moe` 架构。可从完整模型提取 MTP 张量到轻量级 donor 文件，或将 donor 合并回完整模型。
+
 ### 模型加载（`LlamaServerManager.loadModelAsyncFromCmd()`）
 1. 检查是否已加载/正在加载，验证 `modelId`
 2. `PortChecker.findNextAvailablePort()`（三重检查，从 8081 开始）
@@ -248,6 +263,13 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 - 仅当 `enableVision=true` 且文件存在时使用 mmproj
 - 单 GPU：`-sm none --device`，多 GPU：`--device` 逗号分隔
 - 根据操作系统检测可执行文件名（llama-server / llama-server.exe）
+
+### 子进程管理（`LlamaCppProcess.java`）
+- 命令行拆分支持双引号/单引号/反斜杠转义
+- Windows：自动将 ROCm `bin/`、`bin/rocblas/`、`bin/hipblaslt/` 添加到 PATH
+- Linux：设置 `LD_LIBRARY_PATH` 包含二进制目录和 ROCm 库路径
+- 输出读取器使用虚拟线程，过滤 `update_slots` 和 `log_server_r` 行
+- 停止：`process.destroy()` → 等待 5 秒 → `destroyForcibly()` → 中断读取器线程
 
 ### 模型停止（`stopModel()`）
 - `process.stop()` → `Process.destroy()` → 等待 5 秒 → `destroyForcibly()` → 中断读取器线程
@@ -307,9 +329,9 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 | `/v1/complete` | POST | 遗留文本补全 |
 
 **格式转换：**
-- 请求：`convertAnthropicToOai()` — system/messages/tools/tool_choice/stop_sequences/max_tokens/thinking
+- 请求：`convertAnthropicToOai()` — system/messages/tools/tool_choice/stop_sequences/max_tokens/thinking（支持 `thinking.type:"disabled"`）
 - 响应：`convertOaiResponseToAnthropic()` — reasoning_content→thinking、content→text、tool_calls→tool_use
-- 流式：`convertOaiStreamChunkToAnthropicSse()` — `content_block_start/delta/stop` 事件
+- 流式：`convertOaiStreamChunkToAnthropicSse()` — 状态机管理 content_block_start/delta/stop 事件
 
 ### Ollama 兼容 API（端口 11434，独立 Netty 服务器）
 | 端点 | 方法 | 描述 | 实现 |
@@ -351,10 +373,10 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 **WebSocket RPC（`LMStudioWebSocketHandler`）：** 路径 `/llm` 和 `/system`
 - `connect` — 连接确认
 - `listDownloadedModels` — 所有 GGUF 模型，包含架构/量化信息
-- `listLoaded` — 已加载的 LLM（过滤掉嵌入模型），附带 `instanceReference`
+- `listLoaded` — 已加载的 LLM（过滤掉嵌入模型），附带持久化 `instanceReference`
 - `getModelInfo` — 通过 `instanceReference` 获取详情
 
-**LM Studio 响应增强：** `buildLmStudioCompletion()` 添加 `stats`（tokens_per_second、time_to_first_token、generation_time、stop_reason）、`model_info`（arch、quant、format、context_length）、`runtime` 字段。
+**LM Studio 响应增强：** `buildLmStudioCompletion()` 添加 `stats`（tokens_per_second、time_to_first_token、generation_time、stop_reason）、`model_info`（arch、quant、format、context_length）、`runtime` 字段。支持 `@` 后缀模型名映射（如 `model@Q4_K_M`）。
 
 ### 内部 API（`/api/*`）
 
@@ -494,6 +516,11 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 | `/api/sys/gpu/status` | GET | 实时 GPU 状态（温度/利用率/内存/功耗/风扇） |
 | `/api/sys/console` | GET | 控制台日志缓冲区文本 |
 | `/api/sys/fs/list` | GET | 文件系统浏览器。查询参数：`path`。最多 500 个目录 + 10 个文件。阻止符号链接。 |
+| `/api/sys/update/check` | GET | 检查 GitHub 更新 |
+| `/api/sys/update/download` | POST | 下载更新包（仅 GitHub Release URL） |
+| `/api/sys/update/apply` | POST | 应用下载的更新 |
+| `/api/sys/update/status` | GET | 查询更新状态 |
+| `/api/sys/update/cancel` | POST | 取消下载 |
 | `/api/shutdown` | POST | 优雅关闭（停止所有模型 → NodeManager.shutdown() → System.exit(0)） |
 
 #### 采样参数
@@ -555,7 +582,7 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 
 ## WebSocket（端口 8080，路径 `/ws`）
 
-**客户端（`js/websocket.js`）：** 自动连接，1 秒重连间隔。连接时发送 `{"type":"connect"}`，等待 `{"type":"confirm"}`。
+**客户端（`js/websocket.js`）：** 自动连接，1 秒重连间隔。连接时发送 `{"type":"connect"}`，等待 `{"type":"connect_ack"}`。
 
 **事件（服务器→客户端）：**
 | 事件 | 描述 | 负载字段 |
@@ -570,13 +597,16 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 | `download_update` | 下载状态变更 | `taskId, state, ...` |
 | `download_progress` | 下载进度 | `taskId, bytes, speed, ...` |
 | `model_busy` | 模型繁忙状态 | `modelId, busy, activeCount` |
+| `app_update` | 应用更新进度 | `status, downloadedBytes, totalBytes, progressRatio, version, errorMessage` |
 | `systemMonitor` | 系统指标（仅 Linux） | `cpu, memory, gpu, load, processes, network` |
 
 **心跳：** 服务器每 30 秒 ping，每 60 秒广播系统状态（Linux：`system_monitor_json.sh` 脚本）。
 
 **控制台缓冲区：** 最大 2MB，UTF-8 安全截断。从 `logs/app.log` 尾部预加载。
 
-**远程节点日志中继：** `RemoteWebSocketClient` 连接到每个远程节点的 `/ws`。过滤 `heartbeat`/`connect_ack`/`welcome`。注入 `nodeId` 字段。控制台事件将 `line` 转换为 `line64`（base64）。远程日志不写入本地 CONSOLE_BUFFER（避免快照重复）。前端 `console-modal.js` 在 `remoteLinesBuffer` 中缓存远程行，快照后恢复。`flushPendingLogs()` 按 `timestamp` 排序。
+**远程节点日志中继：** `RemoteWebSocketClient` 连接到每个远程节点的 `/ws`。过滤 `heartbeat`/`connect_ack`/`welcome`。注入 `nodeId` 字段。控制台事件将 `line` 转换为 `line64`（base64）。远程日志不写入本地 CONSOLE_BUFFER（避免快照重复）。
+
+**LM Studio WebSocket（端口 1234，路径 `/llm` 和 `/system`）：** `LMStudioWebSocketManager` 管理连接。30 秒心跳、60 秒系统状态、RPC 调用（listDownloadedModels/listLoaded/getModelInfo）。
 
 ---
 
@@ -605,6 +635,8 @@ URI 以 `/api/`、`/v1`（非 HTML）、`/session`、`/tokenize`、`/apply-templ
 | `llama_hub_image` | `ReadStaticImageTool`（最大 2MB，base64） |
 | `llama_hub_context` | `ContextSummaryTool`（持久化到 `cache/context-summary/`） |
 | `llama_hub_file` | `WriteTextFileTool`（路径遍历保护） |
+
+**会话管理：** `McpSession` 支持两种传输。Streamable HTTP 使用 `MCP-Session-Id` 头标识会话。遗留 SSE 使用 URL 路径中的 sessionId。
 
 **经验知识库：** `FileExperienceRepository` 存储到 `{user.dir}/experience/`（JSON，`exp_{seq}.json`）。`ExperienceMatcher` 按任务类型（+5）+ 上下文术语命中（各 +1.5）+ 历史权重评分匹配。
 
@@ -698,7 +730,7 @@ llama.cpp 二进制目录。默认自动扫描 `llamacpp/`。
 包装在包含 `List<LlamaHubNode>` 的 `NodesConfigData` POJO 中。
 
 ### `config/mcp-tools.json`
-MCP 客户端注册的外部工具服务器。
+MCP 客户端注册的外部工具服务器。格式：`{ "mcpServers": { "serverName": { "baseUrl": "...", "transportType": "sse|streamable-http", "headers": {...} } } }`。
 
 ### `config/capabilities/{modelId}.json`
 ```json
@@ -717,7 +749,7 @@ MCP 客户端注册的外部工具服务器。
 ```
 
 ### 原子文件写入
-`ConfigManager.writeJsonFileAtomic()`：写入 `.tmp` → `ATOMIC_MOVE` → 重命名。非原子文件系统回退到普通移动。
+`ConfigManager.writeJsonFileAtomic()`：写入 `.tmp` → `ATOMIC_MOVE` → 重命名。非原子文件系统回退到普通移动。`ChatTemplateFileTool`、`FileContextSummaryRepository`、`FileExperienceRepository` 等都使用此模式。
 
 ---
 
@@ -730,11 +762,13 @@ MCP 客户端注册的外部工具服务器。
 
 **辅助日志记录器：** `STDOUT`（System.out 捕获）、`STDERR`（System.err 捕获）、`LLAMA_CPP_RAW`（子进程输出，过滤 `update_slots` 和 `log_server_r`）、`CONSOLE_BUFFER`（控制台缓冲区日志记录器）。
 
-**调试日志：** `application.json` → `logging.logRequestUrl/Header/Body` = `true`。
+**调试日志：** `application.json` → `logging.logRequestUrl/Header/Body` = `true`。路由器根据这些标志在请求处理前记录 URI、所有头信息和请求体。
 
 **ConsoleBufferLogAppender：** 启动时安装的自定义 Log4j2 appender。捕获除 STDOUT/STDERR/LLAMA_CPP_RAW 之外的所有日志事件，将每行转发到 WebSocket 控制台。使用 PatternLayout `%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n`。
 
 **ConsoleBroadcastOutputStream：** 捕获 `System.out`/`System.err`，缓冲直到换行，将每个完整行广播到 WebSocket 控制台和日志记录器。
+
+**子进程日志过滤：** `LlamaCppProcess.startOutputReaders()` 在输出处理器中过滤包含 `update_slots` 和 `log_server_r` 的行，避免控制台污染。
 
 ---
 
@@ -749,7 +783,7 @@ MCP 客户端注册的外部工具服务器。
 
 **自动扫描：** 如果 `keystorePath` 是目录，则查找证书文件（优先选择 `.p12`）。
 
-**详细指南：** `ssl/HTTPS_SETUP.md`
+**详细指南：** `ssl/HTTPS_SETUP.md`（中英文双语）
 
 **注意：** `ssl/` 在 `.gitignore` 中，HTTPS 需要手动设置。
 
@@ -782,6 +816,7 @@ MCP 客户端注册的外部工具服务器。
 - 最大并发：4（`DownloadTaskManager` 的固定线程池）
 - 进度：回调驱动（`DownloadProgressListener`），非轮询
 - 持久化：Java 原生序列化（`ObjectOutputStream`）写入 `cache/tasks.cache`
+- 暂停/恢复：中断线程 + `.downloading.meta` 文件记录 Range 状态
 
 #### 状态机
 ```
@@ -789,7 +824,6 @@ PENDING → RUNNING → COMPLETED
                ↘  ↗   ↘
               PAUSED    FAILED
 ```
-`startTask()` 同步设状态为 `RUNNING`，下载在 `workerPool.submit()` 中异步执行。暂停/恢复通过 `requestStop()` 中断线程，恢复时重扫 `.part` 文件。
 
 #### WebSocket 事件
 | 事件 | 触发时机 | JS 处理器 |
@@ -797,22 +831,11 @@ PENDING → RUNNING → COMPLETED
 | `download_update` | 创建/暂停/完成/失败 | `updateDownloadItem()`→`renderDownloadsList()` |
 | `download_progress` | 每次进度回调 | `updateDownloadProgress()`（直接操作 DOM） |
 
-#### 暂停/恢复
-暂停：`requestStop()` → 中断下载线程 → `pauseTask()` 持久化到 cache。恢复：`startTask()` 重新开始，`SimpleHttpDownloader` 扫描现有 `.part` 文件跳过已下载部分。
-
 ### 遗留系统（`org.mark.llamacpp.download`）
 
-#### 架构
-`DownloadManager`（单例）→ `BasicDownloader`（`java.net.http.HttpClient`，8MB 分块，虚拟线程 `PartDownloadTask`）。通过 `TaskRepository`（Gson JSON）持久化到 `downloads/tasks.json`。1 秒 `ScheduledExecutorService` 轮询进度。
-**未接入任何 HTTP 路由，属于死代码。**
+`DownloadManager`（单例）→ `BasicDownloader`（`java.net.http.HttpClient`，8MB 分块，虚拟线程 `PartDownloadTask`）。通过 `TaskRepository`（Gson JSON）持久化到 `cache/tasks.json`。1 秒 `ScheduledExecutorService` 轮询进度。**未接入任何 HTTP 路由，属于死代码。**
 
-#### 状态机
-```
-IDLE → PREPARING → DOWNLOADING → MERGING → VERIFYING → COMPLETED
-                                     ↘                   ↘
-                                      FAILED              FAILED
-```
-所有状态 → FAILED。DOWNLOADING → PAUSED → RESUMED → DOWNLOADING。
+状态机：`IDLE → PREPARING → DOWNLOADING → MERGING → VERIFYING → COMPLETED`
 
 ### 文件命名（两个系统共用）
 - 下载中：`{fileName}.downloading`
@@ -821,36 +844,103 @@ IDLE → PREPARING → DOWNLOADING → MERGING → VERIFYING → COMPLETED
 
 ---
 
+## 更新系统（`org.mark.llamacpp.update`）
+
+### 架构
+`SystemController` → `LetsUpdate`（编排）→ `UpdateDownloader`（下载引擎）→ `GitHubTagFetcherNative`（版本检测）
+
+### 完整 OTA 更新流程
+1. **检查更新：** `GET /api/sys/update/check` → `GitHubTagFetcherNative.check()` → 调用 GitHub Releases API → 解析 `ReleasesStruct` → 与 `BuildInfo.getTag()` 比较 → 返回 `CheckResult`
+2. **下载：** `POST /api/sys/update/download` → `LetsUpdate.download()` → 验证 URL 仅限 GitHub Release → `UpdateDownloader.downloadAsync()` → 8KB 分块写入 `cache/update.zip` → 每 500ms WebSocket 广播 `app_update` 事件
+3. **查询状态：** `GET /api/sys/update/status` → `LetsUpdate.getStatus()` 合并自身状态 + `UpdateDownloader` 状态
+4. **应用更新：** `POST /api/sys/update/apply` → `LetsUpdate.doUpdate()` → 解压 ZIP（路径遍历防护）→ 备份 `classes/`→`cache/old-classes/` → 移动新文件 → 失败自动回滚 `ROLLBACK`
+5. **取消下载：** `POST /api/sys/update/cancel` → 删除 `cache/update.zip` → 重置为 `IDLE`
+
+### 更新 API 端点
+
+| 端点 | 方法 | 描述 | 请求体 | 响应 |
+|------|------|------|--------|------|
+| `/api/sys/update/check` | GET | 检查 GitHub 是否有新版本 | 无 | `{success, release:{tag_name, name, body, html_url, published_at, prerelease, assets}, hasUpdate, error?}` |
+| `/api/sys/update/download` | POST | 下载更新包 | `{tagName, [proxyUrl]?}` | `{success, status, version, error?}` |
+| `/api/sys/update/apply` | POST | 应用已下载的更新 | 无 | `{success, error?}` |
+| `/api/sys/update/status` | GET | 查询更新状态 | 无 | `{status, downloadedBytes, totalBytes, progressRatio, version, error, ...}` |
+| `/api/sys/update/cancel` | POST | 取消下载 | 无 | `{success}` |
+
+### 状态机
+```
+IDLE → DOWNLOADING → READY → APPLYING → IDLE
+  ↓        ↓           ↓         ↓
+FAILED    FAILED      IDLE     ROLLBACK → IDLE
+              (cancel)  (cancel)
+```
+
+### WebSocket 事件（`app_update`）
+```json
+{"type":"app_update","status":"downloading","downloadedBytes":524288,"totalBytes":1048576,"progressRatio":0.5,"version":"v0.9.0"}
+{"type":"app_update","status":"completed","downloadedBytes":1048576,"totalBytes":1048576,"progressRatio":1.0,"version":"v0.9.0"}
+{"type":"app_update","status":"failed","errorMessage":"下载失败: 连接超时"}
+```
+
+### 核心类
+| 类 | 职责 |
+|-----|----------|
+| `GitHubTagFetcherNative` | 调用 GitHub API `/repos/.../releases/latest`，解析 `ReleasesStruct`，与 `BuildInfo.getTag()` 对比。缓存到 `cache/latest.json`。 |
+| `ReleasesStruct` | Gson POJO：`tagName`, `name`, `htmlUrl`, `publishedAt`, `body`, `prerelease`, `assets[]`（含 `name`, `size`, `browserDownloadUrl`） |
+| `LetsUpdate` | 更新编排。验证下载 URL（强制 GitHub Release）、ZIP 解压（路径遍历防护）、文件备份/回滚。管理 `UpdateStatus` 状态机。 |
+| `UpdateDownloader` | 低级 HTTP 下载。`HttpURLConnection` 8KB 分块、500ms WebSocket 进度广播。仅从 `IDLE/READY/FAILED` 开始新下载。`cancel()` 中断下载线程。 |
+
+---
+
 ## 前端
 
 **技术：** 纯 vanilla JS（无框架、无打包器、无 `package.json`）。通过 `<script src>` 直接引入 JS。
 
-**第三方：** Font Awesome（`css/all.min.css`）、Highlight.js（`js/highlight.min.js`）、Marked（`js/marked.min.js`）、MathJax（动态）、lz-string（`js/lz-string.js`）、Google Fonts Inter（`css/css2.css`）。
+**第三方：** Font Awesome（`css/all.min.css`）、Highlight.js（`js/highlight.min.js`）、Marked（`js/marked.umd.js`）、MathJax（动态 `tex-svg.js`）、lz-string（`js/lz-string.js`）、Google Fonts Inter（`css/css2.css`）。
 
 ### 页面
 
-- **`index.html`** — 桌面 SPA（7 个视图：模型列表、下载、llama.cpp 路径、模型路径、设置、设备状态、HF 搜索、控制台）。
-- **`index-mobile.html`** — 移动端 SPA（底部导航：模型列表、HF 搜索、下载、设置）。
-- **`chat/index.html`** — 完整聊天 UI（约 5730 行）。OpenAI `/v1/chat/completions`。会话管理、助手配置、多模态、音频录制、流式传输、Markdown/LaTeX、工具调用、MCP 集成。
-- **`easyRP/easy-chat.html`** — 角色扮演聊天。5 个 `completion-*.js` 文件。角色系统、会话/主题、KV 缓存槽、API 模型切换。
-- **`tools/benchmark-v3.html`** — 性能测试面板（两个标签页：`llama-server` 实时测试 + `llama-bench` CLI）。作为 `main-benchmark-v3` 集成到 `index.html` 中。
-- **`tools/mcp-manager.html`** — MCP 服务器管理 UI。
-- **`audio-transcription.html`** — 音频转录（上传 + 录制）。
+- **`index.html`** — 桌面 SPA（12 个视图：模型列表、聊天、基准测试 V3、下载、HF 搜索、控制台、llama.cpp 路径、模型路径、用量报告、设置、设备状态）。侧边栏导航 + 主面板切换。
+- **`index-mobile.html`** — 移动端 SPA（5 个底部导航视图：模型列表、HF 搜索、下载、设置 + 子页面）。全屏加载模型弹窗。
+- **`chat/index.html`** — 完整聊天 UI（约 5700 行，含 4000+ 行内联 JS）。OpenAI `/v1/chat/completions`。会话管理、多助手、多模态、音频录制、流式传输、Markdown/LaTeX（MathJax）、工具调用、MCP 集成、性能统计。
+- **`easyRP/easy-chat.html`** — EasyRP 角色扮演聊天（桌面版）。5 个 `completion-*.js` 模块。角色系统、会话/主题、KV 缓存槽、API 模型切换。
+- **`easyRP/easy-chat-mobile.html`** — EasyRP 移动版。主题覆盖层、底部设置面板。
+- **`easyRP/concurrency.html`** — 并发压力测试页面（N 路并行 API 请求，SSE 流式，聚合统计）。
+- **`tools/benchmark-v2.html`** — V2 基准测试面板（llama-server 实时测试 + 记录管理 + 硬件配置文件）。
+- **`tools/benchmark-v3.html`** — V3 基准测试布局壳（两个标签页：llama-server 实时测试 + llama-bench CLI）。嵌入 `index.html` 作为 `main-benchmark-v3`。
+- **`tools/mcp-manager.html`** — MCP 服务器管理 UI（列出/添加/删除/重命名服务器和工具，`<dialog>` API）。
+- **`audio-transcription.html`** — 音频转录（上传 + 浏览器录音）。支持 WAV/MP3/M4A/OGG/FLAC/WEBM/OPUS，25MB 限制。
 
 ### 关键 JS 文件
 | 文件 | 行数 | 用途 |
 |------|------|------|
-| `js/websocket.js` | 175 | WS 客户端，事件分发 |
-| `js/model-list.js` | 476 | 模型列表渲染、搜索、排序、收藏 |
-| `js/model-detail.js` | 1312 | 模型详情弹窗（标签页：概览/采样/模板/kwargs/槽） |
-| `js/model-action-modal.js` | 1599 | 加载/基准测试/停止弹窗。从 `server-params.json` 动态参数 |
-| `js/benchmark-v3.js` | 1435 | V3 基准测试面板（IIFE 隔离，2 个标签页，节点过滤） |
-| `js/settings.js` | 397 | 桌面设置（6 个标签页） |
-| `js/hf.js` | 651 | HuggingFace 搜索（桌面端） |
-| `js/download.js` | 690 | 下载管理（桌面端） |
-| `js/console-modal.js` | 124 | 控制台弹窗（远程行缓冲，时间戳排序） |
-| `js/i18n.js` | 127 | 国际化 |
-| `js/model-icon.js` | 29 | 架构→Font Awesome 图标映射 |
+| `js/websocket.js` | 198 | WS 客户端，事件分发到各 UI 模块 |
+| `js/i18n.js` | 127 | 国际化：语言检测、翻译加载、DOM 自动翻译 |
+| `js/model-icon.js` | 29 | 架构名 → PNG 图标路径映射（deepseek/qwen/llama 等） |
+| `js/model-list.js` | 556 | 模型列表渲染、搜索、排序、收藏、节点过滤 |
+| `js/model-detail.js` | 1312 | 模型详情弹窗（6 标签页：概览/采样/模板/Token 计算器/Kwargs/槽） |
+| `js/model-action-modal.js` | 1633 | 加载/基准测试/停止弹窗 + 动态参数表单系统 |
+| `js/model-benchmark.js` | 709 | V1 基准测试弹窗（llama-bench 执行 + 结果浏览） |
+| `js/benchmark-v3.js` | 1450 | V3 基准测试面板（IIFE 隔离，2 标签页，节点过滤，图表） |
+| `js/settings.js` | 1049 | 桌面设置（8 标签页：服务器/兼容/安全/HTTPS/日志/下载/节点/更新） |
+| `js/settings-mobile.js` | 208 | 移动端设置（IIFE） |
+| `js/download.js` | 729 | 桌面下载管理器（IIFE，WebSocket 驱动，EMA 速度平滑） |
+| `js/download-mobile.js` | 533 | 移动端下载管理器（IIFE） |
+| `js/hf.js` | 651 | HuggingFace 搜索 + GGUF 文件树 + 下载（桌面） |
+| `js/hf-mobile.js` | 463 | HuggingFace 搜索（移动端，IIFE） |
+| `js/console-modal.js` | 187 | 控制台弹窗（本地 + 远程节点标签页，rAF 批处理） |
+| `js/console-modal-mobile.js` | 100 | 移动端控制台弹窗（简化版） |
+| `js/usage-report.js` | 313 | 用量报告（柱状图 + 分页请求日志，IIFE） |
+| `js/index-mobile-nav.js` | 80 | 移动端底部导航控制器（IIFE） |
+| `js/llamacpp-setting-mobile.js` | 349 | 移动端 llama.cpp 路径管理（IIFE） |
+| `js/model-path-setting-mobile.js` | 246 | 移动端模型路径管理（IIFE） |
+| `js/model-llamacpp-setting.js` | — | 桌面端 llama.cpp 路径管理 |
+| `js/completion-dom-state.js` | 290 | EasyRP DOM 引用 + 全局状态（els/state） |
+| `js/completion-init.js` | 517 | EasyRP 事件绑定和初始化 |
+| `js/completion-net-tools.js` | 465 | EasyRP 网络工具（fetch/MCP/附件/备份） |
+| `js/completion-runtime.js` | 1646 | EasyRP 核心运行时代码（消息构建/SSE/工具调用/保存加载） |
+| `js/completion-ui-render.js` | 1297 | EasyRP UI 渲染（Markdown/消息气泡/版本/头像/HTML 预览） |
+| `chat/audio-recorder.js` | 272 | 音频录制（ScriptProcessorNode + WAV 编码） |
+| `chat/chat-mcp.js` | 1065 | 聊天 MCP 管理模块（服务器添加/工具切换/工具执行） |
 
 ### 动态参数表单系统（`server-params.json` + `model-action-modal.js`）
 
@@ -860,20 +950,30 @@ IDLE → PREPARING → DOWNLOADING → MERGING → VERIFYING → COMPLETED
 
 **裸 token 参数**（无标志名，值本身就是标志）：fullName 和 abbreviation 均为空，type=STRING 带有 values 列表。特殊处理：`buildLoadModelPayload()` 将值作为裸 token 直接输出；`sanitizeExtraParamTokens()` 通过 `buildAllowedBareTokenSetFromParamConfig()` 进行白名单检查。
 
+**`server-params.json` 有 50 个参数，分 7 组：** 基础(6)、采样(10)、采样器链(1)、性能(14)、特性(3)、模板(4)、多模态(1)、推测解码(12)。
+
+**`benchmark-params.json` 有 31 个参数，分 5 组：** 基础(8)、测试数据(5)、性能(10)、缓存存储(3)、高级(7)。
+
 ### Benchmark DOM ID 约定
 所有基准测试表单 ID 使用 `bench_` 前缀（例如 `param_bench_threads`），以避免与加载模型弹窗的 `getElementById` 冲突。`benchmark-v3.js` 使用 IIFE 隔离以防止函数名与 `model-action-modal.js` 冲突。
 
 ### i18n
 - 检测：`?lang=` → `localStorage` → `navigator.language` → `zh-CN` 回退
-- 翻译文件：`i18n/en-US.json`、`i18n/zh-CN.json`
+- 翻译文件：`i18n/en-US.json`、`i18n/zh-CN.json`（各 ~640 键）
 - DOM 自动翻译：`data-i18n`（文本）、`data-i18n-attr`（属性）
 - 每个 JS 文件定义 `t(key, fallback)` 速记
 
 ### 全局状态
-大量使用 `window.*`：`window.I18N`、`window.paramConfig`、`window.currentModelsData`、`window.__modelDetail*`、`window.__loadModel*`、`window.__capabilities*`、`window.showModal`、`window.showToast`。
+大量使用 `window.*`：`window.I18N`、`window.paramConfig`、`window.benchmarkParamConfig`、`window.currentModelsData`、`window.remoteNodes`、`window.__modelDetail*`、`window.__loadModel*`、`window.__capabilities*`、`window.__modelActionMode`、`window.__benchmarkModelId`、`window.showModal`、`window.showToast`。
 
 ### WebSocket 耦合
 `websocket.js` 直接调用 `model-list.js` 的内部函数：`window.currentModelsData`、`sortAndRenderModels()`、`updateModelSlotsDom()`、`showModelLoadingState()`。
+
+### UI 模式
+- **IIFE 隔离：** settings.js, download.js, benchmark-v3.js, console-modal.js, hf-mobile.js, settings-mobile.js, download-mobile.js, llamacpp-setting-mobile.js, model-path-setting-mobile.js, chat-mcp.js
+- **rAF 批处理：** 控制台日志刷新、Markdown 渲染、timing 显示
+- **防抖自动保存：** 采样设置 400ms、能力设置 350ms、聊天状态 450ms
+- **乐观 UI：** 收藏切换立即更新 UI，API 失败时回滚
 
 ---
 
@@ -903,19 +1003,29 @@ IDLE → PREPARING → DOWNLOADING → MERGING → VERIFYING → COMPLETED
 
 ---
 
+## Windows 系统托盘
+
+`WindowsTray.java` 使用 JDK `SystemTray` API。图标从 `/icon/icon.png` 加载。功能：
+- 双击打开主页（`defaultAction`）
+- 右键弹出菜单（"Open home page"、"Exit"）
+- DPI 感知弹出定位
+- 通知气泡消息
+
+---
+
 ## 贡献者注意事项
 
 1. **pom.xml 没有依赖** — 通过替换 `lib/` 中的 JAR 和更新 `.classpath` 来更改依赖。**永远不要碰 pom.xml。**
-2. **模型作为 OS 子进程运行** — 每个模型 = 独立端口的独立 `llama-server.exe`。
-3. **`BuildInfo.java` 占位符** — CI 替换 `{tag}`/`{version}`/`{createdTime}`。本地开发显示原始 `{tag}` 等。
-4. **无测试、无 lint** — 需要手动验证。
+2. **模型作为 OS 子进程运行** — 每个模型 = 独立端口的独立 `llama-server.exe`。`LlamaCppProcess` 管理其生命周期。
+3. **`BuildInfo.java` 占位符** — CI 替换 `{tag}`/`{version}`/`{createdTime}`。本地开发显示原始值或 `"v0.8.2"`。
+4. **无测试框架** — `src/test/` 下的文件是诊断工具，非单元测试。需要手动验证。
 5. **`config/` 被 gitignore** — 首次启动仅创建 `application.json`。其他配置文件不会自动创建。
 6. **`modelpaths.json` 是可选的** — 即使没有它，`models/` 目录也会被自动扫描。
 7. **`llamacpp.json` 是可选的** — `llamacpp/` 目录会被自动扫描。
 8. **请求使用虚拟线程**（`Executors.newVirtualThreadPerTaskExecutor()`），但模型加载使用单个虚拟线程执行器（顺序执行）。
 9. **OpenAI API 通过 `HttpURLConnection` 转发** — 不是直接 Netty 代理。每次请求到 `localhost:{modelPort}` 建立新的 HTTP 连接。
 10. **前端无打包器** — 所有 JS 文件通过 `<script>` 加载，无模块系统。
-11. **到处都是全局变量** — 大量使用 `window.*`。
+11. **到处都是全局变量** — 大量使用 `window.*`。文件间耦合通过全局变量和直接函数调用实现。
 12. **WebSocket 耦合** — `websocket.js` 直接调用 `model-list.js` 内部函数；变更需要协调。
 13. **Benchmark 与加载弹窗 DOM ID 冲突** — 所有基准测试表单 ID 使用 `bench_` 前缀。新的基准测试参数必须遵循此约定。
 14. **benchmark-v3.js 使用 IIFE** — 内部函数（`fieldNameFromParamConfig`、`renderParamField`）不能污染全局作用域，否则会覆盖 `model-action-modal.js` 中的对应函数并破坏 `ordered-multiselect` 控件。
@@ -923,8 +1033,13 @@ IDLE → PREPARING → DOWNLOADING → MERGING → VERIFYING → COMPLETED
 16. **`LlamaCppService` 和 `SessionService` 是 `@Deprecated`** — 在生产流程中未使用。
 17. **`OllamaService.java` 完全被注释掉** — 已被 `OllamaChatService`/`OllamaShowService`/`OllamaTagsService` 取代。
 18. **`LlamaCommandParser.java` 完全被注释掉** — 已被 `ChatStreamSession` + `OpenAIService` 取代。
-19. **存在两个并行的下载包** — `org.mark.file.downloader`（**活跃**，使用 `HttpURLConnection`、`SimpleHttpDownloader`、`DownloadTaskManager`，通过 `FileDownloadRouterHandler` 接入 HTTP 路由）和 `org.mark.llamacpp.download`（**遗留**，使用 `java.net.http.HttpClient`、`BasicDownloader`、`DownloadManager`，未接入任何路由）。
-20. **`VramEstimator` 是 `@Deprecated`** — 实时服务器上的 VRAM 估算使用不同的（更新的）方法，通过 `CommandLineRunner` + `llama-cli`。
+19. **`LlamaCliProcessor.java` 是 `@Deprecated`** — 旧的交互式 CLI 包装器。
+20. **`VramEstimator` 是 `@Deprecated`** — 包含了独立的 GGUF 解析器（`LeReader`），与 `GGUFMetaDataReader` 重复。已被 `CommandLineRunner` + `llama-cli` 方法取代。
+21. **存在两个并行的下载包** — `org.mark.file.downloader`（**活跃**，使用 `HttpURLConnection`、`SimpleHttpDownloader`、`DownloadTaskManager`，通过 `FileDownloadRouterHandler` 接入 HTTP 路由）和 `org.mark.llamacpp.download`（**遗留**，使用 `java.net.http.HttpClient`、`BasicDownloader`、`DownloadManager`，未接入任何路由）。
+22. **GGUF 解析器有重复实现** — `VramEstimator` 中的 `LeReader` 和 `GGUFMetaDataReader` 是两个独立的 GGUF 解析器。
+23. **`GitBranchHelper.java` 是空桩** — 无实现。
+24. **`HuggingFaceModelCrawler.java` 支持镜像切换** — 支持 `hf-mirror.com` 和官方 HuggingFace，通过环境变量 `HF_BASE_URL` 或 `base` 参数控制。
+25. **`OutputHelper.java` 是构建工具** — 将 classpath 打包成 release ZIP 并生成启动脚本，不参与运行时。
 
 ---
 
