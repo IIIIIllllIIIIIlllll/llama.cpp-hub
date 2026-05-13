@@ -856,8 +856,10 @@ function loadModelSamplingSettings() {
     const details = document.getElementById(modalId + 'SamplingDetails');
     if (!modelId || !select || !details) return;
     details.innerHTML = `<div style="grid-column:1 / -1; padding:12px; border:1px solid #e5e7eb; border-radius:0.75rem; color:#6b7280;">${escapeAttrCompat(t('common.loading', '加载中...'))}</div>`;
-    const configReq = fetch('/api/sys/model/sampling/setting/list').then(r => r.json());
-    const selectedReq = fetch(`/api/sys/model/sampling/setting/get?modelId=${encodeURIComponent(modelId)}`).then(r => r.json());
+    const nodeId = window.__modelDetailNodeId || '';
+    const nodeParam = (nodeId && nodeId !== 'local') ? `&nodeId=${encodeURIComponent(nodeId)}` : '';
+    const configReq = fetch(`/api/sys/model/sampling/setting/list${nodeParam ? '?' + nodeParam.substring(1) : ''}`).then(r => r.json());
+    const selectedReq = fetch(`/api/sys/model/sampling/setting/get?modelId=${encodeURIComponent(modelId)}${nodeParam}`).then(r => r.json());
     Promise.all([configReq, selectedReq])
         .then(([configRes, selectedRes]) => {
             if (!(configRes && configRes.success)) {
@@ -890,10 +892,13 @@ function saveModelSamplingSelection() {
     const select = document.getElementById(modalId + 'SamplingConfigSelect');
     if (!modelId || !select) return;
     const samplingConfigName = select.value == null ? '' : String(select.value).trim();
+    const nodeId = window.__modelDetailNodeId || '';
+    const payload = { modelId, samplingConfigName };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/sys/model/sampling/setting/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId, samplingConfigName })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {
@@ -917,10 +922,13 @@ function addModelSamplingConfig() {
     if (!samplingConfigName) return;
     const bundle = window.__modelDetailSamplingBundle;
     const sampling = bundle && bundle.configs && bundle.configs[select.value] ? bundle.configs[select.value] : {};
+    const nodeId = window.__modelDetailNodeId || '';
+    const payload = { samplingConfigName, sampling };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/sys/model/sampling/setting/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ samplingConfigName, sampling })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {
@@ -968,10 +976,13 @@ function updateModelSamplingConfig(options = {}) {
         return;
     }
     const sampling = getSamplingDraftFromForm();
+    const nodeId = window.__modelDetailNodeId || '';
+    const payload = { samplingConfigName, sampling };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/sys/model/sampling/setting/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ samplingConfigName, sampling })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {
@@ -1001,10 +1012,13 @@ function deleteModelSamplingConfig() {
         return;
     }
     if (!confirm(t('confirm.delete', '确定要删除吗？') + `\n${samplingConfigName}`)) return;
+    const nodeId = window.__modelDetailNodeId || '';
+    const payload = { samplingConfigName };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/sys/model/sampling/setting/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ samplingConfigName })
+        body: JSON.stringify(payload)
     })
         .then(r => r.json())
         .then(res => {

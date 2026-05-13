@@ -831,6 +831,19 @@ public class SystemController implements BaseController {
 				return;
 			}
 
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				obj.remove("nodeId");
+				NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+						nodeId, "POST", "api/sys/model/sampling/setting/set", obj);
+				if (result.isSuccess()) {
+					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				}
+				return;
+			}
+
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			modelId = modelId == null ? "" : modelId.trim();
 			if (modelId.isEmpty()) {
@@ -887,6 +900,20 @@ public class SystemController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
 				return;
 			}
+			
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				String path = "api/sys/model/sampling/setting/get?modelId=" + java.net.URLEncoder.encode(modelId, "UTF-8");
+				NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+						nodeId, "GET", path, null);
+				if (result.isSuccess()) {
+					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				}
+				return;
+			}
+			
 			Path configPath = Paths.get("config", "model-sampling-settings.json");
 			String samplingConfigName = "";
 			if (Files.exists(configPath)) {
@@ -916,6 +943,18 @@ public class SystemController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String nodeId = params.get("nodeId");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+						nodeId, "GET", "api/sys/model/sampling/setting/list", null);
+				if (result.isSuccess()) {
+					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				}
+				return;
+			}
 			Map<String, Object> data = ModelSamplingService.getInstance().listSamplingSettings();
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
@@ -935,6 +974,20 @@ public class SystemController implements BaseController {
 			if (obj == null) {
 				return;
 			}
+
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				obj.remove("nodeId");
+				NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+						nodeId, "POST", "api/sys/model/sampling/setting/add", obj);
+				if (result.isSuccess()) {
+					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				}
+				return;
+			}
+
 			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
 			if (samplingConfigName.isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少samplingConfigName参数"));
@@ -974,6 +1027,20 @@ public class SystemController implements BaseController {
 			if (obj == null) {
 				return;
 			}
+
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				obj.remove("nodeId");
+				NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
+						nodeId, "POST", "api/sys/model/sampling/setting/delete", obj);
+				if (result.isSuccess()) {
+					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
+				} else {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				}
+				return;
+			}
+
 			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
 			if (samplingConfigName.isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少samplingConfigName参数"));
