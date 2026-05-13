@@ -458,8 +458,8 @@
         var tagsStr = byId('nodeFormTags').value.trim();
         var enabled = byId('nodeFormEnabled').checked;
 
-        if (!nodeId) { toast(t('toast.error', '错误'), '节点 ID 不能为空', 'error'); return; }
-        if (!baseUrl) { toast(t('toast.error', '错误'), '地址不能为空', 'error'); return; }
+        if (!nodeId) { toast(t('toast.error', '错误'), t('modal.node.error.id_required', '节点 ID 不能为空'), 'error'); return; }
+        if (!baseUrl) { toast(t('toast.error', '错误'), t('modal.node.error.url_required', '地址不能为空'), 'error'); return; }
         if (baseUrl.indexOf('http://') !== 0 && baseUrl.indexOf('https://') !== 0) {
             toast(t('toast.error', '错误'), '地址必须以 http:// 或 https:// 开头', 'error'); return;
         }
@@ -477,10 +477,10 @@
             });
             var result = await resp.json();
             if (!result || !result.success) {
-                toast(t('toast.error', '错误'), (result && result.error) ? result.error : (isEdit ? '更新失败' : '添加失败'), 'error');
+                toast(t('toast.error', '错误'), (result && result.error) ? result.error : (isEdit ? t('modal.node.error.update_failed', '更新失败') : t('modal.node.error.add_failed', '添加失败')), 'error');
                 return;
             }
-            toast(t('toast.success', '成功'), isEdit ? '已更新' : '已添加', 'success');
+            toast(t('toast.success', '成功'), isEdit ? t('modal.node.updated', '已更新') : t('modal.node.added', '已添加'), 'success');
             closeModal('nodeFormModal');
             loadNodes();
         } catch (e) {
@@ -498,7 +498,7 @@
                     if (nodes[i].nodeId === nodeId) { openNodeForm(nodes[i]); return; }
                 }
             }
-            toast(t('toast.error', '错误'), '节点不存在', 'error');
+            toast(t('toast.error', '错误'), t('modal.node.error.not_found', '节点不存在'), 'error');
         } catch (e) {
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
         }
@@ -514,7 +514,7 @@
             });
             var result = await resp.json();
             if (!result || !result.success) {
-                toast(t('toast.error', '错误'), (result && result.error) ? result.error : '删除失败', 'error');
+                toast(t('toast.error', '错误'), (result && result.error) ? result.error : t('modal.node.error.delete_failed', '删除失败'), 'error');
                 return;
             }
             toast(t('toast.success', '成功'), '已删除', 'success');

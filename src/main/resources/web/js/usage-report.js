@@ -78,14 +78,14 @@
                 + '</div>';
         }
         if (!cardHtml) {
-            cardHtml = '<div class="empty">暂无数据</div>';
+            cardHtml = '<div class="empty">' + t('page.usage_report.chart_empty', '暂无数据') + '</div>';
         }
         body.innerHTML = cardHtml;
 
         stats.innerHTML = ''
-            + '<div class="stat-card"><div class="stat-value">' + totalModels + '</div><div class="stat-label">有记录的模型</div></div>'
-            + '<div class="stat-card"><div class="stat-value">' + totalPrompt.toLocaleString() + '</div><div class="stat-label">总输入 Token</div></div>'
-            + '<div class="stat-card"><div class="stat-value">' + totalPredicted.toLocaleString() + '</div><div class="stat-label">总输出 Token</div></div>'
+            + '<div class="stat-card"><div class="stat-value">' + totalModels + '</div><div class="stat-label">' + t('page.usage_report.stats.models_with_records', '有记录的模型') + '</div></div>'
+            + '<div class="stat-card"><div class="stat-value">' + totalPrompt.toLocaleString() + '</div><div class="stat-label">' + t('page.usage_report.stats.total_prompt', '总输入 Token') + '</div></div>'
+            + '<div class="stat-card"><div class="stat-value">' + totalPredicted.toLocaleString() + '</div><div class="stat-label">' + t('page.usage_report.stats.total_predicted', '总输出 Token') + '</div></div>'
             + '<div class="stat-card"><div class="stat-value">' + totalCache.toLocaleString() + '</div><div class="stat-label">' + t('report.total_cache', '总缓存命中 Token') + '</div></div>';
 
         if (!canvasEl || !emptyEl || !wrapEl) return;
@@ -184,7 +184,7 @@
             if (r.modelId) modelSet.add(r.modelId);
         }
         const models = Array.from(modelSet).sort();
-        select.innerHTML = '<option value="">全部</option>';
+        select.innerHTML = '<option value="">' + t('page.model.filter.all', '全部') + '</option>';
         for (const m of models) {
             select.innerHTML += '<option value="' + escapeAttr(m) + '">' + escapeHtml(m) + '</option>';
         }
@@ -232,7 +232,7 @@
         const end = Math.min(start + PAGE_SIZE, filteredLogs.length);
         const pageData = filteredLogs.slice(start, end);
 
-        pageInfo.textContent = '第 ' + currentPage + ' / ' + totalPages + ' 页';
+        pageInfo.textContent = t('page.usage_report.page_info', '第 {current} / {total} 页').replace('{current}', currentPage).replace('{total}', totalPages);
         prevBtn.disabled = currentPage <= 1;
         nextBtn.disabled = currentPage >= totalPages;
 
@@ -252,7 +252,7 @@
                 + '</tr>';
         }
         if (!html) {
-            html = '<tr><td class="empty" colspan="10">暂无请求记录</td></tr>';
+            html = '<tr><td class="empty" colspan="10">' + t('page.usage_report.no_request_logs', '暂无请求记录') + '</td></tr>';
         }
         body.innerHTML = html;
     }

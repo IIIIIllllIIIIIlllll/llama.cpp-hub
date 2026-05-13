@@ -245,7 +245,7 @@
             </a>
             <a href="#" class="nav-item" id="nav-benchmark-v3" onclick="showBenchmarkV3(); return false;">
                 <i class="fas fa-gauge-high"></i>
-                <span>性能测试</span>
+                <span data-i18n="nav.benchmark_v3">nav.benchmark_v3</span>
             </a>
             <a href="#" class="nav-item" id="nav-download" onclick="showDownloadManager(); return false;">
                 <i class="fas fa-download"></i>
@@ -273,7 +273,7 @@
             </a>
             <a href="#" class="nav-item" id="nav-usage-report" onclick="showUsageReport(); return false;">
                 <i class="fas fa-chart-simple"></i>
-                <span>用量报表</span>
+                <span data-i18n="nav.usage_report">nav.usage_report</span>
             </a>
             <a href="#" class="nav-item" id="nav-settings" onclick="showSettingsPage(); return false;">
                 <i class="fas fa-cog"></i>
@@ -289,13 +289,13 @@
             <div class="sidebar-quick-links">
                 <div class="sidebar-quick-links-title">
                     <i class="fas fa-link"></i>
-                    <span>模型下载</span>
+                    <span data-i18n="sidebar.quick_links_title">sidebar.quick_links_title</span>
                 </div>
                 <a class="sidebar-quick-link" href="https://huggingface.co/" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-cloud sidebar-quick-link-icon"></i>
                     <span class="sidebar-quick-link-text">
                         <span class="sidebar-quick-link-domain">huggingface.co</span>
-                        <span class="sidebar-quick-link-desc">Hugging Face 官方站点</span>
+                        <span class="sidebar-quick-link-desc" data-i18n="sidebar.quick_links.hf_desc">sidebar.quick_links.hf_desc</span>
                     </span>
                     <i class="fas fa-external-link-alt sidebar-quick-link-ext"></i>
                 </a>
@@ -303,7 +303,7 @@
                     <i class="fas fa-globe sidebar-quick-link-icon"></i>
                     <span class="sidebar-quick-link-text">
                         <span class="sidebar-quick-link-domain">hf-mirror.com</span>
-                        <span class="sidebar-quick-link-desc">中国大陆镜像（更快访问）</span>
+                        <span class="sidebar-quick-link-desc" data-i18n="sidebar.quick_links.mirror_desc">sidebar.quick_links.mirror_desc</span>
                     </span>
                     <i class="fas fa-external-link-alt sidebar-quick-link-ext"></i>
                 </a>
@@ -311,7 +311,7 @@
                     <i class="fas fa-box-open sidebar-quick-link-icon"></i>
                     <span class="sidebar-quick-link-text">
                         <span class="sidebar-quick-link-domain">modelscope.com</span>
-                        <span class="sidebar-quick-link-desc">ModelScope 模型库</span>
+                        <span class="sidebar-quick-link-desc" data-i18n="sidebar.quick_links.modelscope_desc">sidebar.quick_links.modelscope_desc</span>
                     </span>
                     <i class="fas fa-external-link-alt sidebar-quick-link-ext"></i>
                 </a>
@@ -319,7 +319,7 @@
                     <i class="fab fa-github sidebar-quick-link-icon"></i>
                     <span class="sidebar-quick-link-text">
                         <span class="sidebar-quick-link-domain">llama.cpp Releases</span>
-                        <span class="sidebar-quick-link-desc">GitHub 发布页</span>
+                        <span class="sidebar-quick-link-desc" data-i18n="sidebar.quick_links.github_desc">sidebar.quick_links.github_desc</span>
                     </span>
                     <i class="fas fa-external-link-alt sidebar-quick-link-ext"></i>
                 </a>
@@ -1016,7 +1016,7 @@
         </div>
 
         <div class="console-tab-bar" id="consoleTabs">
-            <button class="console-tab-btn active" data-tab="local">本地</button>
+            <button class="console-tab-btn active" data-tab="local" data-i18n="page.console.tab_local">page.console.tab_local</button>
         </div>
         <div class="console-tab-container" id="consoleTabContainer">
             <div class="console-tab-panel active" data-panel="local">
@@ -1030,43 +1030,43 @@
     <!-- Benchmark V3 Panel -->
     <main class="main-area" id="main-benchmark-v3" style="display: none">
         <div class="top-bar">
-            <h1 class="page-title"><i class="fas fa-gauge-high"></i> 性能测试</h1>
+            <h1 class="page-title"><i class="fas fa-gauge-high"></i> <span data-i18n="page.benchmark_v3.title">page.benchmark_v3.title</span></h1>
         </div>
         <div class="warn-banner">
             <i class="fas fa-triangle-exclamation"></i>
-            <span>性能测试会对计算机产生较高的负载，并且根据计算机性能的不同（如 CPU 推理 VS RTX 5090 推理）花费的时间也不同，请务必了解这一点！</span>
+            <span data-i18n="page.benchmark_v3.warn_banner">page.benchmark_v3.warn_banner</span>
         </div>
         <div class="tab-bar">
-            <button class="tab-btn active" data-tab="llama-server"><i class="fas fa-server"></i> llama-server</button>
-            <button class="tab-btn" data-tab="llama-bench"><i class="fas fa-flask"></i> llama-bench</button>
+            <button class="tab-btn active" data-tab="llama-server"><i class="fas fa-server"></i> <span data-i18n="page.benchmark_v3.tab.llama_server">page.benchmark_v3.tab.llama_server</span></button>
+            <button class="tab-btn" data-tab="llama-bench"><i class="fas fa-flask"></i> <span data-i18n="page.benchmark_v3.tab.llama_bench">page.benchmark_v3.tab.llama_bench</span></button>
         </div>
         <div class="tab-container">
             <div id="benchPanel" class="tab-panel">
                 <div class="left-col">
                     <div class="card stretch">
-                        <div class="model-list-header"><strong style="font-size:12px;">模型列表</strong><span id="benchModelsMeta" class="sub-text"></span></div>
-                        <div class="row"><select id="benchNodeFilter" class="form-control"><option value="all">全部节点</option><option value="local">本机</option></select></div>
-                        <input id="benchSearchInput" type="text" class="form-control" placeholder="搜索模型…" style="flex-shrink:0;" />
+                        <div class="model-list-header"><strong data-i18n="page.benchmark_v3.model_list" style="font-size:12px;">page.benchmark_v3.model_list</strong><span id="benchModelsMeta" class="sub-text"></span></div>
+                        <div class="row"><select id="benchNodeFilter" class="form-control"><option value="all" data-i18n="page.model.filter.all">page.model.filter.all</option><option value="local" data-i18n="page.model.filter.local">page.model.filter.local</option></select></div>
+                        <input id="benchSearchInput" type="text" class="form-control" placeholder="page.benchmark_v3.search_placeholder" data-i18n="page.benchmark_v3.search_placeholder" data-i18n-attr="placeholder" style="flex-shrink:0;" />
                         <div id="benchModelList" class="model-menu"></div>
                     </div>
                 </div>
                 <div class="right-col">
                     <div class="card shrink">
                         <div class="bench-actions">
-                            <button id="runBenchBtn" class="btn btn-primary" style="font-size:12px;">运行</button>
-                            <button id="benchParamsBtn" class="btn" style="font-size:12px;">参数设置</button>
+                            <button id="runBenchBtn" class="btn btn-primary" style="font-size:12px;" data-i18n="page.benchmark_v3.run">page.benchmark_v3.run</button>
+                            <button id="benchParamsBtn" class="btn" style="font-size:12px;" data-i18n="page.benchmark_v3.params_settings">page.benchmark_v3.params_settings</button>
                         </div>
                         <span id="benchParamsStatus" class="sub-text" style="text-align:center;display:block;"></span>
                     </div>
-                    <div class="card shrink"><div class="row"><label>Llama.cpp 版本</label><select id="benchLlamaBinSelect" class="form-control"></select></div></div>
+                    <div class="card shrink"><div class="row"><label data-i18n="page.benchmark_v3.llamacpp_version">page.benchmark_v3.llamacpp_version</label><select id="benchLlamaBinSelect" class="form-control"></select></div></div>
                     <div class="rec-card">
                         <div class="rec-header">
-                            <div class="left-group"><strong style="font-size:12px;">测试结果</strong><span id="benchSelModelText" class="pill" style="display:none;"></span></div>
-                            <div class="export-btns"><button id="benchCopyBtn" class="record-action-btn" disabled><i class="fas fa-copy"></i> 复制</button><button id="benchExportBtn" class="record-action-btn" disabled><i class="fas fa-download"></i> TXT</button></div>
+                            <div class="left-group"><strong data-i18n="page.benchmark_v3.results" style="font-size:12px;">page.benchmark_v3.results</strong><span id="benchSelModelText" class="pill" style="display:none;"></span></div>
+                            <div class="export-btns"><button id="benchCopyBtn" class="record-action-btn" disabled data-i18n="page.benchmark_v3.copy"><i class="fas fa-copy"></i> page.benchmark_v3.copy</button><button id="benchExportBtn" class="record-action-btn" disabled data-i18n="page.benchmark_v3.export_txt"><i class="fas fa-download"></i> page.benchmark_v3.export_txt</button></div>
                         </div>
                         <div class="bench-result-body">
-                            <div class="history-col"><div class="history-header"><span>历史记录</span><span id="benchHistoryCount" style="font-size:10px;"></span></div><div id="benchHistoryList" class="history-list"><div class="history-empty">请选择模型</div></div></div>
-                            <div class="output-col"><pre id="benchOutput" style="flex:1;min-height:0;overflow:auto;margin:0;padding:10px;background:var(--bg-color);border:1px solid var(--border-color);border-radius:8px;font-size:11px;font-family:'Consolas','Monaco','Courier New',monospace;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--text-primary);">暂无结果</pre><div id="benchOutputMeta" class="output-meta"></div></div>
+                            <div class="history-col"><div class="history-header"><span data-i18n="page.benchmark_v3.history">page.benchmark_v3.history</span><span id="benchHistoryCount" style="font-size:10px;"></span></div><div id="benchHistoryList" class="history-list"><div class="history-empty" data-i18n="page.benchmark_v3.select_model">page.benchmark_v3.select_model</div></div></div>
+                            <div class="output-col"><pre id="benchOutput" style="flex:1;min-height:0;overflow:auto;margin:0;padding:10px;background:var(--bg-color);border:1px solid var(--border-color);border-radius:8px;font-size:11px;font-family:'Consolas','Monaco','Courier New',monospace;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--text-primary);" data-i18n="page.benchmark_v3.no_results">page.benchmark_v3.no_results</pre><div id="benchOutputMeta" class="output-meta"></div></div>
                         </div>
                     </div>
                 </div>
@@ -1074,28 +1074,28 @@
             <div id="serverPanel" class="tab-panel active">
                 <div class="left-col">
                     <div class="card stretch">
-                        <div class="model-list-header"><strong style="font-size:12px;">模型列表</strong><span id="serverModelsMeta" class="sub-text"></span></div>
-                        <div class="row"><select id="serverNodeFilter" class="form-control"><option value="all">全部节点</option><option value="local">本机</option></select></div>
-                        <input id="serverSearchInput" type="text" class="form-control" placeholder="搜索模型…" style="flex-shrink:0;" />
+                        <div class="model-list-header"><strong data-i18n="page.benchmark_v3.model_list" style="font-size:12px;">page.benchmark_v3.model_list</strong><span id="serverModelsMeta" class="sub-text"></span></div>
+                        <div class="row"><select id="serverNodeFilter" class="form-control"><option value="all" data-i18n="page.model.filter.all">page.model.filter.all</option><option value="local" data-i18n="page.model.filter.local">page.model.filter.local</option></select></div>
+                        <input id="serverSearchInput" type="text" class="form-control" placeholder="page.benchmark_v3.search_placeholder" data-i18n="page.benchmark_v3.search_placeholder" data-i18n-attr="placeholder" style="flex-shrink:0;" />
                         <div id="serverModelList" class="model-menu"></div>
                     </div>
                 </div>
                 <div class="mid-col">
                     <div class="card shrink">
-                        <div class="row"><label>提示词长度</label><input id="serverPromptTokens" type="number" class="form-control" value="8192" min="1" /></div>
-                        <div class="row"><label>输出最大 token</label><input id="serverMaxTokens" type="number" class="form-control" value="256" min="1" /></div>
-                        <div class="row"><label>并发次数</label><input id="serverConcurrency" type="number" class="form-control" value="1" min="1" step="1" /></div>
-                        <div class="bench-actions"><button id="runServerBtn" class="btn btn-primary" style="font-size:12px;width:100%;">运行</button></div>
+                        <div class="row"><label data-i18n="page.benchmark_v3.prompt_tokens">page.benchmark_v3.prompt_tokens</label><input id="serverPromptTokens" type="number" class="form-control" value="8192" min="1" /></div>
+                        <div class="row"><label data-i18n="page.benchmark_v3.max_tokens">page.benchmark_v3.max_tokens</label><input id="serverMaxTokens" type="number" class="form-control" value="256" min="1" /></div>
+                        <div class="row"><label data-i18n="page.benchmark_v3.concurrency">page.benchmark_v3.concurrency</label><input id="serverConcurrency" type="number" class="form-control" value="1" min="1" step="1" /></div>
+                        <div class="bench-actions"><button id="runServerBtn" class="btn btn-primary" style="font-size:12px;width:100%;" data-i18n="page.benchmark_v3.run">page.benchmark_v3.run</button></div>
                     </div>
                 </div>
                 <div class="right-col">
                     <div class="rec-card">
                         <div class="rec-header">
-                            <div class="left-group"><strong style="font-size:12px;">测试记录</strong><span id="serverSelModelText" class="pill" style="display:none;"></span><span id="serverStatus" class="sub-text"></span></div>
-                            <div class="export-btns"><button class="server-export" data-format="csv"><i class="fas fa-file-csv"></i> CSV</button><button class="server-export" data-format="json"><i class="fas fa-file-code"></i> JSON</button><button class="server-export" data-format="md"><i class="fas fa-markdown"></i> MD</button></div>
+                            <div class="left-group"><strong data-i18n="page.benchmark_v3.records" style="font-size:12px;">page.benchmark_v3.records</strong><span id="serverSelModelText" class="pill" style="display:none;"></span><span id="serverStatus" class="sub-text"></span></div>
+                            <div class="export-btns"><button class="server-export" data-format="csv" data-i18n="page.benchmark_v3.export_csv"><i class="fas fa-file-csv"></i> page.benchmark_v3.export_csv</button><button class="server-export" data-format="json" data-i18n="page.benchmark_v3.export_json"><i class="fas fa-file-code"></i> page.benchmark_v3.export_json</button><button class="server-export" data-format="md" data-i18n="page.benchmark_v3.export_md"><i class="fas fa-markdown"></i> page.benchmark_v3.export_md</button></div>
                         </div>
-                        <div class="chart-wrap" id="serverChartWrap"><canvas id="serverChartCanvas"></canvas><div id="serverChartEmpty" class="chart-empty">暂无数据</div></div>
-                        <div class="table-wrap"><table class="result-table"><thead><tr><th>时间</th><th>模型</th><th>提示词</th><th>预填充(token/s)</th><th>输出</th><th>输出(token/s)</th><th>操作</th></tr></thead><tbody id="serverResultBody"><tr id="serverEmptyRow"><td class="empty" colspan="7">暂无记录</td></tr></tbody></table></div>
+                        <div class="chart-wrap" id="serverChartWrap"><canvas id="serverChartCanvas"></canvas><div id="serverChartEmpty" class="chart-empty" data-i18n="page.benchmark_v3.chart_empty">page.benchmark_v3.chart_empty</div></div>
+                        <div class="table-wrap"><table class="result-table"><thead><tr><th data-i18n="page.benchmark_v3.table.time">page.benchmark_v3.table.time</th><th data-i18n="page.benchmark_v3.table.model">page.benchmark_v3.table.model</th><th data-i18n="page.benchmark_v3.table.prompt">page.benchmark_v3.table.prompt</th><th data-i18n="page.benchmark_v3.table.prefill_speed">page.benchmark_v3.table.prefill_speed</th><th data-i18n="page.benchmark_v3.table.output">page.benchmark_v3.table.output</th><th data-i18n="page.benchmark_v3.table.output_speed">page.benchmark_v3.table.output_speed</th><th data-i18n="page.benchmark_v3.table.actions">page.benchmark_v3.table.actions</th></tr></thead><tbody id="serverResultBody"><tr id="serverEmptyRow"><td class="empty" colspan="7" data-i18n="page.benchmark_v3.no_records">page.benchmark_v3.no_records</td></tr></tbody></table></div>
                     </div>
                 </div>
             </div>
@@ -1105,11 +1105,11 @@
     <!-- Usage Report -->
     <main class="main-area" id="main-usage-report" style="display: none">
         <div class="top-bar">
-            <h1 class="page-title"><i class="fas fa-chart-simple"></i> 用量报表</h1>
+            <h1 class="page-title"><i class="fas fa-chart-simple"></i> <span data-i18n="page.usage_report.title">page.usage_report.title</span></h1>
         </div>
         <div class="tab-bar">
-            <button class="active" data-tab="token-summary" onclick="UsageReport.switchTab('token-summary')">Token 概览</button>
-            <button data-tab="request-logs" onclick="UsageReport.switchTab('request-logs')">请求记录</button>
+            <button class="active" data-tab="token-summary" onclick="UsageReport.switchTab('token-summary')" data-i18n="page.usage_report.tab.token_summary">page.usage_report.tab.token_summary</button>
+            <button data-tab="request-logs" onclick="UsageReport.switchTab('request-logs')" data-i18n="page.usage_report.tab.request_logs">page.usage_report.tab.request_logs</button>
         </div>
         <div class="content-scrollable">
             <div class="tab-panel active" id="panel-token-summary">
@@ -1122,28 +1122,28 @@
                     <div class="token-chart-col">
                         <div class="chart-wrap" id="tokenChartWrap">
                             <canvas id="tokenChartCanvas"></canvas>
-                            <div id="tokenChartEmpty" class="chart-empty">暂无数据</div>
+                            <div id="tokenChartEmpty" class="chart-empty" data-i18n="page.usage_report.chart_empty">page.usage_report.chart_empty</div>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="tab-panel" id="panel-request-logs">
                 <div class="report-filter">
-                    <label>模型筛选：</label>
+                    <label data-i18n="page.usage_report.filter_label">page.usage_report.filter_label</label>
                     <select id="requestLogModelFilter" onchange="UsageReport.filterByModel()">
                         <option value="">全部</option>
                     </select>
                     <span style="flex:1"></span>
                     <div class="report-pagination">
-                        <button id="reqLogPrev" onclick="UsageReport.prevPage()"><i class="fas fa-chevron-left"></i> 上一页</button>
-                        <span id="reqLogPageInfo">第 1 页</span>
-                        <button id="reqLogNext" onclick="UsageReport.nextPage()">下一页 <i class="fas fa-chevron-right"></i></button>
+                        <button id="reqLogPrev" onclick="UsageReport.prevPage()" data-i18n="common.prev_page"><i class="fas fa-chevron-left"></i> common.prev_page</button>
+                        <span id="reqLogPageInfo"></span>
+                        <button id="reqLogNext" onclick="UsageReport.nextPage()" data-i18n="common.next_page">common.next_page <i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
                 <div class="report-card">
                     <div class="table-wrap">
                         <table class="report-table">
-                            <thead><tr><th>时间</th><th>模型</th><th>端点</th><th data-i18n="report.cache_tokens">缓存 Token</th><th>Prompt Token</th><th>Predicted Token</th><th>总 Token</th><th>耗时(ms)</th><th>Prompt 速度(tok/s)</th><th>Predicted 速度(tok/s)</th></tr></thead>
+                            <thead><tr><th data-i18n="page.usage_report.table.time">page.usage_report.table.time</th><th data-i18n="page.usage_report.table.model">page.usage_report.table.model</th><th data-i18n="page.usage_report.table.endpoint">page.usage_report.table.endpoint</th><th data-i18n="report.cache_tokens">report.cache_tokens</th><th data-i18n="page.usage_report.table.prompt_tokens">page.usage_report.table.prompt_tokens</th><th data-i18n="page.usage_report.table.predicted_tokens">page.usage_report.table.predicted_tokens</th><th data-i18n="page.usage_report.table.total_tokens">page.usage_report.table.total_tokens</th><th data-i18n="page.usage_report.table.elapsed">page.usage_report.table.elapsed</th><th data-i18n="page.usage_report.table.prompt_speed">page.usage_report.table.prompt_speed</th><th data-i18n="page.usage_report.table.predicted_speed">page.usage_report.table.predicted_speed</th></tr></thead>
                             <tbody id="requestLogBody"></tbody>
                         </table>
                     </div>
@@ -1427,26 +1427,26 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">节点 ID <span style="color:red">*</span></label>
-                    <input class="form-control" id="nodeFormId" placeholder="server-gpu-a">
+                    <label class="form-label"><span data-i18n="modal.node.form.id">modal.node.form.id</span> <span style="color:red">*</span></label>
+                    <input class="form-control" id="nodeFormId" placeholder="modal.node.form.id_placeholder" data-i18n="modal.node.form.id_placeholder" data-i18n-attr="placeholder">
                     <small class="form-text" data-i18n="modal.node.id_desc">唯一标识，添加后不可修改</small>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" data-i18n="common.name">显示名称</label>
-                    <input class="form-control" id="nodeFormName" placeholder="GPU 服务器 A">
+                    <label class="form-label" data-i18n="modal.node.form.name">modal.node.form.name</label>
+                    <input class="form-control" id="nodeFormName" placeholder="modal.node.form.name_placeholder" data-i18n="modal.node.form.name_placeholder" data-i18n-attr="placeholder">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">URL <span style="color:red">*</span></label>
-                    <input class="form-control" id="nodeFormUrl" placeholder="http://192.168.1.100:8080">
+                    <label class="form-label"><span data-i18n="modal.node.form.url">modal.node.form.url</span> <span style="color:red">*</span></label>
+                    <input class="form-control" id="nodeFormUrl" placeholder="modal.node.form.url_placeholder" data-i18n="modal.node.form.url_placeholder" data-i18n-attr="placeholder">
                     <small class="form-text" data-i18n="modal.node.url_desc">必须以 http:// 或 https:// 开头</small>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" data-i18n="page.settings.security.api_key">API Key（可选）</label>
-                    <input class="form-control" type="password" id="nodeFormKey" placeholder="远程节点的 API Key">
+                    <label class="form-label" data-i18n="modal.node.form.api_key_optional">modal.node.form.api_key_optional</label>
+                    <input class="form-control" type="password" id="nodeFormKey" placeholder="remote node API Key">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" data-i18n="modal.node.tags">标签（逗号分隔）</label>
-                    <input class="form-control" id="nodeFormTags" placeholder="A100, production">
+                    <label class="form-label" data-i18n="modal.node.tags">modal.node.tags</label>
+                    <input class="form-control" id="nodeFormTags" placeholder="modal.node.form.tags_placeholder" data-i18n="modal.node.form.tags_placeholder" data-i18n-attr="placeholder">
                 </div>
                 <div class="form-check" style="margin-top:0.75rem;">
                     <input type="checkbox" id="nodeFormEnabled" checked>
@@ -1464,25 +1464,25 @@
     <div id="benchParamsModal" style="display:none;">
         <div class="bench-modal-dialog">
             <div class="bench-modal-header">
-                <h2 style="margin:0;font-size:17px;font-weight:700;">参数设置</h2>
+                <h2 style="margin:0;font-size:17px;font-weight:700;" data-i18n="page.benchmark_v3.params_settings">page.benchmark_v3.params_settings</h2>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span id="benchParamsModalStatus" class="sub-text"></span>
-                    <button id="benchParamsResetBtn" class="btn btn-secondary" style="font-size:12px;">重置</button>
+                    <button id="benchParamsResetBtn" class="btn btn-secondary" style="font-size:12px;" data-i18n="common.reset">common.reset</button>
                     <button id="benchParamsCloseBtn" class="btn btn-secondary" style="font-size:12px;"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             <div class="bench-modal-body" style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr;gap:16px;overflow:hidden;padding:0;">
                 <div id="benchParamsDevicePanel" style="display:flex;flex-direction:column;gap:6px;min-height:0;padding:14px 0 14px 18px;">
-                    <label class="form-label" style="font-size:13px;">GPU 设备</label>
-                    <small class="form-text">勾选要使用的 GPU，取消勾选则生成 -dev 参数排除该设备</small>
-                    <div id="benchParamsDeviceList" style="border:1px solid var(--border-color);border-radius:0.75rem;padding:0.5rem;max-height:60vh;overflow:auto;"><div class="device-placeholder">选择 llama.cpp 版本后显示</div></div>
-                    <label class="form-label" for="benchMainGpuSelect" style="font-size:13px;margin-top:4px;">主要 GPU</label>
-                    <small class="form-text">设置 llama-bench 使用的主 GPU（--main-gpu）</small>
-                    <select id="benchMainGpuSelect" class="form-control" style="margin-top:2px;"><option value="-1">默认</option></select>
+                    <label class="form-label" style="font-size:13px;" data-i18n="page.benchmark_v3.gpu_devices">page.benchmark_v3.gpu_devices</label>
+                    <small class="form-text" data-i18n="page.benchmark_v3.gpu_devices_desc">page.benchmark_v3.gpu_devices_desc</small>
+                    <div id="benchParamsDeviceList" style="border:1px solid var(--border-color);border-radius:0.75rem;padding:0.5rem;max-height:60vh;overflow:auto;"><div class="device-placeholder" data-i18n="page.benchmark_v3.select_llamacpp_first">page.benchmark_v3.select_llamacpp_first</div></div>
+                    <label class="form-label" for="benchMainGpuSelect" style="font-size:13px;margin-top:4px;" data-i18n="page.benchmark_v3.main_gpu">page.benchmark_v3.main_gpu</label>
+                    <small class="form-text" data-i18n="page.benchmark_v3.main_gpu_desc">page.benchmark_v3.main_gpu_desc</small>
+                    <select id="benchMainGpuSelect" class="form-control" style="margin-top:2px;"><option value="-1" data-i18n="common.default">common.default</option></select>
                 </div>
-                <div id="benchParamsContainer" style="overflow-y:auto;min-height:0;padding:14px 18px 14px 6px;"><div style="text-align:center;padding:24px;font-size:12px;color:var(--text-secondary);">加载参数中…</div></div>
+                <div id="benchParamsContainer" style="overflow-y:auto;min-height:0;padding:14px 18px 14px 6px;"><div style="text-align:center;padding:24px;font-size:12px;color:var(--text-secondary);" data-i18n="page.benchmark_v3.loading_params">page.benchmark_v3.loading_params</div></div>
             </div>
-            <div class="bench-modal-footer"><button id="benchParamsConfirmBtn" class="btn btn-primary" style="font-size:13px;">确认</button></div>
+            <div class="bench-modal-footer"><button id="benchParamsConfirmBtn" class="btn btn-primary" style="font-size:13px;" data-i18n="common.confirm">common.confirm</button></div>
         </div>
     </div>
 
