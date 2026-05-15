@@ -263,6 +263,10 @@
                 <i class="fas fa-terminal"></i>
                 <span data-i18n="nav.console">nav.console</span>
             </a>
+            <a href="#" class="nav-item" id="nav-fastfetch" onclick="showFastFetchPage(); return false;">
+                <i class="fas fa-microchip"></i>
+                <span data-i18n="nav.fastfetch">nav.fastfetch</span>
+            </a>
             <a href="#" class="nav-item" id="nav-model-path" onclick="showModelPathSetting(); return false;" style="display: none">
                 <i class="fas fa-folder-open"></i>
                 <span data-i18n="nav.model_path">nav.model_path</span>
@@ -951,6 +955,24 @@
         <div class="content-scrollable" style="padding: 0;">
             <div id="deviceStatusContainer" style="height: 100%; overflow:auto; padding:16px; font-family:'Menlo', 'Monaco', 'Courier New', monospace; background:#0f172a; color:#e5e7eb; font-size: 0.875rem;">
                 <pre id="deviceStatusContent" style="margin:0; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word;"></pre>
+            </div>
+        </div>
+    </main>
+
+    <main class="main-area" id="main-fastfetch" style="display: none">
+        <div class="top-bar">
+            <h1 class="page-title"><i class="fas fa-microchip"></i> <span data-i18n="page.fastfetch.title">page.fastfetch.title</span></h1>
+            <div class="top-actions" style="display:flex; align-items:center; gap:12px;">
+                <button class="btn btn-secondary" id="refreshFastfetchBtn" onclick="fetchFastFetch()" title="common.refresh" data-i18n="common.refresh" data-i18n-attr="title">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <div id="fastfetchStatusText" style="font-size:12px; color:var(--text-secondary); margin-left:auto;"></div>
+            </div>
+        </div>
+
+        <div class="content-scrollable" style="padding: 0;">
+            <div id="fastfetchContainer" style="height: 100%; overflow:auto; padding:16px; font-family:'Menlo', 'Monaco', 'Courier New', monospace; background:#0f172a; color:#e5e7eb; font-size: 0.875rem;">
+                <pre id="fastfetchContent" style="margin:0; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word;"></pre>
             </div>
         </div>
     </main>
@@ -2630,6 +2652,7 @@
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             //stopConsoleAuto();
             stopDeviceStatusAuto();
             //refreshModels();
@@ -2680,6 +2703,7 @@
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             stopDeviceStatusAuto();
             openConsoleModal();
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -2698,6 +2722,7 @@
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             //stopConsoleAuto();
             stopDeviceStatusAuto();
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -2715,6 +2740,7 @@
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             //stopConsoleAuto();
             stopDeviceStatusAuto();
             const main = document.getElementById('main-download');
@@ -2737,6 +2763,7 @@
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             //stopConsoleAuto();
             stopDeviceStatusAuto();
             const main = document.getElementById('main-settings');
@@ -2804,6 +2831,7 @@
             document.getElementById('main-device-status').style.display = '';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             //stopConsoleAuto();
             const contentEl = document.getElementById('deviceStatusContent');
             if (contentEl) contentEl.textContent = '';
@@ -2826,6 +2854,7 @@
             document.getElementById('main-console').style.display = 'none';
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = '';
             //stopConsoleAuto();
             stopDeviceStatusAuto();
@@ -2834,6 +2863,58 @@
             const nav = document.getElementById('nav-benchmark-v3');
             if (nav) nav.classList.add('active');
             if (typeof initServerTab === 'function') initServerTab();
+        }
+
+        function fetchFastFetch() {
+            const statusEl = document.getElementById('fastfetchStatusText');
+            const contentEl = document.getElementById('fastfetchContent');
+            if (statusEl) statusEl.textContent = '加载中...';
+            fetch('/api/sys/fastfetch')
+                .then(r => r.json())
+                .then(data => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const raw = data && data.data && data.data.rawOutput;
+                    const error = data && data.data && data.data.error;
+                    const available = data && data.data && data.data.available;
+                    if (contentEl) {
+                        if (!available || error) {
+                            contentEl.textContent = 'Fastfetch 不可用: ' + (error || 'unknown error');
+                        } else if (raw) {
+                            contentEl.textContent = raw;
+                        } else {
+                            contentEl.textContent = '(无输出)';
+                        }
+                    }
+                    if (statusEl) statusEl.textContent = '已更新 · ' + timestamp;
+                    const container = document.getElementById('fastfetchContainer');
+                    if (container) container.scrollTop = container.scrollHeight;
+                })
+                .catch(e => {
+                    if (statusEl) statusEl.textContent = '加载失败';
+                    const contentEl = document.getElementById('fastfetchContent');
+                    if (contentEl) {
+                        contentEl.textContent = '错误: 无法获取系统信息 - ' + e.message;
+                    }
+                });
+        }
+
+        function showFastFetchPage() {
+            document.getElementById('main-model-list').style.display = 'none';
+            document.getElementById('main-settings').style.display = 'none';
+            document.getElementById('main-hf').style.display = 'none';
+            document.getElementById('main-download').style.display = 'none';
+            document.getElementById('main-console').style.display = 'none';
+            document.getElementById('main-device-status').style.display = 'none';
+            document.getElementById('main-benchmark-v3').style.display = 'none';
+            document.getElementById('main-usage-report').style.display = 'none';
+            document.getElementById('main-fastfetch').style.display = '';
+            const contentEl = document.getElementById('fastfetchContent');
+            if (contentEl) contentEl.textContent = '';
+            fetchFastFetch();
+            const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            const nav = document.getElementById('nav-fastfetch');
+            if (nav) nav.classList.add('active');
         }
 
         function showUsageReport() {
@@ -2845,6 +2926,7 @@
             document.getElementById('main-device-status').style.display = 'none';
             document.getElementById('main-benchmark-v3').style.display = 'none';
             document.getElementById('main-usage-report').style.display = '';
+            document.getElementById('main-fastfetch').style.display = 'none';
             //stopConsoleAuto();
             stopDeviceStatusAuto();
             const navItems = document.querySelectorAll('.sidebar-nav .nav-item');

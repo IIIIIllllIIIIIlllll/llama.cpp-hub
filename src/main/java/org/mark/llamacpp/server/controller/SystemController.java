@@ -23,6 +23,7 @@ import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.exception.RequestMethodException;
 import org.mark.llamacpp.server.service.GpuService;
 import org.mark.llamacpp.server.service.ModelSamplingService;
+import org.mark.llamacpp.server.tools.FastFetchHelper;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
@@ -192,6 +193,12 @@ public class SystemController implements BaseController {
 		// 取消下载
 		if (uri.startsWith("/api/sys/update/cancel")) {
 			this.handleUpdateCancelRequest(ctx, request);
+			return true;
+		}
+
+		// 获取计算机信息（fastfetch）
+		if (uri.startsWith("/api/sys/fastfetch")) {
+			this.handleFastFetchRequest(ctx, request);
 			return true;
 		}
 
@@ -1319,6 +1326,69 @@ public class SystemController implements BaseController {
 		} catch (Exception e) {
 			logger.info("取消更新下载时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CANCEL_FAILED));
+		}
+	}
+
+	/**
+	 * 	获取计算机信息（通过 fastfetch）
+	 */
+	private void handleFastFetchRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
+		if (request.method() == HttpMethod.OPTIONS) {
+			LlamaServer.sendCorsResponse(ctx);
+			return;
+		}
+		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		try {
+			FastFetchHelper helper = FastFetchHelper.getInstance();
+			String initErr = helper.init();
+			FastFetchHelper.ComputerInfo cinfo = helper.getInfo();
+
+			Map<String, Object> data = new HashMap<>();
+			data.put("available", helper.isAvailable());
+			data.put("error", initErr != null ? initErr : cinfo.getError());
+			data.put("cpuModel", cinfo.getCpuModel());
+			data.put("cpuTemperature", cinfo.getCpuTemperature());
+			data.put("physicalCores", cinfo.getPhysicalCores());
+			data.put("logicalCores", cinfo.getLogicalCores());
+			data.put("memoryBytes", cinfo.getMemoryBytes());
+			data.put("memoryKB", cinfo.getMemoryKB());
+			data.put("rawOutput", cinfo.getRawOutput());
+
+			List<Map<String, Object>> gpuList = new ArrayList<>();
+			for (FastFetchHelper.GpuInfo gpu : cinfo.getGpus()) {
+				Map<String, Object> gpuMap = new HashMap<>();
+				gpuMap.put("name", gpu.getName());
+				gpuMap.put("vendor", gpu.getVendor());
+				gpuMap.put("type", gpu.getType());
+				gpuMap.put("driver", gpu.getDriver());
+				gpuMap.put("frequency", gpu.getFrequency());
+				gpuMap.put("temperature", gpu.getTemperature());
+				gpuMap.put("coreCount", gpu.getCoreCount());
+				gpuMap.put("coreUsage", gpu.getCoreUsage());
+				gpuMap.put("deviceId", gpu.getDeviceId());
+				gpuMap.put("index", gpu.getIndex());
+				gpuMap.put("dedicatedMemoryBytes", gpu.getDedicatedMemoryBytes());
+				gpuMap.put("dedicatedMemoryUsed", gpu.getDedicatedMemoryUsed());
+				gpuMap.put("sharedMemoryBytes", gpu.getSharedMemoryBytes());
+				gpuMap.put("sharedMemoryUsed", gpu.getSharedMemoryUsed());
+				gpuList.add(gpuMap);
+			}
+			data.put("gpus", gpuList);
+
+			List<Map<String, Object>> batteryList = new ArrayList<>();
+			for (FastFetchHelper.BatteryInfo bat : cinfo.getBatteries()) {
+				Map<String, Object> batMap = new HashMap<>();
+				batMap.put("name", bat.getName());
+				batMap.put("temperature", bat.getTemperature());
+				batMap.put("capacity", bat.getCapacity());
+				batteryList.add(batMap);
+			}
+			data.put("batteries", batteryList);
+
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+		} catch (Exception e) {
+			logger.info("获取计算机信息时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取计算机信息失败: " + e.getMessage()));
 		}
 	}
 
