@@ -90,7 +90,7 @@
     "defaultValue": "0.7",
     "description": "param.server.temp.desc",
     "sort": 6,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -156,7 +156,7 @@
     "defaultValue": "0.95",
     "description": "param.server.top_p.desc",
     "sort": 7,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -169,7 +169,7 @@
     "defaultValue": "40",
     "description": "param.server.top_k.desc",
     "sort": 8,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -182,7 +182,7 @@
     "defaultValue": "0.05",
     "description": "param.server.min_p.desc",
     "sort": 9,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -208,7 +208,7 @@
     "defaultValue": "0.0",
     "description": "param.server.presence_penalty.desc",
     "sort": 11,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -221,7 +221,7 @@
     "defaultValue": "1.0",
     "description": "param.server.repeat_penalty.desc",
     "sort": 12,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.sampling",
     "groupOrder": 20,
     "groupCollapsed": true
@@ -355,7 +355,7 @@
     "defaultValue": "1",
     "description": "param.server.kv_unified.desc",
     "sort": 7,
-	"defaultEnabled": true,
+	"defaultEnabled": false,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
@@ -365,10 +365,10 @@
     "fullName": "--ctx-checkpoints",
     "abbreviation": "--ctx-checkpoints",
     "type": "INTEGER",
-    "defaultValue": "8",
+    "defaultValue": "1",
     "description": "param.server.ctx_checkpoints.desc",
     "sort": 8,
-	"defaultEnabled": false,
+	"defaultEnabled": true,
     "group": "page.params.group.performance",
     "groupOrder": 30,
     "groupCollapsed": true
