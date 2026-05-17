@@ -1680,6 +1680,7 @@ public class LlamaServerManager {
 		// 拼接完整命令路径
 		String command = llamaBinPath.trim() + File.separator + executableName;
 		command += " --model " + model.getPrimaryModel().getFilePath();
+		command += " -lv 4";
 		
 		for(String key : keysParam) {
 			// 如果有这个参数
