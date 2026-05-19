@@ -8,6 +8,8 @@ public class TokenSummaryEntry {
 	private long totalTokens;
 	private double totalPromptMs;
 	private double totalPredictedMs;
+	private long totalDraftTokens;
+	private long totalDraftAccepted;
 
 	public String getModelId() {
 		return modelId;
@@ -63,5 +65,21 @@ public class TokenSummaryEntry {
 
 	public void setTotalPredictedMs(double totalPredictedMs) {
 		this.totalPredictedMs = totalPredictedMs;
+	}
+
+	public long getTotalDraftTokens() {
+		return totalDraftTokens;
+	}
+
+	public void setTotalDraftTokens(long totalDraftTokens) {
+		this.totalDraftTokens = totalDraftTokens;
+	}
+
+	public long getTotalDraftAccepted() {
+		return totalDraftAccepted;
+	}
+
+	public void setTotalDraftAccepted(long totalDraftAccepted) {
+		this.totalDraftAccepted = totalDraftAccepted;
 	}
 }

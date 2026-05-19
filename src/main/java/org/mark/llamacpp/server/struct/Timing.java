@@ -10,6 +10,8 @@ public class Timing {
 	private double predicted_ms;
 	private double predicted_per_token_ms;
 	private double predicted_per_second;
+	private int draft_n;
+	private int draft_n_accepted;
 
 	public int getCache_n() {
 		return cache_n;
@@ -83,6 +85,22 @@ public class Timing {
 		this.predicted_per_second = predicted_per_second;
 	}
 
+	public int getDraft_n() {
+		return draft_n;
+	}
+
+	public void setDraft_n(int draft_n) {
+		this.draft_n = draft_n;
+	}
+
+	public int getDraft_n_accepted() {
+		return draft_n_accepted;
+	}
+
+	public void setDraft_n_accepted(int draft_n_accepted) {
+		this.draft_n_accepted = draft_n_accepted;
+	}
+
 	@Override
 	public String toString() {
 		return "Timing{" +
@@ -95,6 +113,8 @@ public class Timing {
 				", predicted_ms=" + predicted_ms +
 				", predicted_per_token_ms=" + predicted_per_token_ms +
 				", predicted_per_second=" + predicted_per_second +
+				", draft_n=" + draft_n +
+				", draft_n_accepted=" + draft_n_accepted +
 				'}';
 	}
 }

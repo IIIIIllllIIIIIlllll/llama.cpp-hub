@@ -53,6 +53,8 @@ public class UsageReportService {
 						 entry.setTotalTokens(promptN + predictedN);
 						 entry.setTotalPromptMs(getJsonDouble(obj, "prompt_ms", 0));
 						 entry.setTotalPredictedMs(getJsonDouble(obj, "predicted_ms", 0));
+						 entry.setTotalDraftTokens(getJsonLong(obj, "draft_n", 0));
+						 entry.setTotalDraftAccepted(getJsonLong(obj, "draft_n_accepted", 0));
 						 result.add(entry);
 					 } catch (Exception e) {
 						 e.printStackTrace();
@@ -122,6 +124,8 @@ public class UsageReportService {
 			entry.setTotalTokens(promptN + predictedN);
 			entry.setPromptPerSecond(getJsonDouble(timing, "prompt_per_second", 0));
 			entry.setPredictedPerSecond(getJsonDouble(timing, "predicted_per_second", 0));
+			entry.setDraftTokens(getJsonInt(timing, "draft_n", 0));
+			entry.setDraftAccepted(getJsonInt(timing, "draft_n_accepted", 0));
 		}
 
 		return entry;

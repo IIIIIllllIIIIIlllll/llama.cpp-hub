@@ -1073,6 +1073,8 @@ function computeStats(results) {
   const dg = results.map(r => Number(r.timings && r.timings.predicted_per_second)).filter(Number.isFinite);
   const pn = results.map(r => Number(r.timings && r.timings.prompt_n)).filter(Number.isFinite);
   const dn = results.map(r => Number(r.timings && r.timings.predicted_n)).filter(Number.isFinite);
+  const drn = results.map(r => Number(r.timings && r.timings.draft_n)).filter(Number.isFinite);
+  const dra = results.map(r => Number(r.timings && r.timings.draft_n_accepted)).filter(Number.isFinite);
   const avg = a => a.length ? a.reduce((x,y) => x+y, 0) / a.length : 0;
   const min = a => a.length ? Math.min(...a) : 0;
   const max = a => a.length ? Math.max(...a) : 0;
@@ -1083,7 +1085,9 @@ function computeStats(results) {
     prefill: { avg: avg(pf), min: min(pf), max: max(pf), p50: pct(pf,50), p95: pct(pf,95) },
     decode: { avg: avg(dg), min: min(dg), max: max(dg), p50: pct(dg,50), p95: pct(dg,95) },
     promptN: { avg: avg(pn), min: min(pn), max: max(pn) },
-    predictedN: { avg: avg(dn), min: min(dn), max: max(dn) }
+    predictedN: { avg: avg(dn), min: min(dn), max: max(dn) },
+    draftN: { avg: avg(drn), min: min(drn), max: max(drn) },
+    draftAccepted: { avg: avg(dra), min: min(dra), max: max(dra) }
   };
 }
 function saveHwProfile(state, source, fallbackId) {
@@ -1222,6 +1226,7 @@ function createResultRow(record, deleteFn) {
   const predictedN = isStats ? (record.predictedN ? Math.round(record.predictedN.avg) : '-') : (timings && timings.predicted_n != null ? timings.predicted_n : (record ? record.maxTokens : null));
   const pfSpeed = isStats ? record.prefill : (timings ? timings.prompt_per_second : null);
   const dgSpeed = isStats ? record.decode : (timings ? timings.predicted_per_second : null);
+  const draftInfo = isStats ? (record.draftN && record.draftN.avg > 0 ? Math.round(record.draftAccepted.avg) + '/' + Math.round(record.draftN.avg) : '-') : (timings && timings.draft_n != null && timings.draft_n > 0 ? (timings.draft_n_accepted || 0) + '/' + timings.draft_n : '-');
   const cells = [
     formatTimestamp(record && record.timestamp),
     (record && record.modelId) || '-',
@@ -1229,6 +1234,7 @@ function createResultRow(record, deleteFn) {
     null, // prefill
     isStats ? (record.predictedN ? Math.round(record.predictedN.avg) : '') : (predictedN != null ? predictedN : '-'),
     null, // decode
+    draftInfo,
     null  // action
   ];
   if (isStats) {
@@ -1236,22 +1242,24 @@ function createResultRow(record, deleteFn) {
     cells[3] = pf ? pf.avg.toFixed(1) + ' (min:' + pf.min.toFixed(1) + ' P50:' + pf.p50.toFixed(1) + ' P95:' + pf.p95.toFixed(1) + ' max:' + pf.max.toFixed(1) + ')' : '-';
     const df = record.decode;
     cells[5] = df ? df.avg.toFixed(1) + ' (min:' + df.min.toFixed(1) + ' P50:' + df.p50.toFixed(1) + ' P95:' + df.p95.toFixed(1) + ' max:' + df.max.toFixed(1) + ')' : '-';
-    cells[6] = '';
+    cells[6] = draftInfo !== '-' ? draftInfo : '';
+    cells[7] = '';
   } else {
     cells[3] = formatNumber(pfSpeed);
     cells[5] = formatNumber(dgSpeed);
+    cells[6] = draftInfo !== '-' ? draftInfo : '';
     const delBtn = document.createElement('button');
     delBtn.type = 'button'; delBtn.className = 'btn record-action-btn'; delBtn.textContent = '删除';
     if (deleteFn && record._lineNumber) delBtn.addEventListener('click', () => deleteFn(record, delBtn));
     else delBtn.disabled = true;
-    cells[6] = delBtn;
+    cells[7] = delBtn;
   }
   for (let i = 0; i < cells.length; i++) {
     const td = document.createElement('td');
     if (i === 3 || i === 5) {
       if (!isStats && cells[i] !== '-') td.className = speedClass(parseFloat(cells[i]), i === 3);
       td.textContent = cells[i];
-    } else if (i === 6 && cells[i] instanceof HTMLElement) {
+    } else if (i === 7 && cells[i] instanceof HTMLElement) {
       td.className = 'action-cell'; td.appendChild(cells[i]);
     } else td.textContent = cells[i] == null ? '-' : String(cells[i]);
     tr.appendChild(td);
@@ -1267,7 +1275,7 @@ function appendResultRow(record, bodyEl, emptyRow) {
   if (!record.isStats) {
     const merged = hwFallback(record, server);
     const details = [];
-    const add = txt => { const r = document.createElement('tr'); r.className = 'record-detail'; const d = document.createElement('td'); d.colSpan = 7; d.textContent = txt; r.appendChild(d); details.push(r); };
+    const add = txt => { const r = document.createElement('tr'); r.className = 'record-detail'; const d = document.createElement('td'); d.colSpan = 8; d.textContent = txt; r.appendChild(d); details.push(r); };
     const cpuRam = (() => { const c = safeText(merged && merged.cpu).trim(); const r = safeText(merged && merged.ram).trim(); if (c && r) return c + ' / ' + r + 'GB'; if (c) return c; if (r) return r + 'GB'; return ''; })();
     const gpu = (() => { const r = merged ? merged.devices : null; if (Array.isArray(r)) return r.map(v => safeText(v).trim()).filter(Boolean).join(' | '); return safeText(r).trim(); })();
     const cmd = merged && merged.cmd ? String(merged.cmd) : '';
@@ -1362,6 +1370,7 @@ function doExport(records, format, modelId, statusEl) {
       promptTokens: r.promptTokens != null ? r.promptTokens : (t.prompt_n || ''),
       maxTokens: r.maxTokens != null ? r.maxTokens : (t.predicted_n || ''),
       prefillSpeed: t.prompt_per_second, decodeSpeed: t.predicted_per_second,
+      draftTokens: t.draft_n, draftAccepted: t.draft_n_accepted,
       cpu: r.cpu || '', ram: r.ram || '', devices: r.devices || [],
       cmd: r.cmd || '', llamaBinPath: r.llamaBinPath || ''
     };

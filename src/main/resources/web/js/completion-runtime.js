@@ -218,6 +218,16 @@ function formatTimingsText(timings) {
     const sep = t('page.chat.completion.list_separator', '，');
     lines.push(tf('page.chat.completion.timings.speed', { parts: speedParts.join(sep) }, '速度：{parts}'));
   }
+  const draftN = normalizeTimingsNumber(timings.draft_n) ?? 0;
+  if (draftN > 0) {
+    const draftAccepted = normalizeTimingsNumber(timings.draft_n_accepted) ?? 0;
+    const acceptanceRate = draftN > 0 ? (draftAccepted / draftN * 100) : 0;
+    lines.push(tf(
+      'page.chat.completion.timings.draft',
+      { draftN, draftAccepted, acceptancePct: acceptanceRate.toFixed(1) },
+      `投机解码：草稿生成 {draftN} token，接受 {draftAccepted} token（{acceptancePct}%）`
+    ));
+  }
   return lines.join('\n');
 }
 

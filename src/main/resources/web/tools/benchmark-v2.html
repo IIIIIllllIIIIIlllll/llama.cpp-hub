@@ -343,12 +343,13 @@
                   <th data-i18n="page.benchmark_v2.table.prefill_speed">预填充速度（token/s）</th>
                   <th data-i18n="page.benchmark_v2.table.output_tokens">输出长度</th>
                   <th data-i18n="page.benchmark_v2.table.decode_speed">输出速度（token/s）</th>
+                  <th data-i18n="page.benchmark_v2.table.draft">投机解码</th>
                   <th data-i18n="page.benchmark_v2.table.actions">操作</th>
                 </tr>
               </thead>
               <tbody id="resultBody">
                 <tr id="emptyRow">
-                  <td class="empty" colspan="7" data-i18n="page.benchmark_v2.empty.no_records">暂无记录</td>
+                  <td class="empty" colspan="8" data-i18n="page.benchmark_v2.empty.no_records">暂无记录</td>
                 </tr>
               </tbody>
             </table>
@@ -700,7 +701,7 @@
         const row = document.createElement('tr');
         row.className = `record-detail ${extraClass || ''}`.trim();
         const td = document.createElement('td');
-        td.colSpan = 7;
+        td.colSpan = 8;
         td.textContent = text;
         row.appendChild(td);
         return row;
@@ -759,6 +760,9 @@
       const timings = merged && merged.timings ? merged.timings : null;
       const promptTokens = merged && merged.promptTokens != null ? merged.promptTokens : (timings ? timings.prompt_n : null);
       const outputTokens = timings && timings.predicted_n != null ? timings.predicted_n : (merged ? merged.maxTokens : null);
+      const draftN = timings && timings.draft_n != null ? timings.draft_n : null;
+      const draftAccepted = timings && timings.draft_n_accepted != null ? timings.draft_n_accepted : null;
+      const draftInfo = draftN != null && draftN > 0 ? (draftAccepted || 0) + '/' + draftN : null;
       return {
         main: [
           formatTimestamp(merged && merged.timestamp ? merged.timestamp : null),
@@ -766,7 +770,8 @@
           promptTokens != null ? promptTokens : '-',
           formatNumber(timings && timings.prompt_per_second != null ? timings.prompt_per_second : null),
           outputTokens != null ? outputTokens : '-',
-          formatNumber(timings && timings.predicted_per_second != null ? timings.predicted_per_second : null)
+          formatNumber(timings && timings.predicted_per_second != null ? timings.predicted_per_second : null),
+          draftInfo != null ? draftInfo : '-'
         ],
         cpuRam: formatCpuRam(merged),
         gpu: formatDevices(merged),

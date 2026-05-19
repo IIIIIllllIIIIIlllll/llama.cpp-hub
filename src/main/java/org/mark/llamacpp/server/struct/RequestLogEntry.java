@@ -12,6 +12,8 @@ public class RequestLogEntry {
 	private int totalTokens;
 	private double promptPerSecond;
 	private double predictedPerSecond;
+	private int draftTokens;
+	private int draftAccepted;
 
 	public String getRequestId() {
 		return requestId;
@@ -99,5 +101,21 @@ public class RequestLogEntry {
 
 	public void setPredictedPerSecond(double predictedPerSecond) {
 		this.predictedPerSecond = predictedPerSecond;
+	}
+
+	public int getDraftTokens() {
+		return draftTokens;
+	}
+
+	public void setDraftTokens(int draftTokens) {
+		this.draftTokens = draftTokens;
+	}
+
+	public int getDraftAccepted() {
+		return draftAccepted;
+	}
+
+	public void setDraftAccepted(int draftAccepted) {
+		this.draftAccepted = draftAccepted;
 	}
 }

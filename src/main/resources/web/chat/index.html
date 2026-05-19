@@ -2008,7 +2008,9 @@
         'predicted_n',
         'predicted_ms',
         'predicted_per_token_ms',
-        'predicted_per_second'
+        'predicted_per_second',
+        'draft_n',
+        'draft_n_accepted'
       ];
       for (const key of keys) {
         const normalized = normalizeTimingNumber(value[key]);
@@ -2063,6 +2065,11 @@
       }
       if (normalized.cache_n !== undefined && normalized.cache_n > 0) {
         parts.push('缓存 ' + formatTimingValue(normalized.cache_n, 0) + ' token');
+      }
+      if (normalized.draft_n !== undefined && normalized.draft_n > 0) {
+        const accepted = normalized.draft_n_accepted ?? 0;
+        const pct = normalized.draft_n > 0 ? (accepted / normalized.draft_n * 100) : 0;
+        parts.push('投机解码 ' + formatTimingValue(accepted, 0) + '/' + formatTimingValue(normalized.draft_n, 0) + ' (' + formatTimingValue(pct, 1) + '%)');
       }
       return parts.join('｜');
     }
@@ -2121,6 +2128,15 @@
         if (predictedParts.length) {
           lines.push('生成阶段：' + predictedParts.join('｜'));
         }
+      }
+      if (normalized.draft_n !== undefined && normalized.draft_n > 0) {
+        const accepted = normalized.draft_n_accepted ?? 0;
+        const pct = normalized.draft_n > 0 ? (accepted / normalized.draft_n * 100) : 0;
+        const draftParts = [];
+        draftParts.push('草稿生成 ' + formatTimingValue(normalized.draft_n, 0) + ' token');
+        draftParts.push('接受 ' + formatTimingValue(accepted, 0) + ' token');
+        draftParts.push('接受率 ' + formatTimingValue(pct, 1) + '%');
+        lines.push('投机解码：' + draftParts.join('｜'));
       }
       return lines.join('\n');
     }

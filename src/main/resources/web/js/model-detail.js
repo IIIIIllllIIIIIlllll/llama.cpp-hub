@@ -9,6 +9,11 @@ function viewModelDetails(modelId, nodeId) {
             if (recordData && recordData.success && recordData.data) {
                 const record = recordData.data;
                 model.usage = `${t('model_detail.usage.cumulative_prompt', '累计处理')}: ${record.prompt_n || 0} tokens; ${t('model_detail.usage.cumulative_predict', '累计生成')}: ${record.predicted_n || 0} tokens`;
+                if ((record.draft_n || 0) > 0) {
+                    const draftAccepted = record.draft_n_accepted || 0;
+                    const draftPct = record.draft_n > 0 ? (draftAccepted / record.draft_n * 100).toFixed(1) : '0.0';
+                    model.usage += `; ${t('model_detail.usage.cumulative_draft', '累计投机解码')}: ${draftAccepted}/${record.draft_n} (${draftPct}%)`;
+                }
             } else {
                 model.usage = t('model_detail.usage.no_records', '无记录');
             }

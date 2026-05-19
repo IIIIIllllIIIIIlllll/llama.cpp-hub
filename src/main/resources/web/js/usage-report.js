@@ -59,23 +59,33 @@
         if (!body) return;
 
         let totalModels = tokenSummaryData.length;
-        let totalPrompt = 0;
-        let totalPredicted = 0;
-        let totalCache = 0;
-        let cardHtml = '';
-        const sorted = tokenSummaryData.slice().sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0));
-        for (const m of sorted) {
-            totalPrompt += m.totalPromptTokens || 0;
-            totalPredicted += m.totalPredictedTokens || 0;
-            totalCache += m.totalCacheTokens || 0;
-            cardHtml += '<div class="token-card">'
-                + '<div class="tk-model">' + escapeHtml(m.modelId || '') + '</div>'
-                + '<div class="tk-tokens">'
-                + '<span>输入 ' + (m.totalPromptTokens || 0).toLocaleString() + '</span>'
-                + '<span>输出 ' + (m.totalPredictedTokens || 0).toLocaleString() + '</span>'
-                + '<span class="tk-cache">' + t('report.cache_label', '缓存') + ' ' + (m.totalCacheTokens || 0).toLocaleString() + '</span>'
-                + '</div>'
-                + '</div>';
+    let totalPrompt = 0;
+    let totalPredicted = 0;
+    let totalCache = 0;
+    let totalDraftTokens = 0;
+    let totalDraftAccepted = 0;
+    let cardHtml = '';
+    const sorted = tokenSummaryData.slice().sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0));
+    for (const m of sorted) {
+      totalPrompt += m.totalPromptTokens || 0;
+      totalPredicted += m.totalPredictedTokens || 0;
+      totalCache += m.totalCacheTokens || 0;
+      totalDraftTokens += m.totalDraftTokens || 0;
+      totalDraftAccepted += m.totalDraftAccepted || 0;
+      let draftHtml = '';
+      if (m.totalDraftTokens > 0) {
+        const draftPct = m.totalDraftTokens > 0 ? ((m.totalDraftAccepted || 0) / m.totalDraftTokens * 100).toFixed(1) : '0.0';
+        draftHtml = '<span class="tk-draft">投机 ' + (m.totalDraftAccepted || 0) + '/' + m.totalDraftTokens + ' (' + draftPct + '%)</span>';
+      }
+      cardHtml += '<div class="token-card">'
+        + '<div class="tk-model">' + escapeHtml(m.modelId || '') + '</div>'
+        + '<div class="tk-tokens">'
+        + '<span>输入 ' + (m.totalPromptTokens || 0).toLocaleString() + '</span>'
+        + '<span>输出 ' + (m.totalPredictedTokens || 0).toLocaleString() + '</span>'
+        + '<span class="tk-cache">' + t('report.cache_label', '缓存') + ' ' + (m.totalCacheTokens || 0).toLocaleString() + '</span>'
+        + draftHtml
+        + '</div>'
+        + '</div>';
         }
         if (!cardHtml) {
             cardHtml = '<div class="empty">' + t('page.usage_report.chart_empty', '暂无数据') + '</div>';
@@ -86,7 +96,8 @@
             + '<div class="stat-card"><div class="stat-value">' + totalModels + '</div><div class="stat-label">' + t('page.usage_report.stats.models_with_records', '有记录的模型') + '</div></div>'
             + '<div class="stat-card"><div class="stat-value">' + totalPrompt.toLocaleString() + '</div><div class="stat-label">' + t('page.usage_report.stats.total_prompt', '总输入 Token') + '</div></div>'
             + '<div class="stat-card"><div class="stat-value">' + totalPredicted.toLocaleString() + '</div><div class="stat-label">' + t('page.usage_report.stats.total_predicted', '总输出 Token') + '</div></div>'
-            + '<div class="stat-card"><div class="stat-value">' + totalCache.toLocaleString() + '</div><div class="stat-label">' + t('report.total_cache', '总缓存命中 Token') + '</div></div>';
+            + '<div class="stat-card"><div class="stat-value">' + totalCache.toLocaleString() + '</div><div class="stat-label">' + t('report.total_cache', '总缓存命中 Token') + '</div></div>'
+            + (totalDraftTokens > 0 ? '<div class="stat-card"><div class="stat-value">' + totalDraftAccepted.toLocaleString() + '/' + totalDraftTokens.toLocaleString() + '</div><div class="stat-label">' + t('report.total_draft', '总投机解码') + '</div></div>' : '');
 
         if (!canvasEl || !emptyEl || !wrapEl) return;
         if (!tokenSummaryData.length) {
@@ -238,6 +249,7 @@
 
         let html = '';
         for (const r of pageData) {
+            const draftDisplay = r.draftTokens > 0 ? (r.draftAccepted || 0) + '/' + r.draftTokens : '-';
             html += '<tr>'
                 + '<td>' + formatTime(r.startTime) + '</td>'
                 + '<td>' + escapeHtml(r.modelId || '') + '</td>'
@@ -249,10 +261,11 @@
                 + '<td>' + (r.elapsedMs || 0).toLocaleString() + '</td>'
                 + '<td>' + formatNum(r.promptPerSecond) + '</td>'
                 + '<td>' + formatNum(r.predictedPerSecond) + '</td>'
+                + '<td>' + escapeHtml(draftDisplay) + '</td>'
                 + '</tr>';
         }
         if (!html) {
-            html = '<tr><td class="empty" colspan="10">' + t('page.usage_report.no_request_logs', '暂无请求记录') + '</td></tr>';
+            html = '<tr><td class="empty" colspan="11">' + t('page.usage_report.no_request_logs', '暂无请求记录') + '</td></tr>';
         }
         body.innerHTML = html;
     }

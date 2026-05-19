@@ -85,6 +85,8 @@ public class LlamaRecordService {
 					timing.setPredicted_ms(timing.getPredicted_ms() + data.getPredicted_ms());
 					timing.setPredicted_per_token_ms(timing.getPredicted_per_token_ms() + data.getPredicted_per_token_ms());
 					timing.setPredicted_per_second(timing.getPredicted_per_second() + data.getPredicted_per_second());
+					timing.setDraft_n(timing.getDraft_n() + data.getDraft_n());
+					timing.setDraft_n_accepted(timing.getDraft_n_accepted() + data.getDraft_n_accepted());
 					this.recordTiming(modelId, timing, data);
 				}
 			} catch (Exception e) {
