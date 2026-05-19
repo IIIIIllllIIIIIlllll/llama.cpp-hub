@@ -1771,7 +1771,7 @@
             const el = document.getElementById(targetInputId);
             if (!el) return;
             ensureDirectoryBrowserModal();
-            
+
             const current = (el.value || '').trim();
             let dirPath = null;
             let fileName = null;
@@ -1784,11 +1784,22 @@
                     fileName = current.substring(sepPos + 1);
                 }
             }
+            let filter = null;
+            if (targetInputId === 'param_spec-draft-model') {
+                filter = '.gguf';
+            }
+            const modal = document.getElementById('loadModelModal');
+            let nodeId = null;
+            if (modal && modal.__nodeId && modal.__nodeId !== 'local') {
+                nodeId = modal.__nodeId;
+            }
             window.__directoryBrowserState = {
                 targetInputId,
                 currentPath: dirPath || null,
                 currentFile: fileName || null,
-                selectFile: true
+                selectFile: true,
+                filter,
+                nodeId
             };
             directoryBrowserLoad(dirPath || null);
             const confirmBtn = document.getElementById('directoryBrowserConfirmBtn');
@@ -1819,8 +1830,12 @@
             if (fileListEl) fileListEl.innerHTML = `<div class="loading-spinner"><div class="spinner"></div></div>`;
             
             try {
-                const url = state.currentPath
-                    ? `/api/sys/fs/list?path=${encodeURIComponent(state.currentPath)}`
+                const params = [];
+                if (state.currentPath) params.push(`path=${encodeURIComponent(state.currentPath)}`);
+                if (state.filter) params.push(`filter=${encodeURIComponent(state.filter)}`);
+                if (state.nodeId) params.push(`nodeId=${encodeURIComponent(state.nodeId)}`);
+                const url = params.length > 0
+                    ? `/api/sys/fs/list?${params.join('&')}`
                     : `/api/sys/fs/list`;
                 const response = await fetch(url, { method: 'GET' });
                 const payload = await response.json();
@@ -2377,17 +2392,27 @@
                         html += '</select>';
                         html += '</div>';
                         break;
-                        
+
                     case 'STRING':
                     default:
-                        html += '<div class="form-group param-field">';
-                        html += labelHtml;
-                        html += `<input type="text" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
-                        html += '</div>';
+                        if (fieldName === 'spec-draft-model') {
+                            html += '<div class="form-group param-field">';
+                            html += labelHtml;
+                            html += `<div style="display:flex; gap:8px; align-items:stretch;">`;
+                            html += `<input type="text" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}" style="flex:1;" placeholder="草稿模型 .gguf 文件路径">`;
+                            html += `<button type="button" class="btn btn-secondary btn-sm" onclick="openFileBrowser('${fieldId}')" style="flex-shrink:0;" title="浏览文件"><i class="fas fa-folder-open"></i></button>`;
+                            html += `</div>`;
+                            html += '</div>';
+                        } else {
+                            html += '<div class="form-group param-field">';
+                            html += labelHtml;
+                            html += `<input type="text" class="form-control" id="${fieldId}" name="${fieldName}" value="${defaultValue}">`;
+                            html += '</div>';
+                        }
                         break;
                 }
             }
-            
+
             return html;
         }
 
