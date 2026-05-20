@@ -2305,7 +2305,7 @@
             padding: 1.25rem 1.25rem;
         }
         #directoryBrowserModal .modal-footer {
-            background-color: #FFFFFF;
+            background-color: var(--card-bg);
         }
         
         .dir-browser-toolbar {
@@ -2344,7 +2344,7 @@
         .dir-browser-panel {
             border: 1px solid var(--border-color);
             border-radius: 0.75rem;
-            background: #ffffff;
+            background: var(--card-bg);
             min-height: 0;
             overflow: hidden;
             display: flex;
@@ -2385,7 +2385,7 @@
             border-radius: 0.75rem;
             margin-bottom: 0.5rem;
             cursor: pointer;
-            background: #ffffff;
+            background: var(--card-bg);
             transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
         }
         .dir-browser-item:last-child {
@@ -2405,7 +2405,7 @@
             cursor: default;
         }
         .dir-browser-item.file:hover {
-            background: #ffffff;
+            background: var(--card-bg);
             border-color: var(--border-color);
             transform: none;
         }
