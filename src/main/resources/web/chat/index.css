@@ -479,9 +479,20 @@ button { cursor: pointer; }
 .main.has-background-image {
   position: relative;
   isolation: isolate;
+}
+
+/* 背景图渲染层 */
+.main.has-background-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--chat-bg-image, none);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  opacity: var(--chat-bg-image-opacity, 0.45);
+  z-index: -2;
+  pointer-events: none;
 }
 
 /* 背景图上方的主题自适应遮罩层，用于淡化背景 */
@@ -1579,6 +1590,7 @@ button { cursor: pointer; }
 .chat-bg-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14px;
   margin-top: 8px;
 }
@@ -1608,24 +1620,136 @@ button { cursor: pointer; }
   user-select: none;
 }
 
-.chat-bg-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.chat-bg-actions .ghost-button {
-  padding: 6px 12px;
+.settings-field-value {
+  margin-left: auto;
   font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
-.chat-bg-actions .ghost-button.danger-text {
-  color: var(--danger);
+.chat-bg-opacity-input {
+  width: 100%;
+  margin-top: 8px;
+  accent-color: var(--primary);
 }
 
-.chat-bg-actions .ghost-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.chat-bg-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.chat-bg-gallery-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+.chat-bg-gallery-item {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: calc(var(--radius) - 2px);
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: var(--muted-bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.chat-bg-gallery-item:hover {
+  border-color: var(--ring);
+}
+
+.chat-bg-gallery-item.active {
+  border-color: var(--primary);
+}
+
+.chat-bg-gallery-item:active {
+  transform: scale(0.98);
+}
+
+.chat-bg-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.chat-bg-gallery-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.chat-bg-gallery-item:hover .chat-bg-gallery-delete,
+.chat-bg-gallery-delete:focus-visible {
+  opacity: 1;
+}
+
+.chat-bg-gallery-delete:hover {
+  background: rgba(239, 68, 68, 0.85);
+}
+
+.chat-bg-gallery-add {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: calc(var(--radius) - 2px);
+  overflow: hidden;
+  border: 2px dashed var(--border);
+  background: var(--muted-bg);
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--muted);
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.chat-bg-gallery-add:hover {
+  border-color: var(--ring);
+  color: var(--text);
+}
+
+.chat-bg-gallery-add:active {
+  transform: scale(0.98);
+}
+
+.chat-bg-gallery-add .add-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.chat-bg-gallery-add .add-label {
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.chat-bg-clear-all {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  margin-left: auto;
 }
 
 .bubble {
@@ -2738,6 +2862,9 @@ pre:has(code[data-lang]) .code-copy-btn {
 }
 
 .settings-field-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 2px;
 }
 

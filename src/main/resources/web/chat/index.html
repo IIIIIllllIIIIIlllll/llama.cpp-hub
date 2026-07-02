@@ -346,17 +346,29 @@
                 <div class="settings-field-header">
                   <label data-i18n="page.chat.main.settings.background.bg_image_label">当前背景</label>
                 </div>
-                <p class="settings-field-desc" data-i18n="page.chat.main.settings.background.bg_image_desc">仅对当前浏览器生效，建议选择 1920×1080 以内、小于 2MB 的图片</p>
+                <p class="settings-field-desc" data-i18n="page.chat.main.settings.background.bg_image_desc">对所有使用本服务的会话生效，建议选择 1920×1080 以内、小于 2MB 的图片</p>
                 <div class="chat-bg-row">
                   <div id="chatBgPreview" class="chat-bg-preview">
                     <span class="chat-bg-placeholder" data-i18n="page.chat.main.settings.background.bg_image_placeholder">无背景</span>
                   </div>
-                  <div class="chat-bg-actions">
-                    <input id="chatBgInput" class="hidden" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
-                    <button id="chatBgUploadBtn" class="ghost-button" type="button" data-i18n="page.chat.main.settings.background.bg_image_upload">更换背景</button>
-                    <button id="chatBgDeleteBtn" class="ghost-button danger-text" type="button" disabled data-i18n="page.chat.main.settings.background.bg_image_delete">删除背景</button>
-                  </div>
                 </div>
+                <input id="chatBgInput" class="hidden" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+              </div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label for="chatBgOpacityInput" data-i18n="page.chat.main.settings.background.opacity_label">背景透明度</label>
+                  <span id="chatBgOpacityValue" class="settings-field-value">45%</span>
+                </div>
+                <p class="settings-field-desc" data-i18n="page.chat.main.settings.background.opacity_desc">调整背景图的透明度，找到最适合的显示效果</p>
+                <input id="chatBgOpacityInput" class="chat-bg-opacity-input" type="range" min="0" max="100" value="45" aria-label="背景透明度">
+              </div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label data-i18n="page.chat.main.settings.background.gallery_label">背景图库</label>
+                  <button id="chatBgClearAllBtn" class="ghost-button chat-bg-clear-all" type="button" data-i18n="page.chat.main.settings.background.gallery_clear_all">清空全部</button>
+                </div>
+                <p class="settings-field-desc" data-i18n="page.chat.main.settings.background.gallery_desc">点击缩略图切换或取消背景，上传的图片会保存在服务器本地</p>
+                <div id="chatBgGallery" class="chat-bg-gallery"></div>
               </div>
             </div>
           </div>
@@ -621,7 +633,13 @@
     const MAX_AUDIO_SIZE = Infinity;
     const MAX_VIDEO_SIZE = Infinity;
     const MAX_CHAT_BG_SIZE = 2 * 1024 * 1024;
-    const CHAT_BG_STORAGE_KEY = 'llama-hub-chat-bg-image';
+    const CHAT_BG_UPLOAD_ENDPOINT = '/api/chat/background/upload';
+    const CHAT_BG_LIST_ENDPOINT = '/api/chat/background/list';
+    const CHAT_BG_ACTIVE_ENDPOINT = '/api/chat/background/active';
+    const CHAT_BG_OPACITY_ENDPOINT = '/api/chat/background/opacity';
+    const CHAT_BG_DELETE_ENDPOINT = '/api/chat/background/';
+    const CHAT_BG_IMAGE_URL_PREFIX = '/api/chat/background/image/';
+    const CHAT_BG_THUMB_URL_PREFIX = '/api/chat/background/thumb/';
     const TEXT_FILE_EXTENSIONS = new Set(['txt', 'md', 'markdown', 'json', 'js', 'ts', 'tsx', 'jsx', 'java', 'py', 'go', 'rs', 'c', 'cpp', 'h', 'hpp', 'cs', 'sh', 'bat', 'ps1', 'yaml', 'yml', 'xml', 'html', 'css', 'sql', 'log']);
     let stateSaveTimer = 0;
     let stateSaveRetryTimer = 0;
@@ -797,8 +815,10 @@
       assistantAvatarDeleteBtn: document.getElementById('assistantAvatarDeleteBtn'),
       chatBgPreview: document.getElementById('chatBgPreview'),
       chatBgInput: document.getElementById('chatBgInput'),
-      chatBgUploadBtn: document.getElementById('chatBgUploadBtn'),
-      chatBgDeleteBtn: document.getElementById('chatBgDeleteBtn'),
+      chatBgOpacityInput: document.getElementById('chatBgOpacityInput'),
+      chatBgOpacityValue: document.getElementById('chatBgOpacityValue'),
+      chatBgGallery: document.getElementById('chatBgGallery'),
+      chatBgClearAllBtn: document.getElementById('chatBgClearAllBtn'),
       assistantUsageHint: document.getElementById('assistantUsageHint'),
       settingsStorageHint: document.getElementById('settingsStorageHint'),
       saveSettingsBtn: document.getElementById('saveSettingsBtn'),
@@ -3988,55 +4008,259 @@
 
     /* ---- Chat background ---- */
 
-    function getChatBackgroundImage() {
-      try {
-        return localStorage.getItem(CHAT_BG_STORAGE_KEY) || '';
-      } catch (e) {
-        return '';
-      }
+    let chatBgCatalog = { activeId: null, opacity: 45, items: [] };
+    let chatBgOpacityTimer = null;
+
+    function getChatBgCatalog() {
+      return chatBgCatalog;
     }
 
-    function setChatBackgroundImage(dataUrl) {
+    function setChatBgCatalog(catalog) {
+      chatBgCatalog = catalog && typeof catalog === 'object'
+        ? {
+            activeId: catalog.activeId || null,
+            opacity: typeof catalog.opacity === 'number' ? catalog.opacity : 45,
+            items: Array.isArray(catalog.items) ? catalog.items : []
+          }
+        : { activeId: null, opacity: 45, items: [] };
+    }
+
+    async function loadChatBackgroundCatalog() {
       try {
-        if (dataUrl) {
-          localStorage.setItem(CHAT_BG_STORAGE_KEY, dataUrl);
+        const resp = await fetch(CHAT_BG_LIST_ENDPOINT, { method: 'GET', headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) {
+          throw new Error('HTTP ' + resp.status);
+        }
+        const result = await resp.json();
+        if (result && result.success && result.data) {
+          setChatBgCatalog(result.data);
         } else {
-          localStorage.removeItem(CHAT_BG_STORAGE_KEY);
+          setChatBgCatalog({ activeId: null, opacity: 45, items: [] });
         }
       } catch (e) {
-        showToast('error', window.I18N.t('page.chat.main.settings.background.bg_image_storage_failed', '背景图片保存失败：浏览器存储空间不足'));
+        console.error('加载背景目录失败', e);
+        setChatBgCatalog({ activeId: null, opacity: 45, items: [] });
       }
+      applyChatBackground();
+      renderChatBgGallery();
     }
 
     function applyChatBackground() {
-      const dataUrl = getChatBackgroundImage();
+      const catalog = getChatBgCatalog();
       const main = document.querySelector('.main');
       if (!main) {
         return;
       }
-      main.classList.toggle('has-background-image', !!dataUrl);
-      if (dataUrl) {
-        main.style.backgroundImage = 'url(' + escapeHtml(dataUrl) + ')';
+      main.classList.toggle('has-background-image', !!catalog.activeId);
+      main.style.setProperty('--chat-bg-image-opacity', String((catalog.opacity ?? 45) / 100));
+      if (catalog.activeId) {
+        main.style.setProperty('--chat-bg-image', 'url(' + CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId) + ')');
       } else {
-        main.style.backgroundImage = '';
+        main.style.removeProperty('--chat-bg-image');
       }
       syncChatBackgroundPreview();
+      syncChatBgOpacityInput();
     }
 
     function syncChatBackgroundPreview() {
-      const dataUrl = getChatBackgroundImage();
+      const catalog = getChatBgCatalog();
       if (!els.chatBgPreview) {
         return;
       }
-      if (dataUrl) {
-        els.chatBgPreview.innerHTML = '<img src="' + escapeHtml(dataUrl) + '" alt="">';
+      if (catalog.activeId) {
+        els.chatBgPreview.innerHTML = '<img src="' + CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId) + '" alt="">';
       } else {
         const placeholder = window.I18N.t('page.chat.main.settings.background.bg_image_placeholder', '无背景');
         els.chatBgPreview.innerHTML = '<span class="chat-bg-placeholder">' + escapeHtml(placeholder) + '</span>';
       }
-      if (els.chatBgDeleteBtn) {
-        els.chatBgDeleteBtn.disabled = !dataUrl;
+    }
+
+    function syncChatBgOpacityInput() {
+      const catalog = getChatBgCatalog();
+      if (els.chatBgOpacityInput) {
+        els.chatBgOpacityInput.value = String(catalog.opacity ?? 45);
       }
+      if (els.chatBgOpacityValue) {
+        els.chatBgOpacityValue.textContent = (catalog.opacity ?? 45) + '%';
+      }
+    }
+
+    function renderChatBgGallery() {
+      if (!els.chatBgGallery) {
+        return;
+      }
+      const catalog = getChatBgCatalog();
+      els.chatBgGallery.innerHTML = '';
+
+      const addTile = document.createElement('div');
+      addTile.className = 'chat-bg-gallery-add';
+      addTile.title = window.I18N.t('page.chat.main.settings.background.gallery_add_title', '添加背景');
+      addTile.innerHTML = '<span class="add-icon">+</span><span class="add-label">' + escapeHtml(window.I18N.t('page.chat.main.settings.background.gallery_add_title', '添加背景')) + '</span>';
+      addTile.addEventListener('click', () => {
+        if (els.chatBgInput) {
+          els.chatBgInput.click();
+        }
+      });
+      els.chatBgGallery.appendChild(addTile);
+
+      if (!catalog.items.length) {
+        return;
+      }
+      catalog.items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'chat-bg-gallery-item' + (item.id === catalog.activeId ? ' active' : '');
+        div.title = escapeHtml(item.name || '');
+        const thumbUrl = item.thumbUrl || (CHAT_BG_THUMB_URL_PREFIX + encodeURIComponent(item.id));
+        div.innerHTML = '<img src="' + escapeHtml(thumbUrl) + '" alt="">';
+        const del = document.createElement('button');
+        del.className = 'chat-bg-gallery-delete';
+        del.type = 'button';
+        del.innerHTML = '&times;';
+        del.title = window.I18N.t('common.delete', '删除');
+        del.setAttribute('aria-label', window.I18N.t('common.delete', '删除'));
+        del.addEventListener('click', e => {
+          e.stopPropagation();
+          const confirmMsg = window.I18N.t('page.chat.main.settings.background.gallery_delete_confirm', '确定删除这张背景图片吗？');
+          if (window.confirm(confirmMsg)) {
+            void deleteChatBackgroundItem(item.id);
+          }
+        });
+        div.appendChild(del);
+        div.addEventListener('click', () => {
+          if (item.id === catalog.activeId) {
+            clearChatBackground();
+          } else {
+            void selectChatBackground(item.id);
+          }
+        });
+        els.chatBgGallery.appendChild(div);
+      });
+    }
+
+    async function selectChatBackground(id) {
+      const catalog = getChatBgCatalog();
+      if (!catalog.items.some(item => item.id === id)) {
+        return;
+      }
+      try {
+        const resp = await fetch(CHAT_BG_ACTIVE_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const result = await resp.json();
+        if (!result || !result.success) {
+          throw new Error(result?.message || '设置失败');
+        }
+        catalog.activeId = id;
+        applyChatBackground();
+        renderChatBgGallery();
+        showToast('success', window.I18N.t('page.chat.main.settings.background.bg_image_applied', '背景图片已应用'));
+      } catch (error) {
+        console.error('选择背景失败', error);
+        showToast('error', window.I18N.t('page.chat.main.settings.background.bg_image_failed', '背景图片设置失败：{message}').replace('{message}', error?.message || '未知错误'));
+      }
+    }
+
+    async function clearChatBackground() {
+      const catalog = getChatBgCatalog();
+      if (!catalog.activeId) {
+        return;
+      }
+      try {
+        const resp = await fetch(CHAT_BG_ACTIVE_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: null })
+        });
+        const result = await resp.json();
+        if (!result || !result.success) {
+          throw new Error(result?.message || '设置失败');
+        }
+        catalog.activeId = null;
+        applyChatBackground();
+        renderChatBgGallery();
+        showToast('success', window.I18N.t('page.chat.main.settings.background.bg_image_deleted', '背景图片已取消'));
+      } catch (error) {
+        console.error('取消背景失败', error);
+        showToast('error', window.I18N.t('page.chat.main.settings.background.bg_image_failed', '背景图片设置失败：{message}').replace('{message}', error?.message || '未知错误'));
+      }
+    }
+
+    async function deleteChatBackgroundItem(id) {
+      try {
+        const resp = await fetch(CHAT_BG_DELETE_ENDPOINT + encodeURIComponent(id), { method: 'DELETE' });
+        const result = await resp.json();
+        if (!result || !result.success) {
+          throw new Error(result?.message || '删除失败');
+        }
+        const catalog = getChatBgCatalog();
+        catalog.items = catalog.items.filter(item => item.id !== id);
+        if (catalog.activeId === id) {
+          catalog.activeId = null;
+        }
+        applyChatBackground();
+        renderChatBgGallery();
+      } catch (error) {
+        console.error('删除背景失败', error);
+        showToast('error', window.I18N.t('page.chat.main.settings.background.bg_image_failed', '背景图片设置失败：{message}').replace('{message}', error?.message || '未知错误'));
+      }
+    }
+
+    async function clearAllChatBackgrounds() {
+      const catalog = getChatBgCatalog();
+      if (!catalog.items.length) {
+        return;
+      }
+      const confirmMsg = window.I18N.t('page.chat.main.settings.background.gallery_clear_all_confirm', '确定清空所有背景图片吗？');
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+      try {
+        const resp = await fetch(CHAT_BG_DELETE_ENDPOINT, { method: 'DELETE' });
+        const result = await resp.json();
+        if (!result || !result.success) {
+          throw new Error(result?.message || '清空失败');
+        }
+        catalog.items = [];
+        catalog.activeId = null;
+        applyChatBackground();
+        renderChatBgGallery();
+        showToast('success', window.I18N.t('page.chat.main.settings.background.gallery_cleared', '背景图片已清空'));
+      } catch (error) {
+        console.error('清空背景失败', error);
+        showToast('error', window.I18N.t('page.chat.main.settings.background.bg_image_failed', '背景图片设置失败：{message}').replace('{message}', error?.message || '未知错误'));
+      }
+    }
+
+    function onChatBgOpacityChange() {
+      if (!els.chatBgOpacityInput) {
+        return;
+      }
+      const value = Math.max(0, Math.min(100, parseInt(els.chatBgOpacityInput.value, 10) || 0));
+      const catalog = getChatBgCatalog();
+      catalog.opacity = value;
+      syncChatBgOpacityInput();
+      applyChatBackground();
+      if (chatBgOpacityTimer) {
+        clearTimeout(chatBgOpacityTimer);
+      }
+      chatBgOpacityTimer = setTimeout(async () => {
+        chatBgOpacityTimer = null;
+        try {
+          const resp = await fetch(CHAT_BG_OPACITY_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ opacity: value })
+          });
+          const result = await resp.json();
+          if (!result || !result.success) {
+            throw new Error(result?.message || '保存失败');
+          }
+        } catch (error) {
+          console.error('保存背景透明度失败', error);
+        }
+      }, 300);
     }
 
     async function uploadChatBackground(file) {
@@ -4056,43 +4280,33 @@
         return;
       }
 
-      if (els.chatBgUploadBtn) {
-        els.chatBgUploadBtn.disabled = true;
-      }
-      if (els.chatBgDeleteBtn) {
-        els.chatBgDeleteBtn.disabled = true;
-      }
-
       try {
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('读取文件失败'));
-          reader.readAsDataURL(file);
+        const formData = new FormData();
+        formData.append('file', file);
+        const resp = await fetch(CHAT_BG_UPLOAD_ENDPOINT, { method: 'POST', body: formData });
+        const result = await resp.json();
+        if (!result || !result.success) {
+          throw new Error(result?.message || '上传失败');
+        }
+        const item = result.data || {};
+        const catalog = getChatBgCatalog();
+        catalog.items.unshift({
+          id: item.id,
+          name: item.name || fileName,
+          createdAt: item.createdAt || Date.now(),
+          imageUrl: item.imageUrl,
+          thumbUrl: item.thumbUrl
         });
-        setChatBackgroundImage(dataUrl);
-        applyChatBackground();
-        showToast('success', window.I18N.t('page.chat.main.settings.background.bg_image_applied', '背景图片已应用'));
+        renderChatBgGallery();
+        showToast('success', window.I18N.t('page.chat.main.settings.background.bg_image_added', '背景图片已添加'));
       } catch (error) {
-        console.error('设置聊天背景失败', error);
+        console.error('上传聊天背景失败', error);
         showToast('error', window.I18N.t('page.chat.main.settings.background.bg_image_failed', '背景图片设置失败：{message}').replace('{message}', error?.message || '未知错误'));
       } finally {
-        if (els.chatBgUploadBtn) {
-          els.chatBgUploadBtn.disabled = false;
-        }
-        if (els.chatBgDeleteBtn) {
-          els.chatBgDeleteBtn.disabled = !getChatBackgroundImage();
-        }
         if (els.chatBgInput) {
           els.chatBgInput.value = '';
         }
       }
-    }
-
-    function deleteChatBackground() {
-      setChatBackgroundImage('');
-      applyChatBackground();
-      showToast('success', window.I18N.t('page.chat.main.settings.background.bg_image_deleted', '背景图片已删除'));
     }
 
     /* ---- Avatar preview panel ---- */
@@ -9344,6 +9558,9 @@
       sections.forEach(section => {
         section.classList.toggle('active', section.dataset.settingsSection === tabName);
       });
+      if (tabName === 'background') {
+        renderChatBgGallery();
+      }
     }
 
     async function switchConversationAssistant(assistantId) {
@@ -9880,10 +10097,7 @@ function confirmAudioRecording() {
           deleteAssistantAvatar();
         });
       }
-      if (els.chatBgUploadBtn && els.chatBgInput) {
-        els.chatBgUploadBtn.addEventListener('click', () => {
-          els.chatBgInput.click();
-        });
+      if (els.chatBgInput) {
         els.chatBgInput.addEventListener('change', event => {
           const file = event.target.files?.[0];
           if (file) {
@@ -9891,12 +10105,12 @@ function confirmAudioRecording() {
           }
         });
       }
-      if (els.chatBgDeleteBtn) {
-        els.chatBgDeleteBtn.addEventListener('click', () => {
-          if (!getChatBackgroundImage()) {
-            return;
-          }
-          deleteChatBackground();
+      if (els.chatBgOpacityInput) {
+        els.chatBgOpacityInput.addEventListener('input', onChatBgOpacityChange);
+      }
+      if (els.chatBgClearAllBtn) {
+        els.chatBgClearAllBtn.addEventListener('click', () => {
+          void clearAllChatBackgrounds();
         });
       }
       if (els.messages) {
@@ -10319,6 +10533,7 @@ function confirmAudioRecording() {
 
     async function init() {
       initTheme();
+      await loadChatBackgroundCatalog();
       applyChatBackground();
       try {
         const resp = await fetch('/api/sys/setting', { method: 'GET' });
