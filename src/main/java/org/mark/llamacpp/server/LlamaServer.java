@@ -1257,22 +1257,34 @@ public class LlamaServer {
      * 发送模型加载事件
      */
     public static void sendModelLoadEvent(String modelId, boolean success, String message) {
-        WebSocketManager.getInstance().sendModelLoadEvent(modelId, success, message);
+        WebSocketManager.getInstance().sendModelLoadEvent(modelId, null, success, message, null);
     }
 
     public static void sendModelLoadEvent(String modelId, boolean success, String message, Integer port) {
-        WebSocketManager.getInstance().sendModelLoadEvent(modelId, success, message, port);
+        WebSocketManager.getInstance().sendModelLoadEvent(modelId, null, success, message, port);
+    }
+
+    public static void sendModelLoadEvent(String modelId, String sourceModelId, boolean success, String message, Integer port) {
+        WebSocketManager.getInstance().sendModelLoadEvent(modelId, sourceModelId, success, message, port);
     }
 
     public static void sendModelLoadStartEvent(String modelId, Integer port, String message) {
-        WebSocketManager.getInstance().sendModelLoadStartEvent(modelId, port, message);
+        WebSocketManager.getInstance().sendModelLoadStartEvent(modelId, null, port, message);
+    }
+
+    public static void sendModelLoadStartEvent(String modelId, String sourceModelId, Integer port, String message) {
+        WebSocketManager.getInstance().sendModelLoadStartEvent(modelId, sourceModelId, port, message);
     }
     
     /**
      * 发送模型停止事件
      */
     public static void sendModelStopEvent(String modelId, boolean success, String message) {
-        WebSocketManager.getInstance().sendModelStopEvent(modelId, success, message);
+        WebSocketManager.getInstance().sendModelStopEvent(modelId, null, success, message);
+    }
+
+    public static void sendModelStopEvent(String modelId, String sourceModelId, boolean success, String message) {
+        WebSocketManager.getInstance().sendModelStopEvent(modelId, sourceModelId, success, message);
     }
     
     public static void sendConsoleLineEvent(String modelId, String line) {

@@ -98,12 +98,17 @@ public class AnthropicService {
 
         LlamaServerManager manager = LlamaServerManager.getInstance();
         Map<String, LlamaCppProcess> processes = manager.getLoadedProcesses();
-        for (String modelId : processes.keySet()) {
+        for (Map.Entry<String, LlamaCppProcess> e : processes.entrySet()) {
+            String modelId = e.getKey();
             if (modelId == null || modelId.isBlank()) continue;
+            LlamaCppProcess proc = e.getValue();
             JsonObject model = new JsonObject();
             model.addProperty("type", "model");
             model.addProperty("id", modelId);
             model.addProperty("display_name", modelId);
+            if (proc != null && proc.getSourceModelId() != null) {
+                model.addProperty("sourceModelId", proc.getSourceModelId());
+            }
             model.addProperty("created_at", now);
             data.add(model);
         }

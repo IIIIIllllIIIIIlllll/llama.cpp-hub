@@ -162,6 +162,10 @@ public class OpenAIService {
 							dCopy.addProperty("runtimeCtx", runtimeCtx);
 							dCopy.add("my_capabilities", capabilities);
 							dCopy.add("status", manager.buildModelStatus(modelId, true));
+							String srcId = e.getValue().getSourceModelId();
+							if (srcId != null) {
+								dCopy.addProperty("sourceModelId", srcId);
+							}
 							if (!dCopy.has("aliases")) {
 								dCopy.add("aliases", new JsonArray());
 							}

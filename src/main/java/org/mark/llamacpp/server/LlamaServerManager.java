@@ -1834,25 +1834,25 @@ public class LlamaServerManager {
 
 		synchronized (this.processLock) {
 			if (this.loadedProcesses.containsKey(modelId)) {
-				LlamaServer.sendModelLoadEvent(modelId, false, "模型已经加载");
+				LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "模型已经加载", null);
 				return false;
 			}
 		}
 
 		GGUFModel targetModel = this.findModelById(sourceModelId != null ? sourceModelId : modelId);
 		if (targetModel == null) {
-			LlamaServer.sendModelLoadEvent(modelId, false, "未找到ID为 " + (sourceModelId != null ? sourceModelId : modelId) + " 的模型");
+			LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "未找到ID为 " + (sourceModelId != null ? sourceModelId : modelId) + " 的模型", null);
 			return false;
 		}
 
 		if (llamaBinPath == null || llamaBinPath.trim().isEmpty()) {
-			LlamaServer.sendModelLoadEvent(modelId, false, "未提供llamaBinPath");
+			LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "未提供llamaBinPath", null);
 			return false;
 		}
 
 		synchronized (this.loadingModels) {
 			if (this.loadingModels.contains(modelId)) {
-				LlamaServer.sendModelLoadEvent(modelId, false, "该模型正在加载中");
+				LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "该模型正在加载中", null);
 				return false;
 			}
 			this.loadingModels.add(modelId);
@@ -1881,7 +1881,7 @@ public class LlamaServerManager {
 			synchronized (this.loadingModels) {
 				this.loadingModels.remove(modelId);
 			}
-			LlamaServer.sendModelLoadEvent(modelId, false, "提交加载任务失败: " + e.getMessage());
+			LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "提交加载任务失败: " + e.getMessage(), null);
 			return false;
 		}
 	}
@@ -1959,7 +1959,7 @@ public class LlamaServerManager {
 							this.modelPorts.remove(modelId);
 						}
 						if (wasLoaded) {
-							LlamaServer.sendModelStopEvent(modelId, false, "模型进程意外崩溃 (exitCode=" + info.exitCode + ")");
+							LlamaServer.sendModelStopEvent(modelId, sourceModelId, false, "模型进程意外崩溃 (exitCode=" + info.exitCode + ")");
 							// 进程意外退出后重建缓存，使模型重新出现在列表中
 							this.buildAutoLoadModelCache();
 						}
@@ -1973,7 +1973,7 @@ public class LlamaServerManager {
 				if (this.isLoadCanceled(modelId)) {
 					return;
 				}
-				LlamaServer.sendModelLoadEvent(modelId, false, "启动模型进程失败");
+				LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "启动模型进程失败", null);
 				return;
 			}
 			
@@ -1985,7 +1985,7 @@ public class LlamaServerManager {
 				process.stop();
 				return;
 			}
-			LlamaServer.sendModelLoadStartEvent(modelId, actualPort, "模型启动中");
+			LlamaServer.sendModelLoadStartEvent(modelId, sourceModelId, actualPort, "模型启动中");
 
 			try {
 				boolean timeout = !latch.await(10, TimeUnit.MINUTES);
@@ -1994,7 +1994,7 @@ public class LlamaServerManager {
 					if (this.isLoadCanceled(modelId)) {
 						return;
 					}
-					LlamaServer.sendModelLoadEvent(modelId, false, "模型加载超时");
+					LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "模型加载超时", null);
 					return;
 				}
 				
@@ -2009,7 +2009,7 @@ public class LlamaServerManager {
 						this.modelPorts.put(modelId, actualPort);
 					}
 					this.modelLastUsedTime.put(modelId, System.currentTimeMillis());
-					LlamaServer.sendModelLoadEvent(modelId, true, "模型加载成功", actualPort);
+					LlamaServer.sendModelLoadEvent(modelId, sourceModelId, true, "模型加载成功", actualPort);
 //					// 这里请求一次
 //					try {
 //						JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
@@ -2064,7 +2064,7 @@ public class LlamaServerManager {
 					if (this.isLoadCanceled(modelId)) {
 						return;
 					}
-					LlamaServer.sendModelLoadEvent(modelId, false, "模型加载失败");
+					LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "模型加载失败", null);
 				}
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
@@ -2072,7 +2072,7 @@ public class LlamaServerManager {
 				if (this.isLoadCanceled(modelId)) {
 					return;
 				}
-				LlamaServer.sendModelLoadEvent(modelId, false, "模型加载被中断");
+				LlamaServer.sendModelLoadEvent(modelId, sourceModelId, false, "模型加载被中断", null);
 			}
 		} finally {
 			synchronized (this.processLock) {

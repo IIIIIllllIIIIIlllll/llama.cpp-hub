@@ -45,17 +45,25 @@ public class OllamaTagsService {
 		List<Map<String, Object>> models = new ArrayList<>();
 		for (Map.Entry<String, LlamaCppProcess> entry : loaded.entrySet()) {
 			String modelId = entry.getKey();
+			LlamaCppProcess proc = entry.getValue();
 			GGUFModel model = manager.findModelById(modelId);
-			
+			// 克隆体不在磁盘上，用源模型信息富化
+			if (model == null && proc != null && proc.getSourceModelId() != null) {
+				model = manager.findModelById(proc.getSourceModelId());
+			}
+
 			Map<String, Object> item = new HashMap<>();
 			item.put("name", modelId);
 			item.put("model", modelId);
-			
+			if (proc != null && proc.getSourceModelId() != null) {
+				item.put("sourceModelId", proc.getSourceModelId());
+			}
+
 			long size = model == null ? 0L : model.getSize();
 			Instant modifiedAt = OllamaApiTool.resolveModifiedAt(model);
 			String family = ParamTool.readArchitecture(model);
 			String quant = ParamTool.readQuantization(model);
-			
+
 			item.put("modified_at", OllamaApiTool.formatOllamaTime(modifiedAt));
 			item.put("size", size);
 			item.put("digest", OllamaApiTool.sha256Hex(modelId + ":" + item.get("size") + ":" + item.get("modified_at")));
@@ -103,17 +111,25 @@ public class OllamaTagsService {
 		List<Map<String, Object>> models = new ArrayList<>();
 		for (Map.Entry<String, LlamaCppProcess> entry : loaded.entrySet()) {
 			String modelId = entry.getKey();
+			LlamaCppProcess proc = entry.getValue();
 			GGUFModel model = manager.findModelById(modelId);
-			
+			// 克隆体不在磁盘上，用源模型信息富化
+			if (model == null && proc != null && proc.getSourceModelId() != null) {
+				model = manager.findModelById(proc.getSourceModelId());
+			}
+
 			Map<String, Object> item = new HashMap<>();
 			item.put("name", modelId);
 			item.put("model", modelId);
-			
+			if (proc != null && proc.getSourceModelId() != null) {
+				item.put("sourceModelId", proc.getSourceModelId());
+			}
+
 			long size = model == null ? 0L : model.getSize();
 			Instant modifiedAt = OllamaApiTool.resolveModifiedAt(model);
 			String family = ParamTool.readArchitecture(model);
 			String quant = ParamTool.readQuantization(model);
-			
+
 			item.put("expires_at", OllamaApiTool.formatOllamaTime(modifiedAt));
 			item.put("size", size);
 			item.put("digest", OllamaApiTool.sha256Hex(modelId + ":" + item.get("size") + ":" + item.get("modified_at")));

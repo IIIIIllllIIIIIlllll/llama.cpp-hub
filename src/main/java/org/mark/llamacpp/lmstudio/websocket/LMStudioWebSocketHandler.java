@@ -313,6 +313,10 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
             JsonObject caps
     ) {
         GGUFModel model = manager.findModelById(modelId);
+        // 克隆体不在磁盘上，用源模型信息富化
+        if (model == null && proc != null && proc.getSourceModelId() != null) {
+            model = manager.findModelById(proc.getSourceModelId());
+        }
         GGUFMetaData md = model == null ? null : model.getPrimaryModel();
         String architecture = md == null ? null : md.getArchitecture();
         boolean vision = model != null && model.getMmproj() != null;
@@ -351,6 +355,9 @@ public class LMStudioWebSocketHandler extends SimpleChannelInboundHandler<WebSoc
         item.put("trainedForToolUse", ParamTool.parseJsonBoolean(caps, "tools", false));
         item.put("maxContextLength", maxContextLength);
         item.put("contextLength", proc.getCtxSize());
+        if (proc.getSourceModelId() != null) {
+            item.put("sourceModelId", proc.getSourceModelId());
+        }
         return item;
     }
 

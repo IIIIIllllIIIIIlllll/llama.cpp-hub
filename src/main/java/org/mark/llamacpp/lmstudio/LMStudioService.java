@@ -113,13 +113,21 @@ public class LMStudioService {
 
 			for (Map.Entry<String, LlamaCppProcess> entry : loadedProcesses.entrySet()) {
 				String modelId = entry.getKey();
+				LlamaCppProcess proc = entry.getValue();
 				if (trimmedModelIdFilter != null && !trimmedModelIdFilter.equals(modelId)) {
 					continue;
 				}
 				GGUFModel modelInfo = findModelInfo(allModels, modelId);
+				// 克隆体不在磁盘上，用源模型信息富化
+				if (modelInfo == null && proc != null && proc.getSourceModelId() != null) {
+					modelInfo = findModelInfo(allModels, proc.getSourceModelId());
+				}
 				Map<String, Object> modelData = new HashMap<>();
 				modelData.put("id", modelId);
 				modelData.put("object", "model");
+				if (proc != null && proc.getSourceModelId() != null) {
+					modelData.put("sourceModelId", proc.getSourceModelId());
+				}
 
 				String modelType = "llm";
 				String architecture = null;

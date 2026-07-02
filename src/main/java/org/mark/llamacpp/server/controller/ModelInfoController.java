@@ -376,7 +376,12 @@ public class ModelInfoController implements BaseController {
 						JsonObject d = item.getAsJsonObject("data");
 						String id = JsonUtil.getJsonString(d, "id");
 						if (!id.isEmpty() && !dataById.containsKey(id)) {
-							dataById.put(id, d.deepCopy());
+							JsonObject dCopy = d.deepCopy();
+							String srcId = e.getValue().getSourceModelId();
+							if (srcId != null) {
+								dCopy.addProperty("sourceModelId", srcId);
+							}
+							dataById.put(id, dCopy);
 						}
 					}
 				}

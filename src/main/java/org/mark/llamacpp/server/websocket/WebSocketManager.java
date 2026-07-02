@@ -177,47 +177,66 @@ public class WebSocketManager {
      * 发送模型加载事件
      */
     public void sendModelLoadEvent(String modelId, boolean success, String message) {
-        sendModelLoadEvent(modelId, success, message, null);
+        sendModelLoadEvent(modelId, null, success, message, null);
     }
 
     public void sendModelLoadEvent(String modelId, boolean success, String message, Integer port) {
-        String eventMessage = String.format(
-            "{\"type\":\"modelLoad\",\"modelId\":\"%s\",\"success\":%s,\"message\":\"%s\",\"port\":%s,\"timestamp\":%d}",
-            modelId != null ? modelId.replace("\"", "\\\"") : "",
-            success,
-            message != null ? message.replace("\"", "\\\"") : "",
-            port == null ? "null" : String.valueOf(port),
-            System.currentTimeMillis()
-        );
+        sendModelLoadEvent(modelId, null, success, message, port);
+    }
 
-        broadcast(eventMessage);
+    public void sendModelLoadEvent(String modelId, String sourceModelId, boolean success, String message, Integer port) {
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "modelLoad");
+        event.addProperty("modelId", modelId != null ? modelId : "");
+        if (sourceModelId != null) {
+            event.addProperty("sourceModelId", sourceModelId);
+        }
+        event.addProperty("success", success);
+        event.addProperty("message", message != null ? message : "");
+        if (port != null) {
+            event.addProperty("port", port);
+        }
+        event.addProperty("timestamp", System.currentTimeMillis());
+        broadcast(JsonUtil.toJson(event));
     }
 
     public void sendModelLoadStartEvent(String modelId, Integer port, String message) {
-        String eventMessage = String.format(
-            "{\"type\":\"modelLoadStart\",\"modelId\":\"%s\",\"port\":%s,\"message\":\"%s\",\"timestamp\":%d}",
-            modelId != null ? modelId.replace("\"", "\\\"") : "",
-            port == null ? "null" : String.valueOf(port),
-            message != null ? message.replace("\"", "\\\"") : "",
-            System.currentTimeMillis()
-        );
+        sendModelLoadStartEvent(modelId, null, port, message);
+    }
 
-        broadcast(eventMessage);
+    public void sendModelLoadStartEvent(String modelId, String sourceModelId, Integer port, String message) {
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "modelLoadStart");
+        event.addProperty("modelId", modelId != null ? modelId : "");
+        if (sourceModelId != null) {
+            event.addProperty("sourceModelId", sourceModelId);
+        }
+        if (port != null) {
+            event.addProperty("port", port);
+        }
+        event.addProperty("message", message != null ? message : "");
+        event.addProperty("timestamp", System.currentTimeMillis());
+        broadcast(JsonUtil.toJson(event));
     }
     
     /**
      * 发送模型停止事件
      */
     public void sendModelStopEvent(String modelId, boolean success, String message) {
-        String eventMessage = String.format(
-            "{\"type\":\"modelStop\",\"modelId\":\"%s\",\"success\":%s,\"message\":\"%s\",\"timestamp\":%d}",
-            modelId,
-            success,
-            message != null ? message.replace("\"", "\\\"") : "",
-            System.currentTimeMillis()
-        );
-        
-        broadcast(eventMessage);
+        sendModelStopEvent(modelId, null, success, message);
+    }
+
+    public void sendModelStopEvent(String modelId, String sourceModelId, boolean success, String message) {
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "modelStop");
+        event.addProperty("modelId", modelId != null ? modelId : "");
+        if (sourceModelId != null) {
+            event.addProperty("sourceModelId", sourceModelId);
+        }
+        event.addProperty("success", success);
+        event.addProperty("message", message != null ? message : "");
+        event.addProperty("timestamp", System.currentTimeMillis());
+        broadcast(JsonUtil.toJson(event));
     }
 
     public void sendModelSlotsEvent(String modelId, JsonArray slots) {

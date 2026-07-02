@@ -418,18 +418,19 @@ public class ModelActionController implements BaseController {
 				return;
 			}
 
-			if (manager.getLoadedProcesses().containsKey(modelId) || manager.isLoading(modelId)) {
-				logger.info("[模型操作] 本地停止模型: modelId={}", modelId);
-				boolean success = manager.stopModel(modelId);
-				if (success) {
-					Map<String, Object> data = new HashMap<>();
-					data.put("message", "模型停止成功");
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-					LlamaServer.sendModelStopEvent(modelId, true, "模型停止成功");
-				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型停止失败或模型未加载"));
-					LlamaServer.sendModelStopEvent(modelId, false, "模型停止失败或模型未加载");
-				}
+		if (manager.getLoadedProcesses().containsKey(modelId) || manager.isLoading(modelId)) {
+			logger.info("[模型操作] 本地停止模型: modelId={}", modelId);
+			String sourceModelId = manager.getSourceModelId(modelId);
+			boolean success = manager.stopModel(modelId);
+			if (success) {
+				Map<String, Object> data = new HashMap<>();
+				data.put("message", "模型停止成功");
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+				LlamaServer.sendModelStopEvent(modelId, sourceModelId, true, "模型停止成功");
+			} else {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型停止失败或模型未加载"));
+				LlamaServer.sendModelStopEvent(modelId, sourceModelId, false, "模型停止失败或模型未加载");
+			}
 			} else {
 				logger.info("[模型操作] 本地未找到模型，搜索远程节点: modelId={}", modelId);
 				this.findAndStopOnRemoteNode(ctx, modelId);
@@ -555,6 +556,7 @@ public class ModelActionController implements BaseController {
 		for (Map.Entry<String, LlamaCppProcess> entry : loadedProcesses.entrySet()) {
 			String modelId = entry.getKey();
 			LlamaCppProcess process = entry.getValue();
+			String sourceModelId = process.getSourceModelId();
 
 			GGUFModel modelInfo = null;
 			for (GGUFModel model : allModels) {
@@ -563,9 +565,21 @@ public class ModelActionController implements BaseController {
 					break;
 				}
 			}
+			// 克隆体不在磁盘上，用源模型信息富化 name/size/path
+			if (modelInfo == null && sourceModelId != null) {
+				for (GGUFModel model : allModels) {
+					if (model.getModelId().equals(sourceModelId)) {
+						modelInfo = model;
+						break;
+					}
+				}
+			}
 
 			Map<String, Object> modelData = new HashMap<>();
 			modelData.put("id", modelId);
+			if (sourceModelId != null) {
+				modelData.put("sourceModelId", sourceModelId);
+			}
 			modelData.put("name",
 					modelInfo != null ? (modelInfo.getPrimaryModel() != null
 							? modelInfo.getPrimaryModel().getStringValue("general.name")
