@@ -315,7 +315,7 @@ public class LlamaServer {
 					logger.error("错误：模型 '{}' 的启动配置中缺少 llamaBinPath 参数。", modelName);
 				} else {
 					// 启动模型
-					boolean started = serverManager.loadModelAsyncFromCmd(modelName, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+					boolean started = serverManager.loadModelAsyncFromCmd(modelName, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
 					if (started) {
 						logger.info("模型启动请求已提交");
 					} else {

@@ -1342,7 +1342,7 @@ public class LlamaServerManager {
 
 			String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
 
-			return this.buildCommandStr(model, 0, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+			return this.buildCommandStr(model, 0, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
 		} catch (Exception e) {
 			logger.warn("[模型状态] 重建启动命令失败: modelId={}, error={}", modelId, e.getMessage());
 			return "";
@@ -1796,9 +1796,10 @@ public class LlamaServerManager {
 	 * @param cmd
 	 * @param extraParams
 	 * @param chatTemplateFilePath
+	 * @param sourceModelId 克隆体的源模型 modelId，主体传 null
 	 * @return
 	 */
-	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath) {
+	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId) {
 		Map<String, Object> launchConfig = new HashMap<>();
 		launchConfig.put("llamaBinPath", llamaBinPath);
 		launchConfig.put("device", device);
@@ -1806,6 +1807,9 @@ public class LlamaServerManager {
 		launchConfig.put("cmd", cmd);
 		launchConfig.put("extraParams", extraParams);
 		launchConfig.put("enableVision", enbaleVision);
+		if (sourceModelId != null) {
+			launchConfig.put("sourceModelId", sourceModelId);
+		}
 		
 		if (chatTemplateFilePath != null && !chatTemplateFilePath.trim().isEmpty()) {
 			launchConfig.put("chatTemplateFile", chatTemplateFilePath);
@@ -1820,9 +1824,9 @@ public class LlamaServerManager {
 			}
 		}
 
-		GGUFModel targetModel = this.findModelById(modelId);
+		GGUFModel targetModel = this.findModelById(sourceModelId != null ? sourceModelId : modelId);
 		if (targetModel == null) {
-			LlamaServer.sendModelLoadEvent(modelId, false, "未找到ID为 " + modelId + " 的模型");
+			LlamaServer.sendModelLoadEvent(modelId, false, "未找到ID为 " + (sourceModelId != null ? sourceModelId : modelId) + " 的模型");
 			return false;
 		}
 
@@ -1832,11 +1836,11 @@ public class LlamaServerManager {
 		}
 
 		synchronized (this.loadingModels) {
-			if (this.loadingModels.contains(targetModel.getModelId())) {
+			if (this.loadingModels.contains(modelId)) {
 				LlamaServer.sendModelLoadEvent(modelId, false, "该模型正在加载中");
 				return false;
 			}
-			this.loadingModels.add(targetModel.getModelId());
+			this.loadingModels.add(modelId);
 		}
 
 		final String cmdSafe = cmd == null ? "" : cmd.trim();
@@ -1845,10 +1849,11 @@ public class LlamaServerManager {
 		final List<String> devSafe = device;
 		final Integer mgSafe = mg;
 		final String chatTemplateFileSafe = chatTemplateFilePath == null ? "" : chatTemplateFilePath;
+		final String sourceModelIdSafe = sourceModelId;
 
 		try {
 			Future<?> future = this.executorService.submit(() -> {
-				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, chatTemplateFileSafe);
+				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, chatTemplateFileSafe, sourceModelIdSafe);
 			});
 			synchronized (this.processLock) {
 				this.loadingTasks.put(modelId, future);
@@ -1859,7 +1864,7 @@ public class LlamaServerManager {
 			return true;
 		} catch (Exception e) {
 			synchronized (this.loadingModels) {
-				this.loadingModels.remove(targetModel.getModelId());
+				this.loadingModels.remove(modelId);
 			}
 			LlamaServer.sendModelLoadEvent(modelId, false, "提交加载任务失败: " + e.getMessage());
 			return false;
@@ -1869,7 +1874,7 @@ public class LlamaServerManager {
 	/**
 	 * 	后台启动llama-server进程。
 	 * @param modelId
-	 * @param targetModel
+	 * @param targetModel 克隆场景下为源模型的 GGUFModel（GGUF 路径取自它）
 	 * @param llamaBinPath
 	 * @param device
 	 * @param mg
@@ -1877,10 +1882,11 @@ public class LlamaServerManager {
 	 * @param cmd
 	 * @param extraParams
 	 * @param chatTemplateFilePath
+	 * @param sourceModelId 克隆体的源模型 modelId，主体传 null
 	 */
 	private void loadModelInBackgroundFromCmd(String modelId, GGUFModel targetModel, String llamaBinPath, List<String> device,
-			Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath) {
-		String canonicalId = targetModel.getModelId();
+			Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId) {
+		String canonicalId = modelId;
 		String sanitizedId = sanitizeModelId(canonicalId);
 		try (var loadCtx = CloseableThreadContext.put("modelId", sanitizedId)) {
 			try {
@@ -1891,9 +1897,9 @@ public class LlamaServerManager {
 			String allArgs = (cmd == null ? "" : cmd.trim()) + (extraParams == null ? "" : " " + extraParams.trim());
 			Integer clientPort = cmdHasFlag(allArgs, "--port") ? extractPortFromCmd(allArgs) : null;
 			int actualPort = clientPort != null && clientPort > 0 && clientPort < 65535 ? clientPort : port;
-			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId != null ? modelId : null);
 			String processName = "llama-server-" + canonicalId;
-			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId, null);
+			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId, sourceModelId);
 
 			logger.info("启动命令：{}", commandStr);
 
@@ -2060,7 +2066,7 @@ public class LlamaServerManager {
 				this.canceledLoadingModels.remove(modelId);
 			}
 			synchronized (this.loadingModels) {
-				this.loadingModels.remove(targetModel.getModelId());
+				this.loadingModels.remove(modelId);
 			}
 		}
 		}
@@ -2123,7 +2129,7 @@ public class LlamaServerManager {
 	 * @param chatTemplateFilePath
 	 * @return
 	 */
-	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath) {
+	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String aliasModelId) {
 		StringBuilder sb = new StringBuilder();
 		String allArgs = "";
 		if (cmd != null && !cmd.trim().isEmpty()) allArgs = cmd.trim();
@@ -2198,9 +2204,14 @@ public class LlamaServerManager {
 		//if (!cmdHasFlag(allArgs, "--cache-ram")) {
 			//sb.append(" --cache-ram -1");
 		//}
-		String alias = targetModel.getAlias();
-		if (alias == null || alias.trim().isEmpty()) {
-			alias = targetModel.getModelId();
+		String alias;
+		if (aliasModelId != null && !aliasModelId.trim().isEmpty()) {
+			alias = aliasModelId;
+		} else {
+			alias = targetModel.getAlias();
+			if (alias == null || alias.trim().isEmpty()) {
+				alias = targetModel.getModelId();
+			}
 		}
 		sb.append(" --alias ").append(ParamTool.quoteIfNeeded(alias));
 		
@@ -3078,7 +3089,7 @@ public class LlamaServerManager {
 
 		// 8. 提交加载任务（如果尚未在加载中）
 		if (!this.isLoading(modelId)) {
-			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
 			if (!submitted) {
 				// 可能已经被其他请求提交了，检查是否已加载
 				if (this.getLoadedProcesses().containsKey(modelId)) {

@@ -746,7 +746,7 @@ public class ModelActionController implements BaseController {
 			return;
 		}
 		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
-		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
+		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
 		if (!started) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
 			return;
