@@ -2,16 +2,24 @@ package org.mark.llamacpp.win;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Windows 开机自启管理器：通过启动文件夹快捷方式实现。
+ * Windows 开机自启管理器。
+ *
+ * .lnk 快捷方式 → cmd.exe /c "autostart.bat" → javaw.exe
+ * autostart.bat 使用 %~dp0 自定位，JVM 参数从当前运行时捕获，路径片段替换为 %APP_DIR% 批处理变量。
+ * 部署目录整体搬迁后，重新点一次"开机自启"即可原地重写 .bat 和 .lnk。
  */
 public class AutoStartManager {
 
@@ -19,13 +27,11 @@ public class AutoStartManager {
 
     private static final String SHORTCUT_NAME = "llama.cpp-hub.lnk";
     private static final String APP_NAME = "llama.cpp-hub";
+    private static final String AUTOSTART_BAT_NAME = "autostart.bat";
 
     private AutoStartManager() {
     }
 
-    /**
-     * 获取当前用户启动文件夹路径。
-     */
     private static String getStartupFolderPath() {
         String appData = System.getenv("APPDATA");
         if (appData == null || appData.isEmpty()) {
@@ -34,77 +40,81 @@ public class AutoStartManager {
         return appData + "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup";
     }
 
-    /**
-     * 获取快捷方式的完整路径。
-     */
     private static String getShortcutPath() {
         return getStartupFolderPath() + "\\" + SHORTCUT_NAME;
     }
 
-    /**
-     * 判断是否已设置开机自启。
-     */
     public static boolean isAutoStartEnabled() {
-        String shortcutPath = getShortcutPath();
-        File shortcut = new File(shortcutPath);
+        File shortcut = new File(getShortcutPath());
         return shortcut.exists() && shortcut.isFile();
     }
 
-    /**
-     * 启用开机自启：在启动文件夹创建快捷方式。
-     *
-     * @return true 成功，false 失败
-     */
     public static boolean enableAutoStart() {
-        if (isAutoStartEnabled()) {
-            logger.info("开机自启已启用，无需重复设置");
-            return true;
-        }
-
-        // 确定启动命令和目标路径
-        StartupTarget target = resolveStartupTarget();
-        if (target == null) {
-            logger.error("无法解析启动目标路径");
+        Path batPath = writeAutoStartBat();
+        if (batPath == null) {
             return false;
         }
 
+        if (isAutoStartEnabled()) {
+            logger.info("开机自启已启用（autostart.bat 已更新）");
+            return true;
+        }
+
+        String startupFolder = getStartupFolderPath();
+        try {
+            Files.createDirectories(Paths.get(startupFolder));
+        } catch (Exception e) {
+            logger.warn("创建启动目录失败: {}", e.getMessage());
+        }
+
         String shortcutPath = getShortcutPath();
-        String targetPath = target.getTargetPath();
-        String workDir = target.getWorkDir();
-        String args = target.getArgs();
+        String systemRoot = System.getenv("SystemRoot");
+        if (systemRoot == null || systemRoot.isEmpty()) {
+            systemRoot = "C:\\Windows";
+        }
+        String cmdExe = systemRoot + "\\System32\\cmd.exe";
+        String batFullPath = batPath.toString();
+        String workDir = batPath.getParent().toString();
 
-        logger.info("创建开机自启快捷方式: {} -> {} {}", shortcutPath, targetPath, args);
+        logger.info("创建开机自启快捷方式:");
+        logger.info("  快捷方式:  {}", shortcutPath);
+        logger.info("  目标:      {} /c \"\" \"{}\"", cmdExe, batFullPath);
+        logger.info("  工作目录:  {}", workDir);
 
-        // 使用 PowerShell 调用 WScript.Shell 创建快捷方式
         String psScript = String.format(
             "$shell = New-Object -ComObject WScript.Shell; " +
-            "$shortcut = $shell.CreateShortcut('%s'); " +
-            "$shortcut.TargetPath = '%s'; " +
-            "$shortcut.Arguments = '%s'; " +
-            "$shortcut.WorkingDirectory = '%s'; " +
-            "$shortcut.Description = '%s'; " +
-            "$shortcut.Save();",
+            "$sc = $shell.CreateShortcut('%s'); " +
+            "$sc.TargetPath = '%s'; " +
+            "$sc.Arguments = '%s'; " +
+            "$sc.WorkingDirectory = '%s'; " +
+            "$sc.WindowStyle = 7; " +
+            "$sc.Description = '%s'; " +
+            "$sc.Save();",
             escapeSingleQuote(shortcutPath),
-            escapeSingleQuote(targetPath),
-            escapeSingleQuote(args),
+            escapeSingleQuote(cmdExe),
+            escapeSingleQuote("/c \"\" \"" + batFullPath + "\""),
             escapeSingleQuote(workDir),
             escapeSingleQuote(APP_NAME)
         );
 
-        return executePowerShell(psScript);
+        boolean success = executePowerShell(psScript);
+        if (success) {
+            File f = new File(shortcutPath);
+            if (f.exists() && f.length() > 0) {
+                logger.info("开机自启已启用，快捷方式: {} 字节", f.length());
+            } else {
+                logger.warn("快捷方式状态异常: exists={}, size={}", f.exists(), f.length());
+            }
+        }
+        return success;
     }
 
-    /**
-     * 禁用开机自启：删除启动文件夹中的快捷方式。
-     *
-     * @return true 成功，false 失败
-     */
     public static boolean disableAutoStart() {
         String shortcutPath = getShortcutPath();
         File shortcut = new File(shortcutPath);
 
         if (!shortcut.exists()) {
-            logger.info("开机自启快捷方式不存在，无需删除");
+            logger.info("开机自启未启用");
             return true;
         }
 
@@ -116,60 +126,96 @@ public class AutoStartManager {
         );
 
         boolean success = executePowerShell(psScript);
-        if (success) {
-            logger.info("开机自启已禁用");
-        } else {
-            // PowerShell 删除失败时尝试 Java 直接删除
+        if (!success) {
             success = shortcut.delete();
             if (success) {
-                logger.info("开机自启已禁用（通过 Java 删除）");
+                logger.info("开机自启已禁用（Java 删除）");
             }
+        } else {
+            logger.info("开机自启已禁用");
         }
         return success;
     }
 
-    /**
-     * 解析启动目标：优先使用 run.bat，其次用当前 JVM 的 javaw + classpath 直接运行。
-     */
-    private static StartupTarget resolveStartupTarget() {
-        String userDir = System.getProperty("user.dir");
+    // ==================== autostart.bat 生成 ====================
 
-        // 尝试 1: build/run.bat
-        Path runBatPath = Paths.get(userDir, "build", "run.bat");
-        if (runBatPath.toFile().exists()) {
-            logger.info("使用 run.bat 作为启动目标: {}", runBatPath);
-            return new StartupTarget("cmd.exe", "/c start \"\" \"" + runBatPath.toString().replace("\\", "\\\\") + "\"", userDir);
+    private static Path writeAutoStartBat() {
+        String userDir = System.getProperty("user.dir");
+        String javaHome = System.getProperty("java.home");
+        Path batPath = Paths.get(userDir, AUTOSTART_BAT_NAME);
+
+        // 计算 javaw 相对路径（从 java.home 推导，而非写死 jre\bin\javaw.exe）
+        Path userDirAbs = Paths.get(userDir).toAbsolutePath().normalize();
+        Path javaHomeAbs = Paths.get(javaHome).toAbsolutePath().normalize();
+        String javawRelative;
+        String javaHomeReplacement; // 用于替换 JVM 参数中的 javaHome 路径片段
+        if (javaHomeAbs.startsWith(userDirAbs)) {
+            Path rel = userDirAbs.relativize(javaHomeAbs);
+            javawRelative = rel.toString() + "\\bin\\javaw.exe";
+            javaHomeReplacement = "%APP_DIR%\\" + rel.toString();
+            logger.info("JRE 已捆绑: appRoot + {} ", rel);
+        } else {
+            javawRelative = "javaw.exe";
+            javaHomeReplacement = "%APP_DIR%\\jre";
+            logger.info("JRE 未捆绑，使用系统 javaw.exe");
         }
 
-        // 尝试 2: 使用当前 JVM 的 javaw + classpath 直接运行
-        String javaHome = System.getProperty("java.home");
-        Path javawPath = Paths.get(javaHome, "bin", "javaw.exe");
-        if (!javawPath.toFile().exists()) {
-            logger.error("当前 JRE 的 javaw.exe 不存在: {}", javawPath);
+        // 收集 JVM 参数，过滤不可移植/内部参数，路径片段替换为 %APP_DIR% 批处理变量
+        List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
+        StringBuilder jvmArgsLine = new StringBuilder();
+        for (String arg : jvmArgs) {
+            if (!keepJvmArg(arg)) {
+                continue;
+            }
+            String fixed = arg;
+            // 先换 javaHome（更具体），再换 userDir
+            fixed = fixed.replace(javaHome, javaHomeReplacement);
+            fixed = fixed.replace(javaHome.replace('\\', '/'), javaHomeReplacement.replace('\\', '/'));
+            fixed = fixed.replace(userDir, "%APP_DIR%");
+            fixed = fixed.replace(userDir.replace('\\', '/'), "%APP_DIR%");
+            jvmArgsLine.append(fixed).append(" ");
+        }
+
+        StringBuilder bat = new StringBuilder();
+        bat.append("@echo off\r\n");
+        bat.append("setlocal EnableExtensions\r\n");
+        bat.append("cd /d \"%~dp0\"\r\n");
+        bat.append("set \"APP_DIR=%CD%\"\r\n");
+        bat.append("start \"\" ").append(javawRelative).append(" ")
+           .append(jvmArgsLine)
+           .append("-classpath \"./classes;./lib/*\" org.mark.llamacpp.server.LlamaServer\r\n");
+        bat.append("endlocal\r\n");
+
+        try {
+            Files.write(batPath, bat.toString().getBytes(StandardCharsets.UTF_8));
+            logger.info("已生成 autostart.bat ({} 字节)", bat.length());
+            return batPath;
+        } catch (IOException e) {
+            logger.error("写入 autostart.bat 失败: {}", e.getMessage());
             return null;
         }
-
-        Path classesDir = Paths.get(userDir, "build", "classes");
-        Path libDir = Paths.get(userDir, "build", "lib");
-        if (classesDir.toFile().exists()) {
-            String classpath = classesDir.toString().replace("\\", "\\\\") + ";";
-            if (libDir.toFile().exists()) {
-                classpath += libDir.toString().replace("\\", "\\\\") + "\\*";
-            }
-            logger.info("使用 JRE [{}] + classpath 作为启动目标", javaHome);
-            return new StartupTarget(javawPath.toString(),
-                "-Xms128m -Xmx128m -XX:MaxDirectMemorySize=256m -classpath \"" + classpath +
-                "\" org.mark.llamacpp.server.LlamaServer",
-                userDir);
-        }
-
-        logger.error("无法找到有效的启动目标：run.bat 不存在，build/classes 不存在");
-        return null;
     }
 
-    /**
-     * 执行 PowerShell 命令。
-     */
+    // 过滤不可移植的 JVM 内部参数
+    private static boolean keepJvmArg(String arg) {
+        if (arg.startsWith("-agentlib:")) return false;
+        if (arg.startsWith("-javaagent:")) return false;
+        if (arg.startsWith("-classpath") || arg.startsWith("--class-path")) return false;
+        if (arg.startsWith("-Xlockword:")) return false;
+        if (arg.startsWith("-XX:+EnsureHashed")) return false;
+        if (arg.startsWith("-Dsun.java.command")) return false;
+        if (arg.startsWith("-Dsun.java.launcher")) return false;
+        if (arg.startsWith("-Djava.class.path")) return false;
+        if (arg.startsWith("-Djava.home")) return false;
+        if (arg.startsWith("-Duser.dir")) return false;
+        if (arg.startsWith("-Djava.library.path")) return false;
+        if (arg.contains("&") || arg.contains("|") || arg.contains("<")
+                || arg.contains(">") || arg.contains("^") || arg.contains("%")) return false;
+        return true;
+    }
+
+    // ==================== PowerShell 工具 ====================
+
     private static boolean executePowerShell(String script) {
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -188,48 +234,18 @@ public class AutoStartManager {
 
             int exitCode = process.waitFor();
             if (exitCode != 0) {
-                logger.error("PowerShell 执行失败，退出码: {}", exitCode);
+                logger.error("PowerShell 退出码: {}", exitCode);
                 return false;
             }
             return true;
         } catch (Exception e) {
-            logger.error("执行 PowerShell 命令失败", e);
+            logger.error("执行 PowerShell 失败", e);
             return false;
         }
     }
 
-    /**
-     * 转义 PowerShell 字符串中的单引号（单引号在 PS 单引号字符串中需转义为 ''）。
-     */
     private static String escapeSingleQuote(String s) {
         if (s == null) return "";
         return s.replace("'", "''");
-    }
-
-    /**
-     * 启动目标信息。
-     */
-    private static class StartupTarget {
-        private final String targetPath;
-        private final String args;
-        private final String workDir;
-
-        StartupTarget(String targetPath, String args, String workDir) {
-            this.targetPath = targetPath;
-            this.args = args;
-            this.workDir = workDir;
-        }
-
-        String getTargetPath() {
-            return targetPath;
-        }
-
-        String getArgs() {
-            return args;
-        }
-
-        String getWorkDir() {
-            return workDir;
-        }
     }
 }
