@@ -1379,8 +1379,9 @@ function loadModel(modelId, modelName, param1, param2) {
                     select.innerHTML = options || `<option value="">${t('modal.model_action.llamacpp.not_configured', '未配置 Llama.cpp 路径')}</option>`;
                 }
 
-                if (config.llamaBinPath) {
-                    if (select) select.value = config.llamaBinPath;
+                const savedBinPath = config.llamaBinPathSelect || config.llamaBinPath;
+                if (savedBinPath) {
+                    if (select) select.value = savedBinPath;
                 }
 
                 if (select) select.onchange = function() { loadDeviceList(); };
@@ -1472,7 +1473,7 @@ function buildLoadModelPayload(modal) {
 
     const extraParams = getFieldString(modal, ['extraParams']).trim();
 
-    return {
+    const payload = {
         modelId,
         modelName,
         llamaBinPathSelect,
@@ -1482,6 +1483,14 @@ function buildLoadModelPayload(modal) {
         cmd: cmdParts.join(' ').trim(),
         extraParams
     };
+
+    // 克隆体加载需要带上 sourceModelId
+    const currentModel = (window.currentModelsData || []).find(m => m && m.id === modelId);
+    if (currentModel && currentModel.isClone && currentModel.sourceModelId) {
+        payload.sourceModelId = currentModel.sourceModelId;
+    }
+
+    return payload;
 }
 
 function submitModelAction() {

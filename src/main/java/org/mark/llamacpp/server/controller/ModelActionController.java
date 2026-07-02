@@ -23,6 +23,7 @@ import org.mark.llamacpp.gguf.GGUFMetaData;
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaCppProcess;
 import org.mark.llamacpp.server.LlamaHubNode;
+import org.mark.llamacpp.server.ConfigManager;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.NodeManager;
@@ -81,6 +82,11 @@ public class ModelActionController implements BaseController {
 		// 查询已经被加载的模型
 		if (uri.startsWith("/api/models/loaded")) {
 			this.handleLoadedModelsRequest(ctx, request);
+			return true;
+		}
+		// 创建克隆体模型配置
+		if (uri.startsWith("/api/models/clone/create")) {
+			this.handleCloneCreateRequest(ctx, request);
 			return true;
 		}
 		// 加载指定的模型
@@ -313,6 +319,69 @@ public class ModelActionController implements BaseController {
 
 			modelList.add(modelInfo);
 		}
+
+		// 追加源模型仍存在的克隆体到本地模型列表
+		try {
+			ConfigManager configManager = ConfigManager.getInstance();
+			Map<String, String> aliasMap = configManager.loadAliasMap();
+			Map<String, Boolean> favouriteMap = configManager.loadFavouriteMap();
+			Map<String, Map<String, Object>> allLaunchConfigs = configManager.loadAllLaunchConfigs();
+			for (Map.Entry<String, Map<String, Object>> launchEntry : allLaunchConfigs.entrySet()) {
+				String cloneId = launchEntry.getKey();
+				String sourceModelId = configManager.getSourceModelId(cloneId);
+				if (sourceModelId == null) {
+					continue;
+				}
+				// 源模型不存在时不显示
+				GGUFModel sourceModel = manager.findModelById(sourceModelId);
+				if (sourceModel == null) {
+					continue;
+				}
+				// 避免与本地真实模型重复
+				if (manager.findModelById(cloneId) != null) {
+					continue;
+				}
+
+				String cloneAlias = aliasMap.getOrDefault(cloneId, "");
+				boolean cloneFavourite = favouriteMap.getOrDefault(cloneId, false);
+
+				Map<String, Object> modelInfo = new HashMap<>();
+				modelInfo.put("id", cloneId);
+				modelInfo.put("name", cloneAlias.isEmpty() ? cloneId : cloneAlias);
+				modelInfo.put("alias", cloneAlias);
+				modelInfo.put("favourite", cloneFavourite);
+				modelInfo.put("size", sourceModel.getSize());
+				modelInfo.put("isMultimodal", sourceModel.getMmproj() != null);
+				modelInfo.put("supportsVision",
+						sourceModel.getMmproj() != null && sourceModel.getMmproj().isSupportsVision());
+				modelInfo.put("supportsAudio",
+						sourceModel.getMmproj() != null && sourceModel.getMmproj().isSupportsAudio());
+				if (manager.isLoading(cloneId)) {
+					modelInfo.put("isLoading", true);
+				}
+				String architecture = "未知";
+				GGUFMetaData primaryModel = sourceModel.getPrimaryModel();
+				if (primaryModel != null) {
+					String value = primaryModel.getStringValue("general.architecture");
+					if (value != null && !value.trim().isEmpty()) {
+						architecture = value;
+					}
+				}
+				modelInfo.put("architecture", architecture);
+				modelInfo.put("quantization",
+						primaryModel != null ? primaryModel.getQuantizationType() : "");
+				modelInfo.put("hasMtp", primaryModel != null && primaryModel.getMtpInfo().hasMtp());
+				modelInfo.put("nodeId", "local");
+				modelInfo.put("nodeName", "本机");
+				modelInfo.put("isClone", true);
+				modelInfo.put("sourceModelId", sourceModelId);
+
+				modelList.add(modelInfo);
+			}
+		} catch (Exception e) {
+			logger.warn("追加克隆体模型到列表时出错", e);
+		}
+
 		return modelList;
 	}
 
@@ -658,6 +727,124 @@ public class ModelActionController implements BaseController {
 		return result;
 	}
 	
+	/**
+	 * 处理创建克隆体模型配置的请求
+	 *
+	 * @param ctx
+	 * @param request
+	 * @throws RequestMethodException
+	 */
+	private void handleCloneCreateRequest(ChannelHandlerContext ctx, FullHttpRequest request)
+			throws RequestMethodException {
+		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		try {
+			String content = request.content().toString(CharsetUtil.UTF_8);
+			if (content == null || content.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				return;
+			}
+
+			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			if (obj == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				return;
+			}
+
+			String cloneId = JsonUtil.getJsonString(obj, "cloneId", null);
+			String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
+			if (cloneId == null || cloneId.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 cloneId 参数"));
+				return;
+			}
+			if (sourceModelId == null || sourceModelId.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 sourceModelId 参数"));
+				return;
+			}
+			String trimmedCloneId = cloneId.trim();
+			String trimmedSourceId = sourceModelId.trim();
+
+			LlamaServerManager manager = LlamaServerManager.getInstance();
+
+			// 1. cloneId 不能与本地磁盘模型冲突
+			if (manager.findModelById(trimmedCloneId) != null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("cloneId 与现有本地模型冲突: " + trimmedCloneId));
+				return;
+			}
+
+			// 2. cloneId 不能已有启动配置
+			ConfigManager configManager = ConfigManager.getInstance();
+			if (configManager.loadAllLaunchConfigs().containsKey(trimmedCloneId)) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("cloneId 已存在启动配置: " + trimmedCloneId));
+				return;
+			}
+
+			// 3. 源模型必须存在
+			if (manager.findModelById(trimmedSourceId) == null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到源模型: " + trimmedSourceId));
+				return;
+			}
+
+			// 4. 源模型不能是克隆体（禁止套娃）
+			if (manager.getSourceModelId(trimmedSourceId) != null) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("源模型不能是克隆体: " + trimmedSourceId));
+				return;
+			}
+
+			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
+			String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
+			if (cmd != null) cmd = cmd.trim();
+			if (extraParams != null) extraParams = extraParams.trim();
+			if (cmd.isEmpty() && extraParams.isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数 cmd 或 extraParams"));
+				return;
+			}
+
+			String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
+			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+				llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
+			}
+			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供 llamaBinPathSelect"));
+				return;
+			}
+
+			boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
+			List<String> device = JsonUtil.getJsonStringList(obj.get("device"));
+			Integer mg = JsonUtil.getJsonInt(obj, "mg", null);
+			String configName = JsonUtil.getJsonString(obj, "configName", null);
+
+			if (device != null) {
+				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none"));
+			}
+
+			Map<String, Object> launchConfig = new HashMap<>();
+			launchConfig.put("llamaBinPathSelect", llamaBinPathSelect.trim());
+			launchConfig.put("cmd", cmd);
+			launchConfig.put("extraParams", extraParams);
+			launchConfig.put("device", device);
+			launchConfig.put("mg", mg);
+			launchConfig.put("enableVision", enableVision);
+
+			boolean saved = configManager.saveCloneLaunchConfig(trimmedCloneId, trimmedSourceId, configName,
+					launchConfig);
+			if (!saved) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存克隆体配置失败"));
+				return;
+			}
+
+			manager.buildAutoLoadModelCache();
+
+			Map<String, Object> data = new HashMap<>();
+			data.put("cloneId", trimmedCloneId);
+			data.put("sourceModelId", trimmedSourceId);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+			logger.info("[模型操作] 创建克隆体配置成功: cloneId={}, sourceModelId={}", trimmedCloneId, trimmedSourceId);
+		} catch (Exception e) {
+			logger.warn("创建克隆体配置时发生错误", e);
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("创建克隆体配置失败: " + e.getMessage()));
+		}
+	}
+
 	/**
 	 * 处理加载模型的请求
 	 * 

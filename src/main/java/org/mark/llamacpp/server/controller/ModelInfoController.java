@@ -710,7 +710,14 @@ public class ModelInfoController implements BaseController {
 			}
 			String configName = JsonUtil.getJsonString(obj, "configName", null);
 			ConfigManager configManager = ConfigManager.getInstance();
-			boolean deleted = configManager.deleteLaunchConfig(modelId, configName);
+			boolean deleted;
+			// 克隆体配置直接删除整个条目，而不是只删除 configs 内的命名配置
+			if ((configName == null || configName.trim().isEmpty())
+					&& configManager.getSourceModelId(modelId) != null) {
+				deleted = configManager.deleteLaunchConfigEntry(modelId);
+			} else {
+				deleted = configManager.deleteLaunchConfig(modelId, configName);
+			}
 			if (!deleted) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除模型配置失败"));
 				return;
@@ -861,6 +868,13 @@ public class ModelInfoController implements BaseController {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			manager.listModel();
 			GGUFModel model = manager.findModelById(modelId);
+			// 克隆体的 GGUF 元数据从源模型获取
+			if (model == null) {
+				String sourceModelId = manager.getSourceModelId(modelId);
+				if (sourceModelId != null) {
+					model = manager.findModelById(sourceModelId);
+				}
+			}
 			if (model == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
 				return;
@@ -1078,6 +1092,13 @@ public class ModelInfoController implements BaseController {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			manager.listModel();
 			GGUFModel model = manager.findModelById(modelId);
+			// 克隆体的默认聊天模板从源模型 GGUF 中获取
+			if (model == null) {
+				String sourceModelId = manager.getSourceModelId(modelId);
+				if (sourceModelId != null) {
+					model = manager.findModelById(sourceModelId);
+				}
+			}
 			if (model == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
 				return;

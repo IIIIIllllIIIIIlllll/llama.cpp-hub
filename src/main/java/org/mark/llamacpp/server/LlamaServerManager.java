@@ -1113,6 +1113,57 @@ public class LlamaServerManager {
 				dataArray.add(entry);
 			}
 
+			// 追加源模型仍存在的克隆体；源模型不存在的克隆体不显示
+			Map<String, Map<String, Object>> allLaunchConfigs = configManager.loadAllLaunchConfigs();
+			for (Map.Entry<String, Map<String, Object>> launchEntry : allLaunchConfigs.entrySet()) {
+				String cloneId = launchEntry.getKey();
+				if (findModelById(cloneId) != null) {
+					continue; // 已有真实模型条目，不重复
+				}
+				String srcId = configManager.getSourceModelId(cloneId);
+				if (srcId == null) {
+					continue; // 不是克隆体
+				}
+				GGUFModel sourceModel = findModelById(srcId);
+				if (sourceModel == null) {
+					continue; // 源模型不存在，不显示该克隆体
+				}
+				if (loadedIds.contains(cloneId)) {
+					continue;
+				}
+				if (!canAutoLoad(cloneId)) {
+					continue;
+				}
+
+				JsonObject caps = this.getModelCapabilities(srcId);
+
+				JsonObject entry = new JsonObject();
+				entry.addProperty("id", cloneId);
+				JsonArray aliases = new JsonArray();
+				aliases.add(cloneId);
+				entry.add("aliases", aliases);
+				entry.add("tags", new JsonArray());
+				entry.addProperty("object", "model");
+				entry.addProperty("owned_by", "llamacpp");
+				entry.addProperty("created", now);
+				entry.add("status", this.buildModelStatus(cloneId, false));
+				entry.add("architecture", this.buildModelArchitecture(sourceModel, caps));
+				entry.addProperty("need_download", false);
+				entry.addProperty("isClone", true);
+				entry.addProperty("sourceModelId", srcId);
+
+				if (caps != null) {
+					entry.add("my_capabilities", caps);
+				}
+
+				int ctxSize = this.extractCtxSizeFromLaunchConfig(cloneId);
+				if (ctxSize > 0) {
+					entry.addProperty("runtimeCtx", ctxSize);
+				}
+
+				dataArray.add(entry);
+			}
+
 			JsonObject root = new JsonObject();
 			root.addProperty("object", "list");
 			root.add("data", dataArray);
@@ -1816,15 +1867,13 @@ public class LlamaServerManager {
 	 */
 	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId) {
 		Map<String, Object> launchConfig = new HashMap<>();
-		launchConfig.put("llamaBinPath", llamaBinPath);
+		launchConfig.put("llamaBinPathSelect", llamaBinPath);
 		launchConfig.put("device", device);
 		launchConfig.put("mg", mg);
 		launchConfig.put("cmd", cmd);
 		launchConfig.put("extraParams", extraParams);
 		launchConfig.put("enableVision", enbaleVision);
-		if (sourceModelId != null) {
-			launchConfig.put("sourceModelId", sourceModelId);
-		}
+		// sourceModelId 已在 launch_config 条目顶层保存，不需要重复写入 configs.default
 		
 		if (chatTemplateFilePath != null && !chatTemplateFilePath.trim().isEmpty()) {
 			launchConfig.put("chatTemplateFile", chatTemplateFilePath);
@@ -1912,7 +1961,12 @@ public class LlamaServerManager {
 			String allArgs = (cmd == null ? "" : cmd.trim()) + (extraParams == null ? "" : " " + extraParams.trim());
 			Integer clientPort = cmdHasFlag(allArgs, "--port") ? extractPortFromCmd(allArgs) : null;
 			int actualPort = clientPort != null && clientPort > 0 && clientPort < 65535 ? clientPort : port;
-			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId != null ? modelId : null);
+			String aliasModelId = null;
+			if (sourceModelId != null) {
+				String cloneAlias = configManager.loadAliasMap().get(modelId);
+				aliasModelId = (cloneAlias != null && !cloneAlias.trim().isEmpty()) ? cloneAlias.trim() : modelId;
+			}
+			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, aliasModelId);
 			String processName = "llama-server-" + canonicalId;
 			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId, sourceModelId);
 

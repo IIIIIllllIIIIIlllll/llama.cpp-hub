@@ -459,29 +459,37 @@ function renderModelsList(models) {
             ? '<span class="node-badge" style="color:hsl(' + nodeColor + ',65%,70%);background-color:hsl(' + nodeColor + ',50%,12%);" title="' + (nodeName || nodeId) + '"><i class="fas fa-server"></i> ' + (nodeName || nodeId) + '</span>'
             : '';
 
+        const isRemote = nodeId && nodeId !== 'local';
+        let cloneOpButton = '';
+        if (!isRemote && model.isClone) {
+            cloneOpButton = `<button class="btn-icon danger" onclick="deleteCloneModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${t('page.model.action.delete_clone', '删除克隆体')}"><i class="fas fa-trash-alt"></i></button>`;
+        } else if (!isRemote && !model.isClone && !model.isLoaded && !isLoading) {
+            cloneOpButton = `<button class="btn-icon" onclick="createCloneModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${t('page.model.action.create_clone', '创建克隆体')}"><i class="fas fa-clone"></i></button>`;
+        }
+
         let actionButtons = '';
         if (isLoading) {
-            actionButtons = `<button class="btn-icon danger" onclick="stopModel('${model.id}', '${nodeId}')" title="${t('page.model.action.cancel_loading', '取消加载')}"><i class="fas fa-stop"></i></button>`;
+            actionButtons = `<button class="btn-icon danger" onclick="stopModel('${model.id}', '${nodeId}')" title="${t('page.model.action.cancel_loading', '取消加载')}"><i class="fas fa-stop"></i></button>${cloneOpButton}`;
         } else if (model.isLoaded) {
             if (status === 'running') {
                 actionButtons = `
                             <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
                             <button class="btn-icon" onclick="viewModelDetails('${model.id}', '${nodeId}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
+                            ${cloneOpButton}
                         `;
             } else {
                 actionButtons = `
                             <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
+                            ${cloneOpButton}
                         `;
             }
         } else {
-            const isRemote = nodeId && nodeId !== 'local';
             actionButtons = `
                         <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('page.model.action.load', '加载')}"><i class="fas fa-play"></i></button>
                         <button class="btn-icon" onclick="viewModelDetails('${model.id}', '${nodeId}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
+                        ${cloneOpButton}
                     `;
         }
-
-        const isRemote = nodeId && nodeId !== 'local';
         const borderStyle = isRemote ? ' style="border-left-color:hsl(' + nodeColor + ',65%,50%);"' : '';
         const iconWrapper = `<div class="model-icon-wrapper">
                             ${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
@@ -739,6 +747,81 @@ function quickStopModel(event, modelId, nodeId) {
     stopModel(modelId, nodeId);
 }
 
+function createCloneModel(event, modelId) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    const cloneId = window.prompt(t('modal.model_action.clone.prompt_id', '请输入克隆体 ID'), modelId + '-clone');
+    if (!cloneId || !cloneId.trim()) return;
+    const trimmedCloneId = cloneId.trim();
+
+    fetch('/api/models/config/get?modelId=' + encodeURIComponent(modelId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data || !data.success) {
+                throw new Error(data && data.error ? data.error : 'load config failed');
+            }
+            var configs = data.data && data.data.configs ? data.data.configs : {};
+            var selected = data.data && data.data.selectedConfig ? data.data.selectedConfig : 'default';
+            var config = configs[selected] || {};
+            var llamaBinPath = config.llamaBinPathSelect || config.llamaBinPath || '';
+            var cmd = config.cmd || '';
+            var extraParams = config.extraParams || '';
+            if (!llamaBinPath && !cmd && !extraParams) {
+                showToast(t('toast.warning', '提示'), t('page.model.clone.no_config', '源模型没有可用启动配置'), 'warning');
+                return;
+            }
+            var payload = {
+                cloneId: trimmedCloneId,
+                sourceModelId: modelId,
+                llamaBinPathSelect: llamaBinPath,
+                cmd: cmd,
+                extraParams: extraParams,
+                device: config.device || [],
+                mg: config.mg != null ? config.mg : null,
+                enableVision: config.enableVision != null ? config.enableVision : true,
+                configName: selected
+            };
+            return fetch('/api/models/clone/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res && res.success) {
+                showToast(t('toast.success', '成功'), t('page.model.clone.success', '克隆体创建成功'), 'success');
+                loadModels();
+            } else {
+                throw new Error(res && res.error ? res.error : t('page.model.clone.failed', '克隆体创建失败'));
+            }
+        })
+        .catch(function(err) {
+            showToast(t('toast.error', '错误'), err.message || t('page.model.clone.failed', '克隆体创建失败'), 'error');
+        });
+}
+
+function deleteCloneModel(event, modelId) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    if (!window.confirm(t('page.model.clone.delete_confirm', '确定删除克隆体配置吗？'))) return;
+    fetch('/api/models/config/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId: modelId })
+    })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res && res.success) {
+                showToast(t('toast.success', '成功'), t('page.model.clone.delete_success', '克隆体已删除'), 'success');
+                loadModels();
+            } else {
+                throw new Error(res && res.error ? res.error : t('page.model.clone.delete_failed', '删除克隆体失败'));
+            }
+        })
+        .catch(function(err) {
+            showToast(t('toast.error', '错误'), err.message || t('page.model.clone.delete_failed', '删除克隆体失败'), 'error');
+        });
+}
+
 function quickStartModel(event, modelId, nodeId) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     var configNodeId = nodeId && nodeId !== 'local' ? nodeId : '';
@@ -754,7 +837,7 @@ function quickStartModel(event, modelId, nodeId) {
             var configs = data.data && data.data.configs ? data.data.configs : {};
             var selected = data.data && data.data.selectedConfig ? data.data.selectedConfig : 'default';
             var config = configs[selected] || {};
-            var llamaBinPath = config.llamaBinPath || '';
+            var llamaBinPath = config.llamaBinPathSelect || config.llamaBinPath || '';
             var cmd = config.cmd || '';
             var extraParams = config.extraParams || '';
             if (!llamaBinPath && !cmd) {
@@ -767,6 +850,10 @@ function quickStartModel(event, modelId, nodeId) {
                 cmd: cmd,
                 extraParams: extraParams
             };
+            var currentModel = (currentModelsData || []).find(m => m && m.id === modelId);
+            if (currentModel && currentModel.isClone && currentModel.sourceModelId) {
+                payload.sourceModelId = currentModel.sourceModelId;
+            }
             if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
             fetch('/api/models/load', {
                 method: 'POST',

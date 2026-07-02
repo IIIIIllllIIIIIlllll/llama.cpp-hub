@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +22,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.mark.llamacpp.server.tools.ChatTemplateFileTool;
 
 /**
  * 配置文件管理类，用于保存和加载模型信息及启动配置
@@ -237,6 +240,74 @@ public class ConfigManager {
 		}
 	}
 
+	/**
+	 * 保存克隆体模型的启动配置。
+	 * 与 saveLaunchConfig 不同，此方法会把 sourceModelId 放在 entry 顶层，
+	 * 以便 getSourceModelId() 正确识别克隆体。
+	 *
+	 * @param cloneId      克隆体 ID
+	 * @param sourceModelId 源模型 ID
+	 * @param configName   命名配置名，为空时使用默认名
+	 * @param launchConfig 启动配置内容
+	 * @return 是否保存成功
+	 */
+	public boolean saveCloneLaunchConfig(String cloneId, String sourceModelId, String configName,
+			Map<String, Object> launchConfig) {
+		if (cloneId == null || cloneId.trim().isEmpty()) {
+			return false;
+		}
+		if (sourceModelId == null || sourceModelId.trim().isEmpty()) {
+			return false;
+		}
+		synchronized (launchFileLock) {
+			try {
+				Map<String, Map<String, Object>> allConfigs = loadAllLaunchConfigsUnsafe();
+				if (allConfigs.containsKey(cloneId)) {
+					logger.warn("克隆体 ID 已存在启动配置: {}", cloneId);
+					return false;
+				}
+				String targetConfigName = (configName == null || configName.trim().isEmpty())
+						? DEFAULT_CONFIG_NAME
+						: configName.trim();
+				Map<String, Object> configs = new HashMap<>();
+				configs.put(targetConfigName,
+						launchConfig == null ? new HashMap<>() : new HashMap<>(launchConfig));
+
+				Map<String, Object> entry = new HashMap<>();
+				entry.put("sourceModelId", sourceModelId.trim());
+				entry.put("selectedConfig", targetConfigName);
+				entry.put("configs", configs);
+
+				allConfigs.put(cloneId, entry);
+				writeJsonFileAtomic(LAUNCH_CONFIG_FILE, allConfigs);
+
+				// 复制源模型能力文件给克隆体，使其拥有独立的能力配置
+				try {
+					Path capsDir = Paths.get(CONFIG_DIR, "capabilities");
+					if (!Files.exists(capsDir)) {
+						Files.createDirectories(capsDir);
+					}
+					String safeSourceId = sourceModelId.trim().replace('\\', '_').replace('/', '_');
+					String safeCloneId = cloneId.trim().replace('\\', '_').replace('/', '_');
+					Path sourceCaps = capsDir.resolve(safeSourceId + ".json");
+					Path targetCaps = capsDir.resolve(safeCloneId + ".json");
+					if (Files.exists(sourceCaps) && !Files.exists(targetCaps)) {
+						Files.copy(sourceCaps, targetCaps, StandardCopyOption.REPLACE_EXISTING);
+						logger.info("克隆体能力文件已复制: {} -> {}", sourceCaps, targetCaps);
+					}
+				} catch (Exception e) {
+					logger.warn("复制克隆体能力文件失败: {}", e.getMessage());
+				}
+
+				logger.info("克隆体启动配置已保存: cloneId={}, sourceModelId={}", cloneId, sourceModelId);
+				return true;
+			} catch (IOException e) {
+				logger.warn("保存克隆体启动配置失败: {}", e.getMessage());
+				return false;
+			}
+		}
+	}
+
 	public boolean deleteLaunchConfig(String modelId, String configName) {
 		synchronized (launchFileLock) {
 			try {
@@ -273,6 +344,51 @@ public class ConfigManager {
 				return true;
 			} catch (IOException e) {
 				logger.info("删除启动配置失败: {}", e);
+				return false;
+			}
+		}
+	}
+
+	/**
+	 * 删除整个启动配置条目（用于删除克隆体）。
+	 *
+	 * @param modelId 模型 ID
+	 * @return 是否删除成功
+	 */
+	public boolean deleteLaunchConfigEntry(String modelId) {
+		if (modelId == null || modelId.trim().isEmpty()) {
+			return false;
+		}
+		synchronized (launchFileLock) {
+			try {
+				Map<String, Map<String, Object>> allConfigs = loadAllLaunchConfigsUnsafe();
+				if (!allConfigs.containsKey(modelId)) {
+					return false;
+				}
+				allConfigs.remove(modelId);
+				writeJsonFileAtomic(LAUNCH_CONFIG_FILE, allConfigs);
+
+				// 删除克隆体独立的能力文件和聊天模板文件
+				try {
+					String safeId = modelId.trim().replace('\\', '_').replace('/', '_');
+					Path capsFile = Paths.get(CONFIG_DIR, "capabilities", safeId + ".json");
+					if (Files.exists(capsFile)) {
+						Files.deleteIfExists(capsFile);
+						logger.info("克隆体能力文件已删除: {}", capsFile);
+					}
+				} catch (Exception e) {
+					logger.warn("删除克隆体能力文件失败: {}", e.getMessage());
+				}
+				try {
+					ChatTemplateFileTool.deleteChatTemplateCacheFile(modelId.trim());
+				} catch (Exception e) {
+					logger.warn("删除克隆体聊天模板文件失败: {}", e.getMessage());
+				}
+
+				logger.info("启动配置条目已删除: {}", modelId);
+				return true;
+			} catch (IOException e) {
+				logger.info("删除启动配置条目失败: {}", e);
 				return false;
 			}
 		}
