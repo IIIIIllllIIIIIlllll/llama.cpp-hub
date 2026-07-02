@@ -673,18 +673,41 @@ public class ModelActionController implements BaseController {
 			}
 
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
+			String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
+			boolean isCloneRequest = sourceModelId != null && !sourceModelId.trim().isEmpty();
+
 			if (modelId == null || modelId.trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
 				return;
 			}
 
 			LlamaServerManager manager = LlamaServerManager.getInstance();
-			if (manager.findModelById(modelId) != null) {
-				logger.info("[模型操作] 本地加载模型: modelId={}", modelId);
+			if (isCloneRequest) {
+				// 克隆体：配置必须预先存在（用户通过创建流程建立），加载时仅查找并拉起
+				String configSourceId = manager.getSourceModelId(modelId);
+				if (configSourceId == null) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到克隆体配置: " + modelId + "，请先创建配置"));
+					return;
+				}
+				if (!configSourceId.equals(sourceModelId.trim())) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("克隆体配置的 sourceModelId(" + configSourceId + ") 与请求(" + sourceModelId.trim() + ")不一致"));
+					return;
+				}
+				// 用源模型判定本地是否存在（克隆体本身不在磁盘上）
+				if (manager.findModelById(sourceModelId.trim()) == null) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到源模型: " + sourceModelId));
+					return;
+				}
+				logger.info("[模型操作] 本地加载克隆体: modelId={}, sourceModelId={}", modelId, sourceModelId);
 				this.loadLocalModel(ctx, obj, manager);
 			} else {
-				logger.info("[模型操作] 本地未找到模型，搜索远程节点: modelId={}", modelId);
-				this.findAndLoadOnRemoteNode(ctx, modelId, obj);
+				if (manager.findModelById(modelId) != null) {
+					logger.info("[模型操作] 本地加载模型: modelId={}", modelId);
+					this.loadLocalModel(ctx, obj, manager);
+				} else {
+					logger.info("[模型操作] 本地未找到模型，搜索远程节点: modelId={}", modelId);
+					this.findAndLoadOnRemoteNode(ctx, modelId, obj);
+				}
 			}
 		} catch (Exception e) {
 			logger.info("加载模型时发生错误", e);
@@ -720,6 +743,10 @@ public class ModelActionController implements BaseController {
 		}
 		boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
 		String modelId = JsonUtil.getJsonString(obj, "modelId", null);
+		String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
+		if (sourceModelId != null && sourceModelId.trim().isEmpty()) {
+			sourceModelId = null;
+		}
 		String modelNameCmd = JsonUtil.getJsonString(obj, "modelName", null);
 		String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
 		if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
@@ -745,8 +772,10 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供llamaBinPath"));
 			return;
 		}
-		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
-		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
+		// 克隆体的 chat template 文件从源模型查找（克隆体自身无磁盘目录）
+		String chatTemplateLookupId = sourceModelId != null ? sourceModelId : modelId;
+		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(chatTemplateLookupId);
+		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId);
 		if (!started) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
 			return;
@@ -755,6 +784,9 @@ public class ModelActionController implements BaseController {
 		Map<String, Object> data = new HashMap<>();
 		data.put("async", true);
 		data.put("modelId", modelId);
+		if (sourceModelId != null) {
+			data.put("sourceModelId", sourceModelId);
+		}
 		data.put("modelName", modelNameCmd);
 		data.put("llamaBinPathSelect", llamaBinPathSelect);
 		data.put("device", device);

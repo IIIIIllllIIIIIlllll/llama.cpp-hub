@@ -214,6 +214,29 @@ public class ConfigManager {
 		}
 	}
 
+	/**
+	 * 查询指定 modelId 是否为克隆体配置，返回其 sourceModelId。
+	 * 条目不存在或无 sourceModelId 字段时返回 null。
+	 */
+	public String getSourceModelId(String modelId) {
+		if (modelId == null || modelId.trim().isEmpty()) {
+			return null;
+		}
+		synchronized (launchFileLock) {
+			Map<String, Map<String, Object>> allConfigs = loadAllLaunchConfigsUnsafe();
+			Map<String, Object> entry = allConfigs.get(modelId);
+			if (entry == null) {
+				return null;
+			}
+			Object src = entry.get("sourceModelId");
+			if (src == null) {
+				return null;
+			}
+			String s = String.valueOf(src).trim();
+			return s.isEmpty() ? null : s;
+		}
+	}
+
 	public boolean deleteLaunchConfig(String modelId, String configName) {
 		synchronized (launchFileLock) {
 			try {

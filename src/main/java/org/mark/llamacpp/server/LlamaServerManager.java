@@ -752,6 +752,16 @@ public class LlamaServerManager {
 	}
 
 	/**
+	 * 查询指定 modelId 的克隆体源模型 ID。
+	 * 直接读取 launch_config.json，不经过 resolveModelId（克隆体不在磁盘上）。
+	 * @param modelId 克隆体 modelId
+	 * @return sourceModelId，非克隆体或配置不存在时返回 null
+	 */
+	public String getSourceModelId(String modelId) {
+		return configManager.getSourceModelId(modelId);
+	}
+
+	/**
 	 * 获取模型的自动加载策略
 	 * @param modelId 模型 ID 或别名
 	 * @return "allow", "deny", 或 null（未设置）
@@ -1051,6 +1061,11 @@ public class LlamaServerManager {
 		String resolved = findModelIdByAlias(name);
 		if (resolved != null) {
 			return resolved;
+		}
+		// 克隆体回退：launch_config 中存在该条目且含 sourceModelId 即视为有效
+		// 克隆体不在磁盘上，常规查找必然失败；其规范 id 即 cloneId 自身
+		if (this.getSourceModelId(name) != null) {
+			return name;
 		}
 		return null;
 	}
@@ -3036,8 +3051,15 @@ public class LlamaServerManager {
 			return null;
 		}
 
-		// 2. 检查模型是否存在
+		// 2. 检查模型是否存在（克隆体不在磁盘上，回退到源模型查找）
 		GGUFModel model = this.findModelById(modelId);
+		String sourceModelId = null;
+		if (model == null) {
+			sourceModelId = this.getSourceModelId(modelId);
+			if (sourceModelId != null) {
+				model = this.findModelById(sourceModelId);
+			}
+		}
 		if (model == null) {
 			return "Model not found in model list";
 		}
@@ -3079,17 +3101,19 @@ public class LlamaServerManager {
 		Object evObj = selectedConfig.get("enableVision");
 		boolean enableVision = evObj instanceof Boolean ? (Boolean) evObj : true;
 
-		// 6. 硬件资源检查
-		if (!this.canFitModelInMemory(modelId, bundle)) {
+		// 6. 硬件资源检查（克隆体用源模型 id 查找 GGUF，供 llama-fit-params 定位文件）
+		String fitLookupId = sourceModelId != null ? sourceModelId : modelId;
+		if (!this.canFitModelInMemory(fitLookupId, bundle)) {
 			return "Insufficient memory to load model: " + modelId;
 		}
 
-		// 7. 获取 chat template 路径
-		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
+		// 7. 获取 chat template 路径（克隆体从源模型查找）
+		String chatTemplateLookupId = sourceModelId != null ? sourceModelId : modelId;
+		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(chatTemplateLookupId);
 
 		// 8. 提交加载任务（如果尚未在加载中）
 		if (!this.isLoading(modelId)) {
-			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
+			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId);
 			if (!submitted) {
 				// 可能已经被其他请求提交了，检查是否已加载
 				if (this.getLoadedProcesses().containsKey(modelId)) {
