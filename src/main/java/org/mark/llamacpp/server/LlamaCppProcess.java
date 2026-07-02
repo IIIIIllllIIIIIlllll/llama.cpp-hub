@@ -46,6 +46,7 @@ public class LlamaCppProcess {
 	private final String cmd;
 	private final String llamaBinPath;
 	private final String modelId;
+	private final String sourceModelId;
 	private long pid;
 	private Process process;
 	private Thread outputThread;
@@ -60,11 +61,12 @@ public class LlamaCppProcess {
 	private CompletableFuture<Void> exitFuture;
 	private final AtomicReference<ProcessExitInfo> exitInfoRef = new AtomicReference<>();
 
-	public LlamaCppProcess(String name, String cmd, String llamaBinPath, String modelId) {
+	public LlamaCppProcess(String name, String cmd, String llamaBinPath, String modelId, String sourceModelId) {
 		this.name = name;
 		this.cmd = cmd;
 		this.llamaBinPath = llamaBinPath;
 		this.modelId = sanitizeModelId(modelId);
+		this.sourceModelId = sourceModelId;
 	}
 
 	public String getLlamaBinPath() {
@@ -552,6 +554,14 @@ public class LlamaCppProcess {
 
 	public String getCmd() {
 		return this.cmd;
+	}
+
+	public String getSourceModelId() {
+		return this.sourceModelId;
+	}
+
+	public boolean isClone() {
+		return this.sourceModelId != null;
 	}
 
 	public long getPid() {

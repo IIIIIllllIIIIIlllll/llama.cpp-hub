@@ -1893,7 +1893,7 @@ public class LlamaServerManager {
 			int actualPort = clientPort != null && clientPort > 0 && clientPort < 65535 ? clientPort : port;
 			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath);
 			String processName = "llama-server-" + canonicalId;
-			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId);
+			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId, null);
 
 			logger.info("启动命令：{}", commandStr);
 
