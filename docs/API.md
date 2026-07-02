@@ -268,25 +268,7 @@
 
 ---
 
-## 十二、EasyRP 角色管理
-
-由 `CompletionRouterHandler` 处理。角色数据存储在 `cache/charactors/`。
-
-| 方法 | 路径 | 说明 | 参数 |
-|------|------|------|------|
-| GET | `/api/chat/completion/list` | 列出所有角色（精简，按 updatedAt 降序） | — |
-| POST | `/api/chat/completion/create` | 创建角色 | `{title}` |
-| GET | `/api/chat/completion/get` | 获取角色 | Query: `name`（数字 ID） |
-| POST | `/api/chat/completion/save` | 保存角色 | Query: `name`，Body: 完整 `CharactorDataStruct` JSON |
-| DELETE | `/api/chat/completion/delete` | 删除角色 | Query: `name` |
-| POST | `/api/chat/completion/file/upload` | 上传聊天文件（multipart，最大 16MB） | Query: `name` |
-| GET | `/api/chat/completion/file/download` | 下载聊天文件 | Query: `name` |
-| POST | `/api/chat/completion/avatar/upload` | 上传头像（multipart，最大 1MB） | Query: `name` |
-| GET | `/api/chat/completion/avatar/get` | 获取头像（内联） | Query: `name` |
-
----
-
-## 十三、Easy-Chat 状态同步
+## 十二、Easy-Chat 状态同步
 
 由 `EasyChatController` 处理。乐观并发控制的状态同步系统。
 
@@ -299,7 +281,7 @@
 
 ---
 
-## 十四、远程节点管理
+## 十三、远程节点管理
 
 由 `NodeController` 处理。仅主节点可操作。
 
@@ -315,7 +297,7 @@
 
 ---
 
-## 十五、参数列表
+## 十四、参数列表
 
 由 `ParamController` 处理。
 
@@ -326,7 +308,7 @@
 
 ---
 
-## 十六、MCP 工具管理
+## 十五、MCP 工具管理
 
 由 `ToolController` 处理。
 
@@ -340,7 +322,7 @@
 
 ---
 
-## 十七、系统管理
+## 十六、系统管理
 
 由 `SystemController` 处理。
 
@@ -402,7 +384,7 @@
 
 ---
 
-## 十八、用量报告
+## 十七、用量报告
 
 由 `UsageReportController` 处理。
 
@@ -413,7 +395,7 @@
 
 ---
 
-## 十九、MCP 服务器（端口 8075）
+## 十八、MCP 服务器（端口 8075）
 
 由 `McpRouterHandler` → `NettySseMcpServer` 处理。内置 MCP 服务器，JSON-RPC 2.0 协议。
 
@@ -442,7 +424,7 @@
 
 ---
 
-## 二十、WebSocket（端口 8080，路径 `/ws`）
+## 十九、WebSocket（端口 8080，路径 `/ws`）
 
 ### 事件（服务器 → 客户端）
 
@@ -481,7 +463,6 @@
 | 代理端点 | 3 |
 | HuggingFace 搜索 | 2 |
 | 下载管理 | 9 |
-| EasyRP 角色 | 9 |
 | Easy-Chat 状态同步 | 4 |
 | 节点管理 | 7 |
 | 参数列表 | 2 |
@@ -490,4 +471,4 @@
 | 用量报告 | 2 |
 | MCP 服务器 | 5 路由 × 4 serviceKey |
 | WebSocket 事件 | 12 |
-| **总计** | **约 125 个独立端点** |
+| **总计** | **约 116 个独立端点** |
