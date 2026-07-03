@@ -28,12 +28,16 @@ Slapping a web UI on llama.cpp — a graphical interface to wrangle models and l
 
 - A very crude chat frontend. Gets the job done. Barely.
 - MCP support is there. Nobody's actually gonna use it though... right? Right?? **RIGHT?!**
-- The chat UI doesn't even have an English version yet (LAZY!!!)
-- At least it shows llama.cpp performance stats
+- It can also display llama.cpp performance metrics
+- You can set background images and assistant avatars
+- Oh, it can also show hardware status
+- You can input audio and video — truly full of bells and whistles
 
 ### Multi-Protocol API
 
 One backend, four compatible APIs. Point your favorite SDK at it and you're off:
+
+**⚠️Considering removing Ollama and LM Studio compat APIs — I don't think they're useful.**
 
 | Protocol | Port | Status |
 |----------|------|--------|
@@ -77,6 +81,9 @@ Desktop is the main squeeze — fully featured. Mobile ⚠️ chronically under-
 - Usage stats (token consumption, inference speed)
 - Quick & dirty benchmark — brute-force shove a ton of context in and see when it finally surrenders
 - llama-bench benchmark — you'll actually need to know what you're doing for this one. Good luck.
+- Model cloning — run two instances of the same model (identical GGUF file) with different parameters, somewhat useful
+- Model search — due to China's network environment it's not very practical, but works fine if you have a good connection
+- System info — check your hardware resources, nothing much to say about it
 
 ### Remote Nodes (Service Aggregation)
 
@@ -127,15 +134,7 @@ Use it to test whether your model can actually execute tool calls. The MCP serve
 | `GET` | `/mcp/{serviceKey}/sse` | SSE connection |
 | `POST` | `/mcp/{serviceKey}/message?sessionId=` | SSE message |
 
-#### Service Keys
-
-| Key | Tools |
-|-----|-------|
-| `llama_hub_info` | 7 |
-| `llama_hub_image` | 1 |
-| `llama_hub_file` | 1 |
-
-These tools aren't very useful. Their purpose is questionable. Just pretend they don't exist.
+These tools aren't very useful. Their purpose is questionable. Just pretend they don't exist. Occasionally you can use them to connect an Agent for checking hardware resource info — purely for show.
 
 #### MCP Client Config Example
 
@@ -156,12 +155,14 @@ These tools aren't very useful. Their purpose is questionable. Just pretend they
 
 - HTTP download with resume support. The backend implementation is pretty basic. For bulk downloading, use aria2, IDM, or something that wasn't cobbled together in a weekend.
 - I mainly use this thing to shuttle models around the LAN. Occasional online model downloads are just a bonus.
+- It's not just for GGUF downloads — it can download anything, so it can serve as a 'file transfer assistant' in certain situations.
 
 ---
 
 ### Online Updates
 
 Auto-check GitHub Release → download the update package → unzip and replace. Since it pokes GitHub's API, expect random connectivity issues and 403s for... *reasons*.
+If the auto-update fails, just download the package manually and overwrite — **remember to restart**.
 
 ---
 
@@ -195,7 +196,7 @@ Auto-check GitHub Release → download the update package → unzip and replace.
 
 > **PS**: The UI supports Chinese and English. It auto-switches based on your browser language. You can also force it with `?lang=en` in the URL.
 
-> **Note**: The `/v1/models` API endpoint only returns **running models**. If unloaded models showed up in the list, clients would think they're all available, only to find none of them work — and that's just silly.
+> **Note**: The `/v1/models` API endpoint only returns **running models** and **models with auto-load enabled**. My personal take: if unloaded models showed up in the list, clients would think they're all available, only to find none of them work — and that's just silly. Models with auto-load enabled will attempt to load themselves when called, which is no big deal.
 
 ---
 
@@ -261,8 +262,7 @@ Use at your own risk.
 
 1. Only **successful responses** are counted. If a request is interrupted, those tokens won't be recorded
 2. Remote node usage is NOT tracked. If you burn through 1M tokens on node A, then aggregate node A under node B, node B will show 0 usage for those tokens
-3. As of May 22, 2026, embedding and reranking models have zero usage tracking
-4. That's it for now.
+3. That's it for now.
 
 ## Guide: Disk & Memory Usage
 
@@ -310,9 +310,11 @@ The tech stack here is very simple, so AI-assisted development works just fine. 
 
 I've heavily used **Qwen3.6-27B-FP8** for planning and writing code, followed by **DeepSeek V4 Flash**. Early on I also used GPT 5.2 through GPT 5.4, but for a simple project like this, that felt like overkill.
 
-Qwen3.6-27B-FP8 is my savior. It has done a tremendous, tremendous, tremendous, tremendous amount of work!
+Qwen3.6-27B-FP8 is my savior, it helped me do a tremendous, tremendous, tremendous, tremendous amount of work! Later switched to Q8, vLLM is too much hassle.
 
 The invincible Qwen3.6-27B and its useless master.
+
+Easy Chat was such a bloated mess — it introduced Kimi K2.7 + GLM 5.2 into the workflow, and I also used ChatGPT 5.5 a few times.
 
 ---
 
