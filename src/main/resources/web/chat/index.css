@@ -529,6 +529,8 @@ button { cursor: pointer; }
   background: color-mix(in srgb, var(--bg) 84%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--radius);
+  padding: 20px 24px;
 }
 
 /* 消息气泡半透明，使背景隐约透出但文字仍可读 */
