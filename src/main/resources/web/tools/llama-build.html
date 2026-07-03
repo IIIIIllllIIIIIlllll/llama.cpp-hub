@@ -486,8 +486,39 @@
             margin-top: 0.15rem;
         }
 
+        .toolchain-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .toolchain-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color, #d9d9d9);
+            border-radius: 0.5rem;
+            background: var(--card-bg, #fff);
+            transition: all 0.15s;
+        }
+        .toolchain-item.available { border-left: 4px solid #10b981; }
+        .toolchain-item.unavailable { border-left: 4px solid #ef4444; }
+        .toolchain-item-icon {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; flex-shrink: 0;
+        }
+        .toolchain-item.available .toolchain-item-icon { background: rgba(16,185,129,0.15); color: #10b981; }
+        .toolchain-item.unavailable .toolchain-item-icon { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .toolchain-item-name { font-weight: 600; font-size: 0.85rem; }
+        .toolchain-item-version { font-size: 0.78rem; color: var(--text-secondary, #5f5f5f); }
+        .toolchain-item-path { font-size: 0.72rem; color: var(--text-secondary, #5f5f5f); font-family: monospace; word-break: break-all; }
+        .toolchain-item-details { font-size: 0.75rem; color: var(--text-secondary, #5f5f5f); }
+        .toolchain-item-info { flex: 1; min-width: 0; }
         @media (max-width: 768px) {
             .container { grid-template-columns: 1fr; }
+            .toolchain-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -587,6 +618,18 @@
             <div class="actions">
                 <button class="btn btn-success" id="buildBtn" onclick="submitBuild()"><i class="fas fa-play"></i> 开始编译</button>
                 <button class="btn btn-danger" id="cancelBtn" style="display:none" onclick="cancelBuild()"><i class="fas fa-stop"></i> 取消</button>
+            </div>
+        </div>
+
+        <div class="card full-width">
+            <div class="card-title"><i class="fas fa-wrench"></i> 工具链检查</div>
+            <div class="actions">
+                <button class="btn btn-primary" id="toolchainBtn" onclick="checkToolchain()">
+                    <i class="fas fa-microchip"></i> 检查工具链
+                </button>
+            </div>
+            <div id="toolchainResults" style="display:none; margin-top:0.5rem;">
+                <div class="toolchain-grid" id="toolchainGrid"></div>
             </div>
         </div>
 
@@ -1339,6 +1382,50 @@
         function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        async function checkToolchain() {
+            const btn = document.getElementById('toolchainBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 检查中...';
+            document.getElementById('toolchainResults').style.display = 'block';
+            document.getElementById('toolchainGrid').innerHTML = '';
+
+            try {
+                const resp = await fetch('/api/build/check-toolchain');
+                const data = await resp.json();
+                if (!data.success || !data.data) {
+                    showToast('检查失败', data.error || '未知错误', 'error');
+                    return;
+                }
+
+                const grid = document.getElementById('toolchainGrid');
+                for (const [key, item] of Object.entries(data.data)) {
+                    const available = item.available === true;
+                    const icon = available ? 'fa-check-circle' : 'fa-times-circle';
+                    const cls = available ? 'available' : 'unavailable';
+                    const name = escapeHtml(item.name || key);
+                    const version = item.version ? escapeHtml(item.version) : '';
+                    const path = item.path ? escapeHtml(item.path) : '';
+                    const details = item.details ? escapeHtml(item.details) : (available ? '' : '未安装');
+
+                    const div = document.createElement('div');
+                    div.className = 'toolchain-item ' + cls;
+                    div.innerHTML = '<div class="toolchain-item-icon"><i class="fas ' + icon + '"></i></div>' +
+                        '<div class="toolchain-item-info">' +
+                        '<div class="toolchain-item-name">' + name + '</div>' +
+                        (version ? '<div class="toolchain-item-version">' + version + '</div>' : '') +
+                        (path ? '<div class="toolchain-item-path">' + path + '</div>' : '') +
+                        (!available && details ? '<div class="toolchain-item-details">' + details + '</div>' : '') +
+                        '</div>';
+                    grid.appendChild(div);
+                }
+            } catch (err) {
+                showToast('检查失败', err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-microchip"></i> 检查工具链';
+            }
         }
 
         function toggleTheme() {

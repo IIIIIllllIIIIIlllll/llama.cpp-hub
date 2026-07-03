@@ -15,6 +15,8 @@ import org.mark.llamacpp.server.service.BuildTaskManager.BuildTask;
 import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
+import org.mark.llamacpp.server.tools.ToolchainChecker;
+import org.mark.llamacpp.server.tools.ToolchainChecker.CheckResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +38,7 @@ public class BuildController implements BaseController {
     private static final String PATH_BUILD_CANCEL = "/api/build/cancel";
     private static final String PATH_BUILD_EXTRACT = "/api/build/extract";
     private static final String PATH_BUILD_HISTORY = "/api/build/history";
+    private static final String PATH_BUILD_CHECK_TOOLCHAIN = "/api/build/check-toolchain";
 
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
@@ -54,6 +57,9 @@ public class BuildController implements BaseController {
             return true;
         } else if (uri.startsWith(PATH_BUILD_HISTORY)) {
             handleBuildHistory(ctx, request);
+            return true;
+        } else if (uri.startsWith(PATH_BUILD_CHECK_TOOLCHAIN)) {
+            handleCheckToolchain(ctx, request);
             return true;
         }
         return false;
@@ -309,6 +315,33 @@ public class BuildController implements BaseController {
         } catch (Exception e) {
             logger.error("获取编译历史失败", e);
             LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取编译历史失败: " + e.getMessage()));
+        }
+    }
+
+    private void handleCheckToolchain(ChannelHandlerContext ctx, FullHttpRequest request)
+            throws RequestMethodException {
+        if (handleCorsOptions(ctx, request)) {
+            return;
+        }
+        assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+
+        try {
+            Map<String, CheckResult> results = ToolchainChecker.checkAll();
+            Map<String, Map<String, Object>> data = new HashMap<>();
+            for (Map.Entry<String, CheckResult> entry : results.entrySet()) {
+                CheckResult r = entry.getValue();
+                Map<String, Object> item = new HashMap<>();
+                item.put("name", r.name);
+                item.put("available", r.available);
+                item.put("version", r.version);
+                item.put("path", r.path);
+                item.put("details", r.details);
+                data.put(entry.getKey(), item);
+            }
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+        } catch (Exception e) {
+            logger.error("工具链检查失败", e);
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("工具链检查失败: " + e.getMessage()));
         }
     }
 
