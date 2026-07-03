@@ -296,6 +296,187 @@ async function continueGeneration(convId: string, messageId: string) {
 
 ---
 
+## 2.4 思维链 (reasoning_content) 的继续生成
+
+`continue_final_message` 不仅能续写正文，也能续写**思维链**部分。两者底层是同一套机制，区别只在于服务端在 `generation_prompt` 中是否闭合思维结束标签（如 `</think>`）。
+
+### 三种模式的本质区别
+
+核心实现在 `common/chat-auto-parser-generator.cpp:53-70`：
+
+```cpp
+if (mode != NONE) {
+    // 找到 reasoning 起始标签（如 ildi），把生成起点重置到那里
+    data.generation_prompt = ... + autoparser.reasoning.start + msg.reasoning_content;
+
+    if (mode == CONTENT) {
+        data.generation_prompt += autoparser.reasoning.end;   // 追加闭合标签
+    }
+    if (mode == CONTENT) {
+        data.generation_prompt += msg.render_content();       // 追加已有正文
+    }
+}
+```
+
+| 模式 | 生成提示的形态 | 模型接下来产出 |
+|------|---------------|---------------|
+| `"reasoning_content"` | `ildi已有思维`（不闭合，不写正文） | 继续输出 reasoning -> 流式进 `delta.reasoning_content` |
+| `"content"` | `ildi已有思维` + 闭合标签 + `已有正文` | 跳过思维，直接续写正文 -> 流式进 `delta.content` |
+| `true` (AUTO) | 由服务端自动判定走上面哪一种 | 见下文 |
+
+### AUTO 的自动判定逻辑
+
+实现在 `common/chat.cpp:2502-2510`：
+
+```cpp
+if (AUTO && !messages.empty()) {
+    mode = CONTENT;                       // 默认续写正文
+    if (!continue_msg.reasoning_content.empty()
+        && continue_msg.content.empty()
+        && continue_msg.content_parts.empty()) {
+        mode = REASONING;                 // 只有思维、没正文 -> 续思维
+    }
+}
+```
+
+**判定规则一句话**：最后一条 assistant 消息如果"有思维、无正文" -> 续思维；否则 -> 续正文。
+
+### 客户端请求体设计
+
+#### 场景 A：思维链已完成，续写正文（最常见）
+
+```json
+POST /v1/chat/completions
+{
+  "messages": [
+    {"role": "user", "content": "证明哥德巴赫猜想"},
+    {
+      "role": "assistant",
+      "reasoning_content": "首先假设...然后...因此...",   // 完整思维
+      "content": "由上述分析可得"                          // 已写出的部分正文
+    }
+  ],
+  "stream": true,
+  "continue_final_message": true,        // 或 "content"
+  "add_generation_prompt": false
+}
+```
+
+流式响应里 `delta.content` 会持续追加，`delta.reasoning_content` 一般为空。
+
+#### 场景 B：思维被中途打断，续写思维
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "证明哥德巴赫猜想"},
+    {
+      "role": "assistant",
+      "reasoning_content": "首先假设...",   // 思维片段
+      "content": ""                          // 必须为空，触发 AUTO 走 REASONING
+    }
+  ],
+  "stream": true,
+  "continue_final_message": true,           // 或显式 "reasoning_content"
+  "add_generation_prompt": false
+}
+```
+
+流式响应里 `delta.reasoning_content` 持续追加；当模型自己输出思维结束标签后，后续 token 会切换到 `delta.content`。客户端拼接逻辑：
+
+```
+finalReasoning = originalReasoning + appendedReasoning
+finalContent    = (模型后续输出的 content)
+```
+
+#### 场景 C：显式指定模式
+
+即使 `content` 非空，也可以用 `"content"` 强制只续正文；用 `"reasoning_content"` 时则**应当**让 `content` 为空，否则行为不符合语义。
+
+### 关键约束与坑
+
+1. **不带 think 标签**：`reasoning_content` 字段里只放**纯思维文本**，不要包含 `ildi`/`</think>`，服务端会自动加。
+2. **最后一条必须是 assistant**：和普通 continue 一样。
+3. **`add_generation_prompt` 必须为 false**：`server-common.cpp:1056` 会校验，否则报错。
+4. **拼接方向**：客户端展示/保存永远是 `originalReasoning + appendedReasoning` 和 `originalContent + appendedContent`，只能 append，不能覆盖。
+5. **与 SSE Replay 的关系**：和本节前面一致 - 网络断线由 Replay Buffer 自动续；用户主动 Stop 后才需要这种"继续生成"重发请求。Stop 时应分别保存 `reasoning_content` 和 `content` 两个 partial 到 DB，Continue 时按上面场景 A/B 组装 messages。
+6. **`reasoning_format` 字段**：建议请求里显式带上（如 `"reasoning_format": "auto"` 或与首轮一致），避免不同轮次的思维解析格式不一致。
+
+### 客户端实现指南（含思维）
+
+#### 停止时分别保存两段 partial
+
+```typescript
+function stopGeneration(convId: string, partialReasoning: string, partialContent: string) {
+  // 1. 取消服务端流
+  await fetch(`/v1/stream/${encodeURIComponent(convId)}`, { method: 'DELETE' });
+  // 2. 把两段 partial 内容分别写入本地 DB
+  database.updateMessage(lastMessageId, {
+    reasoning_content: partialReasoning,
+    content: partialContent,
+  });
+  // 3. 清除流状态
+  clearStreamState(convId);
+}
+```
+
+#### 继续生成时按状态选择模式
+
+```typescript
+async function continueGeneration(convId: string, messageId: string) {
+  const messages = await database.getConversationMessages(convId);
+  const targetMsg = messages.find(m => m.id === messageId);
+  const contextWithContinue = messages.slice(0, messages.indexOf(targetMsg) + 1);
+
+  // 根据当前 partial 状态决定续写哪一段：
+  //   正文为空而思维有内容 -> 续思维；否则续正文
+  const mode = (!targetMsg.content && targetMsg.reasoning_content)
+    ? 'reasoning_content'
+    : 'content';
+
+  let appendedReasoning = '';
+  let appendedContent   = '';
+  const response = await fetch('/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: contextWithContinue,
+      stream: true,
+      continue_final_message: mode,        // 或 true 让服务端自动判
+      add_generation_prompt: false,
+    })
+  });
+
+  const reader = response.body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunks = parseSSE(value);
+    for (const chunk of chunks) {
+      appendedReasoning += chunk.delta?.reasoning_content ?? '';
+      appendedContent   += chunk.delta?.content ?? '';
+      // 在 UI 显示：targetMsg.reasoning_content + appendedReasoning,
+      //            targetMsg.content + appendedContent
+      updateUI(
+        targetMsg.reasoning_content + appendedReasoning,
+        targetMsg.content + appendedContent,
+      );
+    }
+  }
+  // 最终保存
+  database.updateMessage(messageId, {
+    reasoning_content: targetMsg.reasoning_content + appendedReasoning,
+    content:           targetMsg.content + appendedContent,
+  });
+}
+```
+
+### 小结
+
+思维链的续写与正文续写底层是同一套 `continue_final_message` 机制，区别仅在于**服务端是否在 `generation_prompt` 中闭合思维结束标签** - 闭合则续正文，不闭合则续思维。客户端只需按"已有思维/已有正文"哪部分为空来决定模式即可。
+
+---
+
 # 三、两者关系总结
 
 ```
