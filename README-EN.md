@@ -13,6 +13,10 @@ Slapping a web UI on llama.cpp — a graphical interface to wrangle models and l
 
 ---
 
+> 💡 **PWA Supported**: This is a Progressive Web App (PWA). You can install it to your desktop/taskbar directly from the browser for a native-like experience. A standalone desktop application will not be developed.
+
+---
+
 ## Features
 
 ### Model Management
