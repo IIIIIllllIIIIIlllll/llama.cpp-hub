@@ -4695,9 +4695,9 @@
         const configs = data.configs || {};
         const selected = data.selectedConfig || 'default';
         const config = configs[selected] || {};
-        const llamaBinPath = config.llamaBinPath || '';
-        const cmd = config.cmd || '';
-        const extraParams = config.extraParams || '';
+        const llamaBinPath = config.llamaBinPathSelect || config.llamaBinPath || data.llamaBinPathSelect || data.llamaBinPath || '';
+        const cmd = config.cmd || data.cmd || '';
+        const extraParams = config.extraParams || data.extraParams || '';
         if (!llamaBinPath && !cmd && !extraParams) {
           showToast('error', window.I18N.t('page.chat.main.composer.model_action_load_no_config', '未找到启动配置，请先在首页配置启动参数'));
           return;
