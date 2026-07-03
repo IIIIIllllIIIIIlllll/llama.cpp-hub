@@ -55,8 +55,7 @@
         var sel = document.getElementById(selectId);
         if (!sel) return;
         while (sel.options.length > 1) sel.remove(1);
-        fetch('/api/node/list')
-            .then(function (r) { return r.json(); })
+        getNodeList()
             .then(function (data) {
                 var nodes = data && data.data ? data.data : [];
                 nodes.forEach(function (n) {
@@ -838,8 +837,7 @@
                 return;
             }
 
-            const resp = await fetch('/api/node/list', { method: 'GET' });
-            const result = await resp.json();
+            const result = await getNodeList();
             if (!result || !result.success) {
                 listEl.innerHTML = '';
                 if (emptyEl) emptyEl.style.display = '';
@@ -945,6 +943,7 @@
             }
             toast(t('toast.success', '成功'), isEdit ? t('modal.node.updated', '已更新') : t('modal.node.added', '已添加'), 'success');
             closeModal('nodeFormModal');
+            try { await refreshNodeList(); } catch (e) {}
             loadNodes();
         } catch (e) {
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
@@ -953,8 +952,7 @@
 
     async function editNode(nodeId) {
         try {
-            var resp = await fetch('/api/node/list', { method: 'GET' });
-            var result = await resp.json();
+            var result = await getNodeList();
             if (result && result.success) {
                 var nodes = result.data || [];
                 for (var i = 0; i < nodes.length; i++) {
@@ -981,6 +979,7 @@
                 return;
             }
             toast(t('toast.success', '成功'), '已删除', 'success');
+            try { await refreshNodeList(); } catch (e) {}
             loadNodes();
         } catch (e) {
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
@@ -1031,6 +1030,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nodeId: nodeId, enabled: enabled })
             });
+            try { await refreshNodeList(); } catch (e) {}
             loadNodes();
         } catch (e) {}
     }

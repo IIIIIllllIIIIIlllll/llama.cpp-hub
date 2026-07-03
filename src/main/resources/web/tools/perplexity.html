@@ -318,6 +318,7 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/node-cache.js"></script>
 <script>
 (function() {
   const DATASET_DOWNLOAD_URL = 'https://huggingface.co/datasets/ggml-org/ci/resolve/main/wikitext-2-raw-v1.zip';
@@ -447,7 +448,7 @@
 
   async function loadNodes() {
     try {
-      const data = await fetchJson('/api/node/list', { method: 'GET' });
+      const data = await getNodeList();
       const remoteNodes = (data && data.success && Array.isArray(data.data)) ? data.data : [];
       nodes = [{
         nodeId: 'local',

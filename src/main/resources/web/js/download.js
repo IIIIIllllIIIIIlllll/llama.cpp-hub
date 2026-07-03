@@ -565,8 +565,7 @@
     }
 
     function openCreateDownloadModal() {
-        fetch('/api/node/list')
-            .then(r => r.json())
+        getNodeList()
             .then(data => {
                 const sel = document.getElementById('downloadNodeId');
                 if (!sel) return;

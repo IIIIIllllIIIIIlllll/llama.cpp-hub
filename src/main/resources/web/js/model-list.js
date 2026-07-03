@@ -461,10 +461,10 @@ function renderModelsList(models) {
 
         const isRemote = nodeId && nodeId !== 'local';
         let cloneOpButton = '';
-        if (!isRemote && model.isClone) {
-            cloneOpButton = `<button class="btn-icon danger" onclick="deleteCloneModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${t('page.model.action.delete_clone', '删除克隆体')}"><i class="fas fa-trash-alt"></i></button>`;
-        } else if (!isRemote && !model.isClone && !model.isLoaded && !isLoading) {
-            cloneOpButton = `<button class="btn-icon" onclick="createCloneModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'))" title="${t('page.model.action.create_clone', '创建克隆体')}"><i class="fas fa-clone"></i></button>`;
+        if (model.isClone) {
+            cloneOpButton = `<button class="btn-icon danger" onclick="deleteCloneModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${t('page.model.action.delete_clone', '删除克隆体')}"><i class="fas fa-trash-alt"></i></button>`;
+        } else {
+            cloneOpButton = `<button class="btn-icon" onclick="createCloneModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${t('page.model.action.create_clone', '创建克隆体')}"><i class="fas fa-clone"></i></button>`;
         }
 
         let actionButtons = '';
@@ -473,19 +473,19 @@ function renderModelsList(models) {
         } else if (model.isLoaded) {
             if (status === 'running') {
                 actionButtons = `
-                            <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
+                            <button class="btn-icon primary" onclick="loadModel(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), '', '${nodeId}', decodeURIComponent('${encodeURIComponent(model.sourceModelId || '')}'))" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
                             <button class="btn-icon" onclick="viewModelDetails('${model.id}', '${nodeId}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
                             ${cloneOpButton}
                         `;
             } else {
                 actionButtons = `
-                            <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
+                            <button class="btn-icon primary" onclick="loadModel(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), '', '${nodeId}', decodeURIComponent('${encodeURIComponent(model.sourceModelId || '')}'))" title="${t('modal.model_action.title.load', '加载模型')}"><i class="fas fa-sliders-h"></i></button>
                             ${cloneOpButton}
                         `;
             }
         } else {
             actionButtons = `
-                        <button class="btn-icon primary" onclick="loadModel('${model.id}', '${model.name}', '', '${nodeId}')" title="${t('page.model.action.load', '加载')}"><i class="fas fa-play"></i></button>
+                        <button class="btn-icon primary" onclick="loadModel(decodeURIComponent('${encodeURIComponent(model.id)}'), decodeURIComponent('${encodeURIComponent(model.name)}'), '', '${nodeId}', decodeURIComponent('${encodeURIComponent(model.sourceModelId || '')}'))" title="${t('page.model.action.load', '加载')}"><i class="fas fa-play"></i></button>
                         <button class="btn-icon" onclick="viewModelDetails('${model.id}', '${nodeId}')" title="${t('page.model.action.details', '详情')}"><i class="fas fa-info-circle"></i></button>
                         ${cloneOpButton}
                     `;
@@ -529,7 +529,7 @@ const speedHtml = (model.averagePromptPerSecond ? `<span class="model-meta-promp
         } else if (model.isLoaded) {
             quickBtnHtml = `<button class="model-quick-btn quick-stop" onclick="quickStopModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${t('page.model.action.quick_stop', '快速停止')}"><i class="fas fa-stop"></i></button>`;
         } else {
-            quickBtnHtml = `<button class="model-quick-btn quick-start" onclick="quickStartModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${t('page.model.action.quick_start', '快速启动')}"><i class="fas fa-play"></i></button>`;
+            quickBtnHtml = `<button class="model-quick-btn quick-start" onclick="quickStartModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}', decodeURIComponent('${encodeURIComponent(model.sourceModelId || '')}'))" title="${t('page.model.action.quick_start', '快速启动')}"><i class="fas fa-play"></i></button>`;
         }
         const statusBadge = `<div class="model-status-badge ${statusClass}">
                              <i class="fas ${statusIcon}"></i> <span>${statusText}</span>${quickBtnHtml}
@@ -543,7 +543,7 @@ const speedHtml = (model.averagePromptPerSecond ? `<span class="model-meta-promp
             ? `<div class="model-card-top">${iconWrapper}${detailsBlock}</div>`
             : `${iconWrapper}${detailsBlock}`;
         html += `
-                    <div class="model-item"${borderStyle}>
+                    <div class="model-item ${model.isClone ? 'model-clone' : ''}"${borderStyle}>
                         <button class="model-fav-btn ${isFavourite ? 'active' : ''}" onclick="toggleFavouriteModel(event, decodeURIComponent('${encodeURIComponent(model.id)}'), '${nodeId || 'local'}')" title="${isFavourite ? t('page.model.fav.remove', '取消喜好') : t('page.model.fav.add', '标记喜好')}">
                             <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
                         </button>
@@ -747,13 +747,17 @@ function quickStopModel(event, modelId, nodeId) {
     stopModel(modelId, nodeId);
 }
 
-function createCloneModel(event, modelId) {
+function createCloneModel(event, modelId, nodeId) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     const cloneId = window.prompt(t('modal.model_action.clone.prompt_id', '请输入克隆体 ID'), modelId + '-clone');
     if (!cloneId || !cloneId.trim()) return;
     const trimmedCloneId = cloneId.trim();
 
-    fetch('/api/models/config/get?modelId=' + encodeURIComponent(modelId))
+    var configNodeId = nodeId && nodeId !== 'local' ? nodeId : '';
+    var configUrl = configNodeId
+        ? '/api/models/config/get?modelId=' + encodeURIComponent(modelId) + '&nodeId=' + encodeURIComponent(configNodeId)
+        : '/api/models/config/get?modelId=' + encodeURIComponent(modelId);
+    fetch(configUrl)
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (!data || !data.success) {
@@ -780,6 +784,7 @@ function createCloneModel(event, modelId) {
                 enableVision: config.enableVision != null ? config.enableVision : true,
                 configName: selected
             };
+            if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
             return fetch('/api/models/clone/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -800,13 +805,15 @@ function createCloneModel(event, modelId) {
         });
 }
 
-function deleteCloneModel(event, modelId) {
+function deleteCloneModel(event, modelId, nodeId) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     if (!window.confirm(t('page.model.clone.delete_confirm', '确定删除克隆体配置吗？'))) return;
+    var payload = { modelId: modelId };
+    if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
     fetch('/api/models/config/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId: modelId })
+        body: JSON.stringify(payload)
     })
         .then(function(r) { return r.json(); })
         .then(function(res) {
@@ -822,7 +829,7 @@ function deleteCloneModel(event, modelId) {
         });
 }
 
-function quickStartModel(event, modelId, nodeId) {
+function quickStartModel(event, modelId, nodeId, sourceModelId) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     var configNodeId = nodeId && nodeId !== 'local' ? nodeId : '';
     var configUrl = configNodeId
@@ -850,9 +857,14 @@ function quickStartModel(event, modelId, nodeId) {
                 cmd: cmd,
                 extraParams: extraParams
             };
-            var currentModel = (currentModelsData || []).find(m => m && m.id === modelId);
-            if (currentModel && currentModel.isClone && currentModel.sourceModelId) {
-                payload.sourceModelId = currentModel.sourceModelId;
+            // 优先使用调用时传入的 sourceModelId，兜底查 currentModelsData
+            if (sourceModelId) {
+                payload.sourceModelId = sourceModelId;
+            } else {
+                var currentModel = (currentModelsData || []).find(m => m && m.id === modelId);
+                if (currentModel && currentModel.isClone && currentModel.sourceModelId) {
+                    payload.sourceModelId = currentModel.sourceModelId;
+                }
             }
             if (nodeId && nodeId !== 'local') payload.nodeId = nodeId;
             fetch('/api/models/load', {

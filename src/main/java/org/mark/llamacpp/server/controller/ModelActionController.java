@@ -750,6 +750,18 @@ public class ModelActionController implements BaseController {
 				return;
 			}
 
+			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
+			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
+				logger.info("[模型操作] 远程代理创建克隆体: nodeId={}, cloneId={}", nodeId,
+						JsonUtil.getJsonString(obj, "cloneId", ""));
+				JsonObject remoteBody = obj.deepCopy();
+				remoteBody.remove("nodeId");
+				NodeManager.HttpResult result = this.callRemoteApiTracked(ctx, nodeId, "POST",
+						"api/models/clone/create", remoteBody);
+				this.writeRemoteResult(ctx, result);
+				return;
+			}
+
 			String cloneId = JsonUtil.getJsonString(obj, "cloneId", null);
 			String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
 			if (cloneId == null || cloneId.trim().isEmpty()) {
@@ -867,13 +879,24 @@ public class ModelActionController implements BaseController {
 				return;
 			}
 
+			// 防御性处理：前端缓存/旧版本可能未发送 sourceModelId，从本地克隆配置补齐
+			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
+			if (modelId != null && !modelId.trim().isEmpty()) {
+				String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
+				if (sourceModelId == null || sourceModelId.trim().isEmpty()) {
+					String configSourceId = LlamaServerManager.getInstance().getSourceModelId(modelId);
+					if (configSourceId != null && !configSourceId.trim().isEmpty()) {
+						obj.addProperty("sourceModelId", configSourceId);
+					}
+				}
+			}
+
 			String nodeId = JsonUtil.getJsonString(obj, "nodeId");
 			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
 				this.loadRemoteModel(ctx, nodeId, obj);
 				return;
 			}
 
-			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
 			boolean isCloneRequest = sourceModelId != null && !sourceModelId.trim().isEmpty();
 
@@ -1079,6 +1102,13 @@ public class ModelActionController implements BaseController {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			manager.listModel();
 			GGUFModel model = manager.findModelById(modelId);
+			// 克隆体 benchmark 使用源模型 GGUF
+			if (model == null) {
+				String sourceModelId = manager.getSourceModelId(modelId);
+				if (sourceModelId != null) {
+					model = manager.findModelById(sourceModelId);
+				}
+			}
 			if (model == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
 				return;

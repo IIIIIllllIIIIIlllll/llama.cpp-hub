@@ -120,6 +120,13 @@ public class PerplexityService {
 
 		LlamaServerManager manager = LlamaServerManager.getInstance();
 		GGUFModel model = manager.findModelById(modelId);
+		// 克隆体困惑度测试使用源模型 GGUF
+		if (model == null) {
+			String sourceModelId = manager.getSourceModelId(modelId);
+			if (sourceModelId != null) {
+				model = manager.findModelById(sourceModelId);
+			}
+		}
 		if (model == null) {
 			throw new IllegalArgumentException("未找到模型: " + modelId);
 		}

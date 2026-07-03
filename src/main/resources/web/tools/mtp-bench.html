@@ -192,6 +192,7 @@
   </div>
 </div>
 <script src="/js/i18n.js"></script>
+<script src="/js/node-cache.js"></script>
 <script>
 (function() {
   const PROMPTS = [
@@ -344,7 +345,7 @@
       const [loadedData, allData, nodesData] = await Promise.all([
         fetchJson('/v1/models', { method:'GET' }).catch(() => ({ data:[] })),
         fetchJson('/api/models/list', { method:'GET' }).catch(() => ({ success:false, models:[] })),
-        fetchJson('/api/node/list', { method:'GET' }).catch(() => ({ success:false, nodes:[] }))
+        getNodeList().catch(() => ({ success:false, nodes:[] }))
       ]);
       loadedModels = Array.isArray(loadedData && loadedData.data) ? loadedData.data : [];
       loadedModelIds = new Set(loadedModels.map(m => {

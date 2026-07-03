@@ -605,6 +605,7 @@
   <script src="./chat-mcp.js"></script>
   <script src="./audio-recorder.js"></script>
   <script src="/js/i18n.js"></script>
+  <script src="/js/node-cache.js"></script>
   <script>
     window.I18N = window.I18N || { t: function(key, fallback) { return fallback ?? key; } };
 
@@ -620,7 +621,6 @@
     const EASY_CHAT_DELETE_ENDPOINT = '/api/chat/delete';
     const EASY_CHAT_MESSAGE_UPDATE_ENDPOINT = '/api/chat/message/update';
     const EASY_CHAT_GENERATE_TITLE_ENDPOINT = '/api/chat/generate-title';
-    const NODE_LIST_ENDPOINT = '/api/node/list';
     const SYSINFO_ENDPOINT = '/api/sys/sysinfo';
     const HW_REFRESH_INTERVAL_MS = 1000;
     const STATE_REVISION_CONFLICT_CODE = 'STATE_REVISION_CONFLICT';
@@ -4764,7 +4764,7 @@
 
     async function loadHwNodes() {
       try {
-        const json = await fetchJson(NODE_LIST_ENDPOINT, { method: 'GET', headers: getHeaders() });
+        const json = await getNodeList();
         const remote = json && json.success && Array.isArray(json.data) ? json.data : [];
         const nodes = [{ nodeId: '', name: window.I18N.t('page.chat.main.hardware.node_local', '本机'), status: 'ONLINE' }];
         for (const n of remote) {

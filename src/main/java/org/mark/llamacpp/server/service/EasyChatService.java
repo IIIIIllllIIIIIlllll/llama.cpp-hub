@@ -1342,6 +1342,13 @@ import io.netty.handler.codec.http.LastHttpContent;
 		try {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			GGUFModel model = manager.findModelById(modelId);
+			// 克隆体回退到源模型取显示名
+			if (model == null) {
+				String sourceModelId = manager.getSourceModelId(modelId);
+				if (sourceModelId != null) {
+					model = manager.findModelById(sourceModelId);
+				}
+			}
 			if (model != null) {
 				String alias = model.getAlias();
 				if (alias != null && !alias.isBlank()) {

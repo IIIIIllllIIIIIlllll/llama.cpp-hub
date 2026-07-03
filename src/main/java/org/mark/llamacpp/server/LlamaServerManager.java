@@ -2836,6 +2836,13 @@ public class LlamaServerManager {
 			}
 		}
 		GGUFModel model = this.findModelById(modelId);
+		// 克隆体用源模型 GGUF 路径做显存估算
+		if (model == null) {
+			String sourceModelId = this.getSourceModelId(modelId);
+			if (sourceModelId != null) {
+				model = this.findModelById(sourceModelId);
+			}
+		}
 		if(model == null) {
 			throw new RuntimeException("Model not found: " + modelId);
 		}
@@ -2922,6 +2929,13 @@ public class LlamaServerManager {
 			}
 		}
 		GGUFModel model = this.findModelById(modelId);
+		// 克隆体用源模型 GGUF 路径做显存估算
+		if (model == null) {
+			String sourceModelId = this.getSourceModelId(modelId);
+			if (sourceModelId != null) {
+				model = this.findModelById(sourceModelId);
+			}
+		}
 		if(model == null) {
 			resultMap.put("output", "");
 			resultMap.put("error", "Model not found: " + modelId);

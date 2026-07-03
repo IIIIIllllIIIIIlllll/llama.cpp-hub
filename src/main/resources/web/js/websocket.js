@@ -9,8 +9,7 @@ window.remoteNodes = [];
 
 async function fetchRemoteNodes() {
     try {
-        const resp = await fetch('/api/node/list');
-        const result = await resp.json();
+        const result = await getNodeList();
         if (result && result.success && Array.isArray(result.data)) {
             window.remoteNodes = result.data;
         }

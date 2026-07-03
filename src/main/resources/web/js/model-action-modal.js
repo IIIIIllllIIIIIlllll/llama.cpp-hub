@@ -1296,7 +1296,7 @@ function setModelActionMode(mode) {
     applyModelActionSubmitButtonState(modal, resolved);
 }
 
-function loadModel(modelId, modelName, param1, param2) {
+function loadModel(modelId, modelName, param1, param2, sourceModelId) {
     let mode = 'load';
     let nodeId = '';
     const modes = ['load', 'benchmark', 'reconfigure'];
@@ -1315,6 +1315,8 @@ function loadModel(modelId, modelName, param1, param2) {
     setFieldValue(modal, ['modelName'], modelName || modelId);
     if (nodeId) modal.__nodeId = nodeId;
     else delete modal.__nodeId;
+    if (sourceModelId) modal.__sourceModelId = sourceModelId;
+    else delete modal.__sourceModelId;
     applyModelActionSubmitButtonState(modal, mode === 'benchmark' ? 'benchmark' : 'load');
     const hint = findById(modal, 'ctxSizeVramHint');
     setVramHint(hint, '');
@@ -1484,10 +1486,16 @@ function buildLoadModelPayload(modal) {
         extraParams
     };
 
-    // 克隆体加载需要带上 sourceModelId
-    const currentModel = (window.currentModelsData || []).find(m => m && m.id === modelId);
-    if (currentModel && currentModel.isClone && currentModel.sourceModelId) {
-        payload.sourceModelId = currentModel.sourceModelId;
+    // 克隆体加载需要带上 sourceModelId；优先使用 modal 上保存的，兜底查 currentModelsData
+    const modalSourceModelId = modal && modal.__sourceModelId ? modal.__sourceModelId : '';
+    if (modalSourceModelId) {
+        payload.sourceModelId = modalSourceModelId;
+    } else {
+        const effectiveNodeId = nodeId || 'local';
+        const currentModel = (window.currentModelsData || []).find(m => m && m.id === modelId && (m.nodeId || 'local') === effectiveNodeId);
+        if (currentModel && currentModel.isClone && currentModel.sourceModelId) {
+            payload.sourceModelId = currentModel.sourceModelId;
+        }
     }
 
     return payload;

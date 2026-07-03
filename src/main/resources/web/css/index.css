@@ -474,6 +474,19 @@
         .model-item:last-child { border-bottom: none; }
         .model-item:hover { background-color: var(--hover-bg); }
 
+        .model-clone {
+            border-left-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.10);
+        }
+        .model-clone:hover {
+            background: rgba(139, 92, 246, 0.16);
+        }
+        [data-theme="dark"] .model-clone {
+            background: rgba(139, 92, 246, 0.18);
+        }
+        [data-theme="dark"] .model-clone:hover {
+            background: rgba(139, 92, 246, 0.25);
+        }
         .model-fav-btn {
             width: 36px;
             height: 36px;
@@ -727,6 +740,21 @@
         #modelsList.grid-view .model-item:hover {
             box-shadow: var(--shadow-md);
             background-color: var(--hover-bg);
+        }
+        #modelsList.grid-view .model-clone {
+            border-color: rgba(139, 92, 246, 0.55);
+            border-left-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.10);
+        }
+        #modelsList.grid-view .model-clone:hover {
+            background: rgba(139, 92, 246, 0.16);
+            border-color: rgba(139, 92, 246, 0.75);
+        }
+        [data-theme="dark"] #modelsList.grid-view .model-clone {
+            background: rgba(139, 92, 246, 0.18);
+        }
+        [data-theme="dark"] #modelsList.grid-view .model-clone:hover {
+            background: rgba(139, 92, 246, 0.25);
         }
         #modelsList.grid-view .model-item:last-child {
             border-bottom: 1px solid var(--border-color);
