@@ -1963,5 +1963,17 @@
   "page.tools.perplexity.error.split_mode_invalid": "split-mode 值无效",
   "page.model.quick_start.no_config": "未找到启动配置，请先通过加载对话框配置启动参数",
   "page.model.quick_start.success": "模型启动成功",
-  "page.model.quick_start.failed": "启动失败"
+  "page.model.quick_start.failed": "启动失败",
+  "page.chat.main.settings.general.data_management": "数据管理",
+  "page.chat.main.settings.general.data_management_desc": "导出全部助手的名称、提示词、采样参数等信息，用于备份或迁移",
+  "page.chat.main.settings.general.export_assistants": "导出全部助手",
+  "page.chat.main.settings.general.import_assistants": "导入全部助手",
+  "page.chat.main.toast.assistants_exported": "全部助手已导出",
+  "page.chat.main.toast.assistants_export_empty": "没有可导出的助手",
+  "page.chat.main.toast.assistants_imported": "已成功导入 {n} 个助手",
+  "page.chat.main.toast.import_invalid_format": "文件格式错误，导入失败",
+  "page.chat.main.toast.import_invalid_version": "不支持的文件版本，导入失败",
+  "page.chat.main.toast.import_no_data": "文件中没有有效的助手数据",
+  "page.chat.main.toast.import_name_conflict": "以下助手名称已存在，导入失败：{names}",
+  "page.chat.main.toast.import_failed": "导入失败：{error}"
 }

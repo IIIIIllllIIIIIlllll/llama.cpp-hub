@@ -336,6 +336,17 @@
                   </span>
                 </label>
               </div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label data-i18n="page.chat.main.settings.general.data_management">数据管理</label>
+                </div>
+                <p class="settings-field-desc" data-i18n="page.chat.main.settings.general.data_management_desc">导出全部助手的名称、提示词、采样参数等信息，用于备份或迁移</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button id="exportAssistantsBtn" class="primary-button" type="button" data-i18n="page.chat.main.settings.general.export_assistants">导出全部助手</button>
+                  <button id="importAssistantsBtn" class="ghost-button" type="button" data-i18n="page.chat.main.settings.general.import_assistants">导入全部助手</button>
+                </div>
+                <input id="importAssistantsInput" class="hidden" type="file" accept=".json">
+              </div>
             </div>
           </div>
 
@@ -9461,6 +9472,71 @@
       showToast('success', window.I18N.t('page.chat.main.toast.conversation_exported', '对话已导出'));
     }
 
+    function exportAllAssistants() {
+      if (!state.assistants || !state.assistants.length) {
+        showToast('info', window.I18N.t('page.chat.main.toast.assistants_export_empty', '没有可导出的助手'));
+        return;
+      }
+      const data = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        assistants: state.assistants.map(a => normalizeAssistant(a))
+      };
+      const now = new Date();
+      const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'assistants-backup-' + dateStr + '.json';
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('success', window.I18N.t('page.chat.main.toast.assistants_exported', '全部助手已导出'));
+    }
+
+    async function importAllAssistants(event) {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      try {
+        const text = await readFileAsText(file);
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          showToast('error', window.I18N.t('page.chat.main.toast.import_invalid_format', '文件格式错误，导入失败'));
+          return;
+        }
+        if (!data || data.version !== 1) {
+          showToast('error', window.I18N.t('page.chat.main.toast.import_invalid_version', '不支持的文件版本，导入失败'));
+          return;
+        }
+        if (!Array.isArray(data.assistants) || !data.assistants.length) {
+          showToast('error', window.I18N.t('page.chat.main.toast.import_no_data', '文件中没有有效的助手数据'));
+          return;
+        }
+        const existingNames = new Set(state.assistants.map(a => a.name));
+        const conflicts = data.assistants.filter(a => existingNames.has(a.name));
+        if (conflicts.length) {
+          const names = conflicts.map(a => a.name).join('、');
+          showToast('error', window.I18N.t('page.chat.main.toast.import_name_conflict', '以下助手名称已存在，导入失败：{names}').replace('{names}', names));
+          return;
+        }
+        const normalized = data.assistants.map(a => normalizeAssistant({ ...a, id: makeId() }));
+        state.assistants.push(...normalized);
+        ensureConversation();
+        syncSettingsInputs();
+        renderConversationList();
+        await persistState({ immediate: true, showErrorToast: true });
+        showToast('success', window.I18N.t('page.chat.main.toast.assistants_imported', '已成功导入 {n} 个助手').replace('{n}', normalized.length));
+      } catch (error) {
+        showToast('error', window.I18N.t('page.chat.main.toast.import_failed', '导入失败：{error}').replace('{error}', error.message || window.I18N.t('common.unknown_error', '未知错误')));
+      } finally {
+        event.target.value = '';
+      }
+    }
+
     function openExportMenu() {
       closeThinkingMenu();
       const menu = document.getElementById('exportMenu');
@@ -10162,6 +10238,11 @@ function confirmAudioRecording() {
       els.deleteAssistantBtn.addEventListener('click', async () => {
         await deleteCurrentAssistantProfile();
       });
+      document.getElementById('exportAssistantsBtn')?.addEventListener('click', exportAllAssistants);
+      document.getElementById('importAssistantsBtn')?.addEventListener('click', () => {
+        document.getElementById('importAssistantsInput')?.click();
+      });
+      document.getElementById('importAssistantsInput')?.addEventListener('change', importAllAssistants);
       els.exportBtn.addEventListener('click', openExportMenu);
       document.getElementById('exportMenu')?.addEventListener('click', event => {
         const item = event.target.closest('[data-export-type]');

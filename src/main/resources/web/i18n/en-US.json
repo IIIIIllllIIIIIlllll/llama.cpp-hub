@@ -1963,5 +1963,17 @@
   "page.tools.perplexity.error.split_mode_invalid": "Invalid split-mode value",
   "page.model.quick_start.no_config": "No launch config found, please configure via load dialog first",
   "page.model.quick_start.success": "Model started successfully",
-  "page.model.quick_start.failed": "Start failed"
+  "page.model.quick_start.failed": "Start failed",
+  "page.chat.main.settings.general.data_management": "Data Management",
+  "page.chat.main.settings.general.data_management_desc": "Export all assistants' names, prompts, sampling parameters, etc. for backup or migration",
+  "page.chat.main.settings.general.export_assistants": "Export All Assistants",
+  "page.chat.main.settings.general.import_assistants": "Import All Assistants",
+  "page.chat.main.toast.assistants_exported": "All assistants exported",
+  "page.chat.main.toast.assistants_export_empty": "No assistants to export",
+  "page.chat.main.toast.assistants_imported": "Successfully imported {n} assistants",
+  "page.chat.main.toast.import_invalid_format": "Invalid file format, import failed",
+  "page.chat.main.toast.import_invalid_version": "Unsupported file version, import failed",
+  "page.chat.main.toast.import_no_data": "No valid assistant data in file",
+  "page.chat.main.toast.import_name_conflict": "The following assistant names already exist, import failed: {names}",
+  "page.chat.main.toast.import_failed": "Import failed: {error}"
 }
