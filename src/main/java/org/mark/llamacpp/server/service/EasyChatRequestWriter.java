@@ -3,6 +3,7 @@ package org.mark.llamacpp.server.service;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -68,29 +69,44 @@ final class EasyChatRequestWriter {
 				if (resolvedVariant < 0) {
 					continue;
 				}
+				// Stream the fragment payload verbatim from disk. llama.cpp ignores
+				// unsupported top-level fields (timings / finish_reason), so we no
+				// longer parse the message into a JsonObject tree just to strip
+				// those keys — that path OOMs on multi-MB attachments.
+				EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(spec.conversationDir, seq, resolvedVariant);
+				if (slice == null || slice.length <= 0) {
+					continue;
+				}
 				if (wroteAnyMessage) {
 					writeAscii(output, COMMA);
 				}
-				byte[] payloadBytes = storage.readPayload(spec.conversationDir, seq, resolvedVariant);
-				if (payloadBytes != null && payloadBytes.length > 0) {
-					JsonObject cleaned = JsonUtil.tryParseObject(new String(payloadBytes, StandardCharsets.UTF_8));
-					if (cleaned != null) {
-						cleaned.remove("timings");
-						cleaned.remove("finish_reason");
-						writeString(output, JsonUtil.toJson(cleaned));
-					} else {
-						output.write(payloadBytes);
-					}
-				}
+				storage.streamSlice(slice, output);
 				wroteAnyMessage = true;
 			}
 		}
-		if (!isContinue && spec.transientUserMessage != null && spec.transientUserMessage.length > 0) {
-			if (wroteAnyMessage) {
-				writeAscii(output, COMMA);
+		if (!isContinue) {
+			boolean hasBytes = spec.transientUserMessageBytes != null && spec.transientUserMessageBytes.length > 0;
+			boolean hasFile = false;
+			if (spec.transientUserMessageFile != null) {
+				try {
+					hasFile = Files.size(spec.transientUserMessageFile) > 0;
+				} catch (IOException | SecurityException ignore) {
+					hasFile = false;
+				}
 			}
-			output.write(spec.transientUserMessage);
-			wroteAnyMessage = true;
+			if (hasBytes || hasFile) {
+				if (wroteAnyMessage) {
+					writeAscii(output, COMMA);
+				}
+				if (hasBytes) {
+					output.write(spec.transientUserMessageBytes);
+				} else {
+					// Stream the ephemeral user body straight from disk — never
+					// materialize multi-MB attachments in JVM heap.
+					Files.copy(spec.transientUserMessageFile, output);
+				}
+				wroteAnyMessage = true;
+			}
 		}
 
 		writeAscii(output, ARRAY_END);
@@ -268,13 +284,15 @@ final class EasyChatRequestWriter {
 		final Map<Long, Integer> variants;
 		final Long regenerateSeq;
 		final Long continueSeq;
-		final byte[] transientUserMessage;
+		final byte[] transientUserMessageBytes;
+		final Path transientUserMessageFile;
 		final boolean skipHistory;
 		final boolean stream;
 
 		RequestSpec(String modelId, String systemPrompt, Path conversationDir, byte[] toolsBytes,
 			JsonObject samplingParams, boolean skipSamplingInjection, Map<Long, Integer> variants, Long regenerateSeq,
-			Long continueSeq, byte[] transientUserMessage, boolean skipHistory, boolean stream) {
+			Long continueSeq, byte[] transientUserMessageBytes, Path transientUserMessageFile,
+			boolean skipHistory, boolean stream) {
 			this.modelId = modelId;
 			this.systemPrompt = systemPrompt;
 			this.conversationDir = conversationDir;
@@ -284,7 +302,8 @@ final class EasyChatRequestWriter {
 			this.variants = variants;
 			this.regenerateSeq = regenerateSeq;
 			this.continueSeq = continueSeq;
-			this.transientUserMessage = transientUserMessage;
+			this.transientUserMessageBytes = transientUserMessageBytes;
+			this.transientUserMessageFile = transientUserMessageFile;
 			this.skipHistory = skipHistory;
 			this.stream = stream;
 		}

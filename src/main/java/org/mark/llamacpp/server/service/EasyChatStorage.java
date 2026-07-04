@@ -1,6 +1,7 @@
 package org.mark.llamacpp.server.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.mark.llamacpp.server.LlamaServer;
+import org.mark.llamacpp.server.io.BoundedRandomAccessFileInputStream;
 import org.mark.llamacpp.server.tools.JsonUtil;
 
 import com.google.gson.JsonElement;
@@ -295,8 +297,20 @@ final class EasyChatStorage {
 		return new FragmentSlice(file, payloadOffset(header, resolvedIndex), header.lengths[resolvedIndex]);
 	}
 
-	void streamVariant(Path dir, long seq, int variantIndex, OutputStream output) throws IOException {
+	boolean streamVariant(Path dir, long seq, int variantIndex, OutputStream output) throws IOException {
 		FragmentSlice slice = getVariantSlice(dir, seq, variantIndex);
+		if (slice == null || slice.length <= 0) {
+			return false;
+		}
+		streamSlice(slice, output);
+		return true;
+	}
+
+	/**
+	 * Stream a fragment slice's payload bytes directly to {@code output} using an
+	 * 8KB buffer. Never materializes the payload in memory.
+	 */
+	void streamSlice(FragmentSlice slice, OutputStream output) throws IOException {
 		if (slice == null || slice.length <= 0) {
 			return;
 		}
@@ -314,6 +328,19 @@ final class EasyChatStorage {
 				remaining -= read;
 			}
 		}
+	}
+
+	/**
+	 * Open a bounded {@link InputStream} over a single variant's payload bytes.
+	 * Caller is responsible for closing the stream. Returns {@code null} if the
+	 * fragment/variant does not exist or is empty.
+	 */
+	InputStream openVariantInputStream(Path dir, long seq, int variantIndex) throws IOException {
+		FragmentSlice slice = getVariantSlice(dir, seq, variantIndex);
+		if (slice == null || slice.length <= 0) {
+			return null;
+		}
+		return new BoundedRandomAccessFileInputStream(slice.file, slice.offset, slice.length);
 	}
 
 	void writeActiveVariantIndex(Path dir, long seq, int idx) throws IOException {

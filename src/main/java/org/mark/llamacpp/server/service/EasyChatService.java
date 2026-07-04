@@ -3,6 +3,7 @@ package org.mark.llamacpp.server.service;
 import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -34,6 +35,8 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -318,17 +321,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 			// reasoning_content + render_content() and silently drops tool_calls from
 			// the prompt, which would lose the tool call data and mislead the model.
 			try {
-				byte[] continuePayload = storage.readPayload(convDir, continueSeq, continueVariantIndex);
-				if (continuePayload != null && continuePayload.length > 0) {
-					JsonObject existingMsg = JsonUtil.tryParseObject(new String(continuePayload, StandardCharsets.UTF_8));
-					if (existingMsg != null
-						&& existingMsg.has("tool_calls")
-						&& !existingMsg.get("tool_calls").isJsonNull()
-						&& existingMsg.get("tool_calls").isJsonArray()
-						&& existingMsg.getAsJsonArray("tool_calls").size() > 0) {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("暂不支持对带工具调用的消息继续生成"));
-						return;
-					}
+				if (fragmentHasNonEmptyToolCalls(convDir, continueSeq, continueVariantIndex)) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("暂不支持对带工具调用的消息继续生成"));
+					return;
 				}
 			} catch (Exception e) {
 				logger.warn("[EasyChat] 读取继续生成目标payload失败 seq={}", continueSeq, e);
@@ -348,16 +343,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 						variants != null ? variants.get(regenerateSeq) : null);
 					if (regVariant < 0) { regVariant = regFragHeader.activeVariantIndex; }
 					if (regVariant < 0) { regVariant = 0; }
-					byte[] regPayload = storage.readPayload(convDir, regenerateSeq, regVariant);
-					if (regPayload != null && regPayload.length > 0) {
-						JsonObject regMsg = JsonUtil.tryParseObject(new String(regPayload, StandardCharsets.UTF_8));
-						if (regMsg != null && regMsg.has("tool_calls")
-							&& !regMsg.get("tool_calls").isJsonNull()
-							&& regMsg.get("tool_calls").isJsonArray()
-							&& regMsg.getAsJsonArray("tool_calls").size() > 0) {
-							targetHasToolCalls = true;
-						}
-					}
+					targetHasToolCalls = fragmentHasNonEmptyToolCalls(convDir, regenerateSeq, regVariant);
 				}
 				if (!targetHasToolCalls) {
 					// Only reject when the immediate preceding non-deleted fragment is a
@@ -370,10 +356,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 						int v = storage.resolveVariantIndex(h, variants != null ? variants.get(seq) : null);
 						if (v < 0) { v = h.activeVariantIndex; }
 						if (v < 0) { v = 0; }
-						byte[] p = storage.readPayload(convDir, seq, v);
-						if (p == null || p.length == 0) { break; }
-						JsonObject m = JsonUtil.tryParseObject(new String(p, StandardCharsets.UTF_8));
-						if (m != null && "tool".equals(JsonUtil.getJsonString(m, "role", ""))) {
+						String role = fragmentTopLevelRole(convDir, seq, v);
+						if (role == null) { break; }
+						if ("tool".equals(role)) {
 							LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该回复依赖工具调用上下文，无法重新生成"));
 							return;
 						}
@@ -464,22 +449,35 @@ import io.netty.handler.codec.http.LastHttpContent;
 			// For persisted chats, the current message has already been written to fragments
 			// and will be replayed from history. Only ephemeral requests should append the
 			// transient body directly to the model request.
-			byte[] transientBodyBytes = finalIsEphemeral ? finalBodyBytes : null;
-			// Handle streaming body file cleanup
-			if (streamingBodyFile != null && Files.exists(streamingBodyFile)) {
-				if (finalIsEphemeral) {
-					// Ephemeral: read from file for transient body
-					transientBodyBytes = Files.readAllBytes(streamingBodyFile);
+			byte[] transientBodyBytes = null;
+			Path transientBodyFile = null;
+			if (finalIsEphemeral) {
+				if (streamingBodyFile != null && Files.exists(streamingBodyFile)) {
+					// Stream the ephemeral user body straight from the streaming
+					// temp file instead of materializing the whole multi-MB
+					// payload in JVM heap. Cleanup is deferred to the worker's
+					// finally block so the file survives until writeRequestBody
+					// has streamed it.
+					transientBodyFile = streamingBodyFile;
+					streamingBodyFile = null;
+				} else {
+					transientBodyBytes = finalBodyBytes;
 				}
-				cleanupStreamingBodyFile(streamingBodyFile);
-				streamingBodyFile = null;
 			}
+			// Non-ephemeral streaming bodies have already been written as
+			// fragments; clean their temp file up here.
+			cleanupStreamingBodyFile(streamingBodyFile);
+			streamingBodyFile = null;
 			final byte[] finalTransientBodyBytes = transientBodyBytes;
+			final Path finalTransientBodyFile = transientBodyFile;
 			final boolean finalRequestStream = requestStream;
 
 			// If the client left while we were preparing the request, do not start the worker.
 			if (!ctx.channel().isActive()) {
 				logger.info("[EasyChat] channel在提交任务前已关闭，取消生成");
+				// Worker won't fire, so clean up the handed-off ephemeral body
+				// file ourselves (otherwise it would leak on disk).
+				cleanupStreamingBodyFile(transientBodyFile);
 				return;
 			}
 
@@ -516,14 +514,15 @@ import io.netty.handler.codec.http.LastHttpContent;
 					if (finalIsRemoteNode) {
 						handleRemoteNodeRequest(ctx, conversationId, finalNodeId, finalModelId,
 							finalSystemPrompt, finalConvDir, finalToolsBytes, finalSamplingParams,
-							finalVariants, finalRegenerateSeq, finalContinueSeq, finalTransientBodyBytes, finalIsEphemeral, finalRequestStream, accumulator);
+							finalVariants, finalRegenerateSeq, finalContinueSeq, finalTransientBodyBytes,
+							finalTransientBodyFile, finalIsEphemeral, finalRequestStream, accumulator);
 					} else {
 						connection = openTrackedConnection(ctx, finalModelId, finalModelPort);
 
                        // Stream request body to llama.cpp
                         writeRequestBody(connection, conversationId, finalModelId, finalSystemPrompt, finalConvDir,
 							finalToolsBytes, finalSamplingParams, finalVariants, finalRegenerateSeq, finalContinueSeq,
-							finalTransientBodyBytes, finalIsEphemeral, finalRequestStream);
+							finalTransientBodyBytes, finalTransientBodyFile, finalIsEphemeral, finalRequestStream);
 
 						int responseCode = connection.getResponseCode();
 
@@ -641,6 +640,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 			} finally {
 				if (trackerRequestId != null) {
 					ModelRequestTracker.getInstance().removeRequest(trackerRequestId);
+				}
+				// Ephemeral streaming body file was handed off to the writer; clean
+				// it up now that the request body has fully streamed (or failed).
+				if (finalTransientBodyFile != null) {
+					cleanupStreamingBodyFile(finalTransientBodyFile);
 				}
 				cleanupConnection(ctx);
 				finalGlobalLease.close();
@@ -1258,7 +1262,8 @@ import io.netty.handler.codec.http.LastHttpContent;
      */
     private void writeRequestBody(HttpURLConnection conn, String conversationId, String modelId, String systemPrompt, Path convDir,
             byte[] toolsBytes, JsonObject samplingParams, Map<Long, Integer> variants, Long regenerateSeq,
-            Long continueSeq, byte[] transientUserMessage, boolean skipHistory, boolean stream)
+            Long continueSeq, byte[] transientUserMessageBytes, Path transientUserMessageFile,
+            boolean skipHistory, boolean stream)
             throws IOException {
         OutputStream logStream = createRequestLogStream(conversationId, modelId);
         OutputStream primary = conn.getOutputStream();
@@ -1266,7 +1271,8 @@ import io.netty.handler.codec.http.LastHttpContent;
         try {
             requestWriter.writeRequestBody(os,
                 new EasyChatRequestWriter.RequestSpec(modelId, systemPrompt, convDir, toolsBytes,
-                    samplingParams, false, variants, regenerateSeq, continueSeq, transientUserMessage, skipHistory, stream));
+                    samplingParams, false, variants, regenerateSeq, continueSeq, transientUserMessageBytes,
+                    transientUserMessageFile, skipHistory, stream));
         } finally {
             if (logStream != null) {
                 logStream.close();
@@ -1606,36 +1612,131 @@ import io.netty.handler.codec.http.LastHttpContent;
 		if (convDir == null || seq < 0) {
 			return;
 		}
-		try {
-			byte[] payload = storage.readPayload(convDir, seq, variantIndex);
-			if (payload == null || payload.length == 0) {
+		// Stream the fragment via JsonReader so we never materialize the full
+		// payload byte[] nor build a JsonObject tree just to pull out two
+		// string fields. Only the (possibly large) assistant content/reasoning
+		// string is buffered into the accumulator, which we need anyway.
+		try (InputStream in = storage.openVariantInputStream(convDir, seq, variantIndex)) {
+			if (in == null) {
 				return;
 			}
-			JsonObject json = JsonUtil.tryParseObject(new String(payload, StandardCharsets.UTF_8));
-			if (json == null) {
-				return;
-			}
-			if (json.has("content") && !json.get("content").isJsonNull()) {
-				String content = json.get("content").getAsString();
-				if (content != null && !content.isEmpty()) {
-					if (appendContent) {
-						accumulator.content.append(content);
-					}
-					accumulator.seedContentLength += content.length();
+			try (JsonReader reader = new JsonReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+				reader.setLenient(true);
+				if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+					return;
 				}
-			}
-			if (json.has("reasoning_content") && !json.get("reasoning_content").isJsonNull()) {
-				String reasoning = json.get("reasoning_content").getAsString();
-				if (reasoning != null && !reasoning.isEmpty()) {
-					if (appendContent) {
-						accumulator.reasoningContent.append(reasoning);
+				reader.beginObject();
+				while (reader.hasNext()) {
+					String name = reader.nextName();
+					JsonToken tok = reader.peek();
+					if (tok == JsonToken.NULL) {
+						reader.nextNull();
+						continue;
 					}
-					accumulator.seedReasoningContentLength += reasoning.length();
+					if ("content".equals(name) && tok == JsonToken.STRING) {
+						String content = reader.nextString();
+						if (content != null && !content.isEmpty()) {
+							if (appendContent) {
+								accumulator.content.append(content);
+							}
+							accumulator.seedContentLength += content.length();
+						}
+					} else if ("reasoning_content".equals(name) && tok == JsonToken.STRING) {
+						String reasoning = reader.nextString();
+						if (reasoning != null && !reasoning.isEmpty()) {
+							if (appendContent) {
+								accumulator.reasoningContent.append(reasoning);
+							}
+							accumulator.seedReasoningContentLength += reasoning.length();
+						}
+					} else {
+						// skipValue uses skipQuotedValue (char-by-char scan, no buffer)
+						// so even multi-MB content/tool_calls variants won't OOM.
+						reader.skipValue();
+					}
 				}
 			}
 		} catch (Exception e) {
 			logger.warn("[EasyChat] 读取继续生成原始内容失败 seq={} variant={}", seq, variantIndex, e);
 		}
+	}
+
+	/**
+	 * Cheap streaming probe: returns true if the variant fragment is a JSON
+	 * object whose top-level {@code "tool_calls"} is a non-empty JSON array.
+	 * Scans with {@link JsonReader}, skipping irrelevant fields without
+	 * materializing them; safe for multi-MB attachments.
+	 */
+	private boolean fragmentHasNonEmptyToolCalls(Path convDir, long seq, int variantIndex) {
+		if (convDir == null || seq < 0) {
+			return false;
+		}
+		try (InputStream in = storage.openVariantInputStream(convDir, seq, variantIndex)) {
+			if (in == null) {
+				return false;
+			}
+			try (JsonReader reader = new JsonReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+				reader.setLenient(true);
+				if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+					return false;
+				}
+				reader.beginObject();
+				while (reader.hasNext()) {
+					String name = reader.nextName();
+					if ("tool_calls".equals(name)) {
+						JsonToken tok = reader.peek();
+						if (tok == JsonToken.NULL) {
+							reader.nextNull();
+							continue;
+						}
+						if (tok != JsonToken.BEGIN_ARRAY) {
+							reader.skipValue();
+							continue;
+						}
+						reader.beginArray();
+						return reader.peek() != JsonToken.END_ARRAY;
+					}
+					reader.skipValue();
+				}
+			}
+		} catch (Exception e) {
+			logger.warn("[EasyChat] tool_calls预检失败 seq={}", seq, e);
+		}
+		return false;
+	}
+
+	/**
+	 * Cheap streaming probe: returns the top-level {@code "role"} string of a
+	 * fragment's JSON object (or {@code null} if absent / invalid). Avoids
+	 * loading the entire payload into memory — useful for sequential history
+	 * scans governed by role parity.
+	 */
+	private String fragmentTopLevelRole(Path convDir, long seq, int variantIndex) {
+		if (convDir == null || seq < 0) {
+			return null;
+		}
+		try (InputStream in = storage.openVariantInputStream(convDir, seq, variantIndex)) {
+			if (in == null) {
+				return null;
+			}
+			try (JsonReader reader = new JsonReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+				reader.setLenient(true);
+				if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+					return null;
+				}
+				reader.beginObject();
+				while (reader.hasNext()) {
+					String name = reader.nextName();
+					if ("role".equals(name) && reader.peek() == JsonToken.STRING) {
+						return reader.nextString();
+					}
+					reader.skipValue();
+				}
+			}
+		} catch (Exception e) {
+			logger.warn("[EasyChat] role预检失败 seq={}", seq, e);
+		}
+		return null;
 	}
 
 	private JsonObject buildAiMessage(StreamAccumulator acc) {
@@ -1951,10 +2052,10 @@ import io.netty.handler.codec.http.LastHttpContent;
 	private void handleRemoteNodeRequest(ChannelHandlerContext ctx, String conversationId, String nodeId,
 		String modelId, String systemPrompt, Path convDir, byte[] toolsBytes,
 		JsonObject samplingParams, Map<Long, Integer> variants, Long regenerateSeq, Long continueSeq,
-		byte[] transientUserMessage, boolean skipHistory, boolean stream,
+		byte[] transientUserMessageBytes, Path transientUserMessageFile, boolean skipHistory, boolean stream,
 		StreamAccumulator accumulator) throws Exception {
 
-		logger.info("[EasyChat][Remote] 转发到远程节点: nodeId={}, model={}, conversation={}", nodeId, modelId, conversationId);
+		logger.info("[EasyChat][Remote] 转发到远程节点 nodeId={}, model={}, conversation={}", nodeId, modelId, conversationId);
 
       // Forward to remote node
         NodeManager nodeManager = NodeManager.getInstance();
@@ -1966,7 +2067,8 @@ import io.netty.handler.codec.http.LastHttpContent;
                 try {
                     requestWriter.writeRequestBody(os,
                         new EasyChatRequestWriter.RequestSpec(modelId, systemPrompt, convDir, toolsBytes,
-                            samplingParams, false, variants, regenerateSeq, continueSeq, transientUserMessage, skipHistory, stream));
+                            samplingParams, false, variants, regenerateSeq, continueSeq, transientUserMessageBytes,
+                            transientUserMessageFile, skipHistory, stream));
                 } finally {
                     if (remoteLogStream != null) {
                         try {
