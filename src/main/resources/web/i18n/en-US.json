@@ -1975,5 +1975,14 @@
   "page.chat.main.toast.import_invalid_version": "Unsupported file version, import failed",
   "page.chat.main.toast.import_no_data": "No valid assistant data in file",
   "page.chat.main.toast.import_name_conflict": "The following assistant names already exist, import failed: {names}",
-  "page.chat.main.toast.import_failed": "Import failed: {error}"
+  "page.chat.main.toast.import_failed": "Import failed: {error}",
+  "page.model.action.create_clone": "Create Clone",
+  "page.model.action.delete_clone": "Delete Clone",
+  "modal.model_action.clone.prompt_id": "Enter clone ID",
+  "page.model.clone.no_config": "Source model has no launch config",
+  "page.model.clone.success": "Clone created",
+  "page.model.clone.failed": "Failed to create clone",
+  "page.model.clone.delete_confirm": "Delete this clone config?",
+  "page.model.clone.delete_success": "Clone deleted",
+  "page.model.clone.delete_failed": "Failed to delete clone"
 }

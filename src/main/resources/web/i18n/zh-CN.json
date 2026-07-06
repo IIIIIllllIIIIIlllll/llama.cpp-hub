@@ -1975,5 +1975,14 @@
   "page.chat.main.toast.import_invalid_version": "不支持的文件版本，导入失败",
   "page.chat.main.toast.import_no_data": "文件中没有有效的助手数据",
   "page.chat.main.toast.import_name_conflict": "以下助手名称已存在，导入失败：{names}",
-  "page.chat.main.toast.import_failed": "导入失败：{error}"
+  "page.chat.main.toast.import_failed": "导入失败：{error}",
+  "page.model.action.create_clone": "创建克隆体",
+  "page.model.action.delete_clone": "删除克隆体",
+  "modal.model_action.clone.prompt_id": "请输入克隆体 ID",
+  "page.model.clone.no_config": "源模型没有可用启动配置",
+  "page.model.clone.success": "克隆体创建成功",
+  "page.model.clone.failed": "克隆体创建失败",
+  "page.model.clone.delete_confirm": "确定删除克隆体配置吗？",
+  "page.model.clone.delete_success": "克隆体已删除",
+  "page.model.clone.delete_failed": "删除克隆体失败"
 }
