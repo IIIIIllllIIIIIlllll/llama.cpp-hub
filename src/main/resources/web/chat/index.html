@@ -5040,6 +5040,15 @@
             util + ' %'
           ));
         }
+        if (sensors.power_watts != null) {
+          const powerText = sensors.power_limit_watts != null
+            ? sensors.power_watts + ' / ' + sensors.power_limit_watts + ' W'
+            : sensors.power_watts + ' W';
+          card.appendChild(buildHwRow(
+            window.I18N.t('page.sysinfo.row.power', 'Power'),
+            powerText
+          ));
+        }
         if (sensors.core_clock_mhz != null && sensors.core_clock_mhz > 0) {
           card.appendChild(buildHwRow(
             window.I18N.t('page.chat.main.hardware.row_core_clock', '核心频率'),
@@ -5114,9 +5123,9 @@
       const jvm = top.jvm || null;
 
       els.hwStatContent.innerHTML = '';
-      els.hwStatContent.appendChild(renderMemorySection(mem));
       const cpuSection = renderCpuSection(cpu);
       if (cpuSection) els.hwStatContent.appendChild(cpuSection);
+      els.hwStatContent.appendChild(renderMemorySection(mem));
       els.hwStatContent.appendChild(renderGpuSection(devices));
       const jvmSection = renderJvmSection(jvm);
       if (jvmSection) els.hwStatContent.appendChild(jvmSection);
