@@ -20,7 +20,24 @@ import java.util.Map;
 
 public class NodeController implements BaseController {
 
-    private static final Logger logger = LoggerFactory.getLogger(NodeController.class);
+	private static final Logger logger = LoggerFactory.getLogger(NodeController.class);
+
+	private static final String I18N_NODE_LIST_FAILED = "api.error.node.list.failed";
+	private static final String I18N_NODE_MASTER_ONLY = "api.error.node.master.only";
+	private static final String I18N_NODE_BODY_REQUIRED = "api.error.node.body.required";
+	private static final String I18N_NODE_ID_EMPTY = "api.error.node.id.empty";
+	private static final String I18N_NODE_ID_EXISTS = "api.error.node.id.exists";
+	private static final String I18N_NODE_BASEURL_EMPTY = "api.error.node.baseurl.empty";
+	private static final String I18N_NODE_BASEURL_INVALID = "api.error.node.baseurl.invalid";
+	private static final String I18N_NODE_ADD_FAILED = "api.error.node.add.failed";
+	private static final String I18N_NODE_NOTFOUND = "api.error.node.notfound";
+	private static final String I18N_NODE_REMOVE_FAILED = "api.error.node.remove.failed";
+	private static final String I18N_NODE_UPDATE_FAILED = "api.error.node.update.failed";
+	private static final String I18N_NODE_STATUS_FAILED = "api.error.node.status.failed";
+	private static final String I18N_NODE_INFO_FAILED = "api.error.node.info.failed";
+
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
 
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
@@ -56,49 +73,49 @@ public class NodeController implements BaseController {
     }
 
     private void handleNodeListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
         try {
             List<LlamaHubNode> nodes = NodeManager.getInstance().listNodes();
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(nodes));
         } catch (Exception e) {
             logger.error("获取节点列表失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取节点列表失败: " + e.getMessage()));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_LIST_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleNodeAddRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         if (!LlamaServer.isMasterNode()) {
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("当前节点不是 master 模式，无法管理远程节点"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_MASTER_ONLY));
             return;
         }
         try {
             String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
             JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
             if (obj == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
             }
 
             String nodeId = JsonUtil.getJsonString(obj, "nodeId");
             if (nodeId == null || nodeId.isBlank()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("nodeId 不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ID_EMPTY));
                 return;
             }
 
             if (NodeManager.getInstance().getNode(nodeId) != null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("nodeId 已存在: " + nodeId));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ID_EXISTS + ": " + nodeId));
                 return;
             }
 
             String baseUrl = JsonUtil.getJsonString(obj, "baseUrl");
             if (baseUrl == null || baseUrl.isBlank()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("baseUrl 不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BASEURL_EMPTY));
                 return;
             }
 
             if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("baseUrl 必须以 http:// 或 https:// 开头"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BASEURL_INVALID));
                 return;
             }
 
@@ -122,31 +139,31 @@ public class NodeController implements BaseController {
                 NodeManager.getInstance().healthCheck(nodeId);
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.success(node));
             } else {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加节点失败"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ADD_FAILED));
             }
         } catch (Exception e) {
             logger.error("添加节点失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加节点失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ADD_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleNodeRemoveRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         if (!LlamaServer.isMasterNode()) {
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("当前节点不是 master 模式，无法管理远程节点"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_MASTER_ONLY));
             return;
         }
         try {
             String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
             JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
             if (obj == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
             }
 
             String nodeId = JsonUtil.getJsonString(obj, "nodeId");
             if (nodeId == null || nodeId.isBlank()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("nodeId 不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ID_EMPTY));
                 return;
             }
 
@@ -154,36 +171,36 @@ public class NodeController implements BaseController {
             if (removed) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.success());
             } else {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("节点不存在: " + nodeId));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_NOTFOUND + ": " + nodeId));
             }
         } catch (Exception e) {
             logger.error("移除节点失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("移除节点失败: " + e.getMessage()));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_REMOVE_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleNodeUpdateRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         if (!LlamaServer.isMasterNode()) {
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("当前节点不是 master 模式，无法管理远程节点"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_MASTER_ONLY));
             return;
         }
         try {
             String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
             JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
             if (obj == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
             }
 
             String nodeId = JsonUtil.getJsonString(obj, "nodeId");
             if (nodeId == null || nodeId.isBlank()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("nodeId 不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ID_EMPTY));
                 return;
             }
 
             if (NodeManager.getInstance().getNode(nodeId) == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("节点不存在: " + nodeId));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_NOTFOUND + ": " + nodeId));
                 return;
             }
 
@@ -198,36 +215,36 @@ public class NodeController implements BaseController {
             if (updated) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.success(NodeManager.getInstance().getNode(nodeId)));
             } else {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("更新节点失败"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_UPDATE_FAILED));
             }
         } catch (Exception e) {
             logger.error("更新节点失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("更新节点失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_UPDATE_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleNodeTestRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         if (!LlamaServer.isMasterNode()) {
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("当前节点不是 master 模式，无法管理远程节点"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_MASTER_ONLY));
             return;
         }
         try {
             String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
             JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
             if (obj == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
             }
 
             String nodeId = JsonUtil.getJsonString(obj, "nodeId");
             if (nodeId == null || nodeId.isBlank()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("nodeId 不能为空"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_ID_EMPTY));
                 return;
             }
 
             if (NodeManager.getInstance().getNode(nodeId) == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("节点不存在: " + nodeId));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_NOTFOUND + ": " + nodeId));
                 return;
             }
 
@@ -257,7 +274,7 @@ public class NodeController implements BaseController {
     }
 
     private void handleNodeStatusRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
         try {
             Map<String, Object> statusMap = new HashMap<>();
             for (LlamaHubNode node : NodeManager.getInstance().listNodes()) {
@@ -272,12 +289,12 @@ public class NodeController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(statusMap));
         } catch (Exception e) {
             logger.error("获取节点状态失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取节点状态失败: " + e.getMessage()));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_STATUS_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleNodeInfoRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
         try {
             Map<String, Object> result = new HashMap<>();
             Map<String, Object> selfNode = new HashMap<>();
@@ -300,7 +317,7 @@ public class NodeController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
         } catch (Exception e) {
             logger.error("获取节点信息失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取节点信息失败: " + e.getMessage()));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_INFO_FAILED + ": " + e.getMessage()));
         }
     }
 }

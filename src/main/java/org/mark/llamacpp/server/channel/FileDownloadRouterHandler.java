@@ -47,6 +47,46 @@ import io.netty.util.ReferenceCountUtil;
  */
 public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     
+    private static final String I18N_PATH_INVALID = "api.error.path.invalid";
+    private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+    private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+    private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+    private static final String I18N_BODY_PARSE = "api.error.body.parse";
+    private static final String I18N_PARAM_PATH_EMPTY = "api.error.param.path.empty";
+    private static final String I18N_PARAM_MODEL_ID_MISSING = "api.error.param.modelId.missing";
+    private static final String I18N_FILE_NOT_FOUND = "api.error.file.notfound";
+    private static final String I18N_FILE_NAME_INVALID = "api.error.file.name.invalid";
+    private static final String I18N_DOWNLOAD_PARAM_AUTHOR_EMPTY = "api.error.download.param.author.empty";
+    private static final String I18N_DOWNLOAD_PARAM_URL_EMPTY = "api.error.download.param.url.empty";
+    private static final String I18N_DOWNLOAD_PARAM_AUTHOR_INVALID = "api.error.download.param.author.invalid";
+    private static final String I18N_DOWNLOAD_PARAM_MODEL_ID_INVALID = "api.error.download.param.modelId.invalid";
+    private static final String I18N_DOWNLOAD_PARAM_PATH_INVALID = "api.error.download.param.path.invalid";
+    private static final String I18N_DOWNLOAD_PATH_EXISTS_NOT_DIR = "api.error.download.path.exists.not.dir";
+    private static final String I18N_DOWNLOAD_DIR_NOT_EMPTY = "api.error.download.dir.not.empty";
+    private static final String I18N_DOWNLOAD_DIR_CHECK_FAILED = "api.error.download.dir.check.failed";
+    private static final String I18N_DOWNLOAD_PARAM_URL_CONTAINS_EMPTY = "api.error.download.param.url.contains.empty";
+    private static final String I18N_DOWNLOAD_MODEL_CREATE_FAILED = "api.error.download.model.create.failed";
+    private static final String I18N_DOWNLOAD_LIST_FAILED = "api.error.download.list.failed";
+    private static final String I18N_DOWNLOAD_CREATE_FAILED = "api.error.download.create.failed";
+    private static final String I18N_DOWNLOAD_PARAM_TASKID_EMPTY = "api.error.download.param.taskId.empty";
+    private static final String I18N_DOWNLOAD_PAUSE_FAILED = "api.error.download.pause.failed";
+    private static final String I18N_DOWNLOAD_RESUME_FAILED = "api.error.download.resume.failed";
+    private static final String I18N_DOWNLOAD_DELETE_FAILED = "api.error.download.delete.failed";
+    private static final String I18N_DOWNLOAD_TASK_NOTFOUND = "api.error.download.task.notfound";
+    private static final String I18N_DOWNLOAD_STATS_FAILED = "api.error.download.stats.failed";
+    private static final String I18N_DOWNLOAD_FILENAME_INFER_FAILED = "api.error.download.filename.infer.failed";
+    private static final String I18N_DOWNLOAD_FOLDERNAME_INVALID = "api.error.download.foldername.invalid";
+    private static final String I18N_DOWNLOAD_FILE_EXISTS = "api.error.download.file.exists";
+    private static final String I18N_DOWNLOAD_CREATE_SUCCESS = "api.error.download.create.success";
+    private static final String I18N_DOWNLOAD_TASK_PAUSED = "api.error.download.task.paused";
+    private static final String I18N_DOWNLOAD_TASK_RESUMED = "api.error.download.task.resumed";
+    private static final String I18N_DOWNLOAD_TASK_DELETED = "api.error.download.task.deleted";
+    private static final String I18N_DOWNLOAD_VERSION_IN_QUEUE = "api.error.download.version.in.queue";
+    private static final String I18N_DOWNLOAD_VERSION_COMPLETED = "api.error.download.version.completed";
+    private static final String I18N_DOWNLOAD_PATH_DECODE_FAILED = "api.error.download.path.decode.failed";
+    private static final String I18N_DOWNLOAD_FILE_READ_FAILED = "api.error.download.file.read.failed";
+    private static final String I18N_DOWNLOAD_STREAM_FAILED = "api.error.download.stream.failed";
+
     private static final ConcurrentHashMap<String, ReentrantLock> downloadLocks = new ConcurrentHashMap<>();
 
 	private static final ExecutorService async = Executors.newVirtualThreadPerTaskExecutor();
@@ -80,7 +120,7 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 		// 解析路径
 		String[] pathParts = uri.split("/");
 		if (pathParts.length < 2) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "无效的API路径");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PATH_INVALID);
 			return;
 		}
 		// 列出全部的下载任务
@@ -135,18 +175,18 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 	 */
 	private void handleModelDownload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "只支持POST请求");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_METHOD_POST_ONLY);
 			return;
 		}
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 				return;
 			}
 			ModelDownloadRequest req = JsonUtil.fromJson(content, ModelDownloadRequest.class);
 			if (req == null) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 				return;
 			}
 			String author = trimToNull(req.getAuthor());
@@ -154,36 +194,36 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			String[] downloadUrl = req.getDownloadUrl();
 			String ggufPath = trimToNull(req.getPath());
 			if (author == null) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "author不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_AUTHOR_EMPTY);
 				return;
 			}
 			if (modelId == null) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "modelId不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_MODEL_ID_MISSING);
 				return;
 			}
 			if (downloadUrl == null || downloadUrl.length == 0) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "downloadUrl不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_URL_EMPTY);
 				return;
 			}
 			String safeAuthor = sanitizePathSegment(author);
 			String safeModelId = sanitizePathSegment(modelId);
 			if (safeAuthor.isBlank()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "author不合法");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_AUTHOR_INVALID);
 				return;
 			}
 			if (safeModelId.isBlank()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "modelId不合法");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_MODEL_ID_INVALID);
 				return;
 			}
 
 			Path baseDir = Paths.get(LlamaServer.getDefaultModelsPath()).toAbsolutePath().normalize();
 			Path modelRootDir = baseDir.resolve(safeAuthor).resolve(safeModelId).toAbsolutePath().normalize();
 			if (!modelRootDir.startsWith(baseDir)) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "保存路径不合法");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_PATH_INVALID);
 				return;
 			}
 			if (Files.exists(modelRootDir) && !Files.isDirectory(modelRootDir)) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标路径已存在且不是目录");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, I18N_DOWNLOAD_PATH_EXISTS_NOT_DIR);
 				return;
 			}
 			if (!Files.exists(modelRootDir)) {
@@ -199,7 +239,7 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			}
 			folderName = sanitizePathSegment(folderName);
 			if (folderName.isBlank()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "path不合法");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_PATH_INVALID);
 				return;
 			}
 
@@ -209,21 +249,21 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 				targetDir = modelRootDir;
 			}
 			if (!targetDir.startsWith(modelRootDir)) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "保存路径不合法");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_PATH_INVALID);
 				return;
 			}
 			if (Files.exists(targetDir) && !Files.isDirectory(targetDir)) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在且不是目录");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, I18N_DOWNLOAD_PATH_EXISTS_NOT_DIR);
 				return;
 			}
 			if (Files.exists(targetDir)) {
 				try (Stream<Path> entries = Files.list(targetDir)) {
 					if (entries.findAny().isPresent()) {
-						LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, "目标目录已存在且非空");
+						LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.CONFLICT, I18N_DOWNLOAD_DIR_NOT_EMPTY);
 						return;
 					}
 				} catch (IOException e) {
-					LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "无法检查目标目录状态: " + e.getMessage());
+					LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_DIR_CHECK_FAILED + ": " + e.getMessage());
 					return;
 				}
 			} else {
@@ -238,7 +278,7 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 					allSuccess = false;
 					Map<String, Object> r = new HashMap<>();
 					r.put("success", false);
-					r.put("error", "downloadUrl包含空值");
+					r.put("error", I18N_DOWNLOAD_PARAM_URL_CONTAINS_EMPTY);
 					taskResults.add(r);
 					continue;
 				}
@@ -257,7 +297,7 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 		} catch (Exception e) {
 			e.printStackTrace();
 			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
-					"创建模型下载任务失败: " + e.getMessage());
+					I18N_DOWNLOAD_MODEL_CREATE_FAILED + ": " + e.getMessage());
 		}
 	}
 
@@ -342,7 +382,7 @@ return v.isEmpty() ? null : v;
 			result.put("downloads", downloads);
 			LlamaServer.sendJsonResponse(ctx, result);
 		} catch (Exception e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取下载列表失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_LIST_FAILED + ": " + e.getMessage());
 		}
 	}
     
@@ -377,7 +417,7 @@ return v.isEmpty() ? null : v;
 			String path = (String) requestData.get("path");
 
 			if (url == null || url.trim().isEmpty()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "URL不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_URL_EMPTY);
 				return;
 			}
 
@@ -392,7 +432,7 @@ return v.isEmpty() ? null : v;
 			LlamaServer.sendJsonResponse(ctx, result);
 		} catch (Exception e) {
 			e.printStackTrace();
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "创建下载任务失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_CREATE_FAILED + ": " + e.getMessage());
 		}
 	}
     
@@ -422,7 +462,7 @@ return v.isEmpty() ? null : v;
 			String taskId = (String) requestData.get("taskId");
 
 			if (taskId == null || taskId.trim().isEmpty()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "任务ID不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_TASKID_EMPTY);
 				return;
 			}
 
@@ -430,10 +470,10 @@ return v.isEmpty() ? null : v;
 			Map<String, Object> result = new HashMap<>();
 			result.put("success", true);
 			result.put("taskId", taskId);
-			result.put("message", "下载任务已暂停");
+			result.put("message", I18N_DOWNLOAD_TASK_PAUSED);
 			LlamaServer.sendJsonResponse(ctx, result);
 		} catch (Exception e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "暂停下载任务失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_PAUSE_FAILED + ": " + e.getMessage());
 		}
 	}
     
@@ -463,7 +503,7 @@ return v.isEmpty() ? null : v;
 			String taskId = (String) requestData.get("taskId");
 
 			if (taskId == null || taskId.trim().isEmpty()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "任务ID不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_TASKID_EMPTY);
 				return;
 			}
 
@@ -471,10 +511,10 @@ return v.isEmpty() ? null : v;
 			Map<String, Object> result = new HashMap<>();
 			result.put("success", true);
 			result.put("taskId", task.getTaskId());
-			result.put("message", "下载任务已恢复");
+			result.put("message", I18N_DOWNLOAD_TASK_RESUMED);
 			LlamaServer.sendJsonResponse(ctx, result);
 		} catch (Exception e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "恢复下载任务失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_RESUME_FAILED + ": " + e.getMessage());
 		}
 	}
     
@@ -504,7 +544,7 @@ return v.isEmpty() ? null : v;
 			String taskId = (String) requestData.get("taskId");
 
 			if (taskId == null || taskId.trim().isEmpty()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "任务ID不能为空");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PARAM_TASKID_EMPTY);
 				return;
 			}
 
@@ -515,13 +555,13 @@ return v.isEmpty() ? null : v;
 			result.put("success", deleted);
 			result.put("taskId", taskId);
 			if (deleted) {
-				result.put("message", "下载任务已删除");
+				result.put("message", I18N_DOWNLOAD_TASK_DELETED);
 			} else {
-				result.put("error", "无法删除任务，任务可能不存在");
+				result.put("error", I18N_DOWNLOAD_TASK_NOTFOUND);
 			}
 			LlamaServer.sendJsonResponse(ctx, result);
 		} catch (Exception e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "删除下载任务失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_DELETE_FAILED + ": " + e.getMessage());
 		}
 	}
     
@@ -569,7 +609,7 @@ return v.isEmpty() ? null : v;
 			result.put("stats", stats);
 			LlamaServer.sendJsonResponse(ctx, result);
 		} catch (Exception e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取下载统计信息失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_STATS_FAILED + ": " + e.getMessage());
 		}
 	}
 
@@ -592,11 +632,11 @@ return v.isEmpty() ? null : v;
 				selectedName = inferFileName(url);
 			}
 			if (selectedName == null || selectedName.isBlank()) {
-				throw new IllegalArgumentException("无法推断文件名");
+				throw new IllegalArgumentException(I18N_DOWNLOAD_FILENAME_INFER_FAILED);
 			}
 			selectedName = selectedName.replaceAll("[<>:\"/\\\\|?*]", "_").trim();
 			if (selectedName.isEmpty()) {
-				throw new IllegalArgumentException("文件名不合法");
+				throw new IllegalArgumentException(I18N_FILE_NAME_INVALID);
 			}
 
 			// Determine target folder
@@ -612,7 +652,7 @@ return v.isEmpty() ? null : v;
 				targetFolder = targetFolder.replaceAll("[<>:\"/\\\\|?*]", "_").trim();
 			}
 			if (targetFolder.isEmpty()) {
-				throw new IllegalArgumentException("文件夹名不合法");
+				throw new IllegalArgumentException(I18N_DOWNLOAD_FOLDERNAME_INVALID);
 			}
 
 			Path base = Paths.get(path);
@@ -626,21 +666,21 @@ return v.isEmpty() ? null : v;
 			try {
 				if (Files.exists(targetFile)) {
 					result.put("success", false);
-					result.put("error", "文件已存在: " + selectedName);
+					result.put("error", I18N_DOWNLOAD_FILE_EXISTS + ": " + selectedName);
 					return result;
 				}
 				DownloadTaskInfo created = DownloadTaskManager.getInstance().createTask(url, targetFile, 8);
 				DownloadTaskManager.getInstance().startTask(created.getTaskId());
 				result.put("success", true);
 				result.put("taskId", created.getTaskId());
-				result.put("message", "下载任务创建成功");
+				result.put("message", I18N_DOWNLOAD_CREATE_SUCCESS);
 			} finally {
 				lock.unlock();
 				downloadLocks.remove(lockKey, lock);
 			}
 		} catch (Exception e) {
 			result.put("success", false);
-			result.put("error", "创建下载任务失败: " + e.getMessage());
+			result.put("error", I18N_DOWNLOAD_CREATE_FAILED + ": " + e.getMessage());
 		}
 		return result;
 	}
@@ -653,11 +693,11 @@ return v.isEmpty() ? null : v;
 				selectedName = inferFileName(url);
 			}
 			if (selectedName == null || selectedName.isBlank()) {
-				throw new IllegalArgumentException("无法推断文件名");
+				throw new IllegalArgumentException(I18N_DOWNLOAD_FILENAME_INFER_FAILED);
 			}
 			selectedName = selectedName.replaceAll("[<>:\"/\\\\|?*]", "_").trim();
 			if (selectedName.isEmpty()) {
-				throw new IllegalArgumentException("文件名不合法");
+				throw new IllegalArgumentException(I18N_FILE_NAME_INVALID);
 			}
 
 			Path targetDir = Paths.get(path).toAbsolutePath().normalize();
@@ -665,7 +705,7 @@ return v.isEmpty() ? null : v;
 
 			Path targetFile = targetDir.resolve(selectedName).toAbsolutePath().normalize();
 			if (!targetFile.startsWith(targetDir)) {
-				throw new IllegalArgumentException("目标文件路径不合法");
+				throw new IllegalArgumentException(I18N_DOWNLOAD_PARAM_PATH_INVALID);
 			}
 			String lockKey = targetFile.toString();
 			ReentrantLock lock = downloadLocks.computeIfAbsent(lockKey, k -> new ReentrantLock());
@@ -673,21 +713,21 @@ return v.isEmpty() ? null : v;
 			try {
 				if (Files.exists(targetFile)) {
 					result.put("success", false);
-					result.put("error", "文件已存在: " + selectedName);
+					result.put("error", I18N_DOWNLOAD_FILE_EXISTS + ": " + selectedName);
 					return result;
 				}
 				DownloadTaskInfo created = DownloadTaskManager.getInstance().createTask(url, targetFile, 8);
 				DownloadTaskManager.getInstance().startTask(created.getTaskId());
 				result.put("success", true);
 				result.put("taskId", created.getTaskId());
-				result.put("message", "下载任务创建成功");
+				result.put("message", I18N_DOWNLOAD_CREATE_SUCCESS);
 			} finally {
 				lock.unlock();
 				downloadLocks.remove(lockKey, lock);
 			}
 		} catch (Exception e) {
 			result.put("success", false);
-			result.put("error", "创建下载任务失败: " + e.getMessage());
+			result.put("error", I18N_DOWNLOAD_CREATE_FAILED + ": " + e.getMessage());
 		}
 		return result;
 	}
@@ -700,11 +740,11 @@ return v.isEmpty() ? null : v;
 				selectedName = inferFileName(url);
 			}
 			if (selectedName == null || selectedName.isBlank()) {
-				throw new IllegalArgumentException("无法推断文件名");
+				throw new IllegalArgumentException(I18N_DOWNLOAD_FILENAME_INFER_FAILED);
 			}
 			selectedName = selectedName.replaceAll("[<>:\"/\\\\|?*]", "_").trim();
 			if (selectedName.isEmpty()) {
-				throw new IllegalArgumentException("文件名不合法");
+				throw new IllegalArgumentException(I18N_FILE_NAME_INVALID);
 			}
 
 			// Check for existing task with the same URL
@@ -713,13 +753,13 @@ return v.isEmpty() ? null : v;
 					DownloadTaskStatus st = existing.getStatus();
 					if (st == DownloadTaskStatus.RUNNING || st == DownloadTaskStatus.PENDING || st == DownloadTaskStatus.PAUSED) {
 						result.put("success", false);
-						result.put("error", "该版本已在下载队列中");
+						result.put("error", I18N_DOWNLOAD_VERSION_IN_QUEUE);
 						result.put("taskId", existing.getTaskId());
 						return result;
 					}
 					if (st == DownloadTaskStatus.COMPLETED) {
 						result.put("success", false);
-						result.put("error", "该版本已下载完成");
+						result.put("error", I18N_DOWNLOAD_VERSION_COMPLETED);
 						result.put("taskId", existing.getTaskId());
 						return result;
 					}
@@ -748,7 +788,7 @@ return v.isEmpty() ? null : v;
 			try {
 				if (Files.exists(targetFile)) {
 					result.put("success", false);
-					result.put("error", "文件已存在: " + selectedName);
+					result.put("error", I18N_DOWNLOAD_FILE_EXISTS + ": " + selectedName);
 					return result;
 				}
 				DownloadTaskInfo created = DownloadTaskManager.getInstance().createTask(url, targetFile, 8);
@@ -756,14 +796,14 @@ return v.isEmpty() ? null : v;
 				DownloadTaskManager.getInstance().startTask(taskId);
 				result.put("success", true);
 				result.put("taskId", taskId);
-				result.put("message", "下载任务创建成功");
+				result.put("message", I18N_DOWNLOAD_CREATE_SUCCESS);
 			} finally {
 				lock.unlock();
 				downloadLocks.remove(lockKey, lock);
 			}
 		} catch (Exception e) {
 			result.put("success", false);
-			result.put("error", "创建下载任务失败: " + e.getMessage());
+			result.put("error", I18N_DOWNLOAD_CREATE_FAILED + ": " + e.getMessage());
 		}
 		return result;
 	}
@@ -817,13 +857,13 @@ return v.isEmpty() ? null : v;
 
 	private void handleStreamFile(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.GET) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "只支持GET请求");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_METHOD_GET_ONLY);
 			return;
 		}
 
 		String pathParam = extractQueryParam(request.uri(), "path");
 		if (pathParam == null || pathParam.trim().isEmpty()) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "path参数不能为空");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_PATH_EMPTY);
 			return;
 		}
 
@@ -837,7 +877,7 @@ return v.isEmpty() ? null : v;
 				decodedPath = URLDecoder.decode(pathParam, StandardCharsets.UTF_8);
 			}
 		} catch (IllegalArgumentException e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "path解码失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_DOWNLOAD_PATH_DECODE_FAILED + ": " + e.getMessage());
 			return;
 		}
 
@@ -845,7 +885,7 @@ return v.isEmpty() ? null : v;
 			Path filePath = Paths.get(decodedPath).toAbsolutePath().normalize();
 
 			if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + filePath);
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_FILE_NOT_FOUND + ": " + filePath);
 				return;
 			}
 
@@ -874,9 +914,9 @@ return v.isEmpty() ? null : v;
 				ctx.close();
 			});
 		} catch (IOException e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "文件读取失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_FILE_READ_FAILED + ": " + e.getMessage());
 		} catch (Exception e) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "流式传输失败: " + e.getMessage());
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_DOWNLOAD_STREAM_FAILED + ": " + e.getMessage());
 		}
 	}
 

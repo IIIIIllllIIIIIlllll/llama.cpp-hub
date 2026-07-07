@@ -37,6 +37,22 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 
 	private static final Logger logger = LoggerFactory.getLogger(LlamaRouterHandler.class);
 
+	private static final String I18N_INTERNAL = "api.error.internal";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_PARAM_MODEL_ID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_PARAM_MODEL_MISSING = "api.error.param.model.missing";
+	private static final String I18N_PARAM_PARSE_FAILED = "api.error.param.parse.failed";
+	private static final String I18N_MODEL_NOT_LOADED = "api.error.model.not.loaded";
+	private static final String I18N_MODEL_RESPONSE_NOT_JSON = "api.error.model.response.not.json";
+	private static final String I18N_REMOTE_RESPONSE_FORMAT = "api.error.remote.response.format";
+	private static final String I18N_SLOTS_GET_FAILED = "api.error.slots.get.failed";
+	private static final String I18N_CONTROL_FAILED = "api.error.control.failed";
+	private static final String I18N_CONTROL_REMOTE_FAILED = "api.error.control.remote.failed";
+	private static final String I18N_MODEL_HTTP_ERROR = "api.error.model.http.error";
+	private static final String I18N_REMOTE_HTTP_ERROR = "api.error.remote.http.error";
+
 	private static final ExecutorService async = Executors.newVirtualThreadPerTaskExecutor();
 	
 	/**
@@ -147,7 +163,7 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			this.sendJsonResponse(ctx, ApiResponse.error("404 Not Found"));
 		} catch (Exception e) {
 			logger.info("处理API请求时发生错误", e);
-			this.sendJsonResponse(ctx, ApiResponse.error("服务器内部错误"));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_INTERNAL));
 		}
     }
     
@@ -254,14 +270,14 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	 */
 	private void handleSlotsRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.GET) {
-			this.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_GET_ONLY));
 			return;
 		}
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String model = params.get("model");
 			if (model == null || model.trim().isEmpty()) {
-				this.sendJsonResponse(ctx, ApiResponse.error("缺少必需的model参数"));
+				this.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_REQUIRED));
 				return;
 			}
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -271,7 +287,6 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				return;
 			}
 
-			// 本地未加载，搜索远程节点
 			logger.info("[Slots路由] 本地模型未加载，开始搜索远程节点: model={}", model);
 			for (LlamaHubNode node : NodeManager.getInstance().listEnabledNodes()) {
 				String path = "llama.cpp/slots?model=" + model;
@@ -288,10 +303,10 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					}
 				}
 			}
-			this.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + model));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_LOADED + ": " + model));
 		} catch (Exception e) {
 			logger.info("获取slots信息时发生错误", e);
-			this.sendJsonResponse(ctx, ApiResponse.error("获取slots信息失败: " + e.getMessage()));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_SLOTS_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -300,7 +315,7 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	 */
 	private void handleControlRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			this.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_POST_ONLY));
 			return;
 		}
 		String content;
@@ -308,20 +323,20 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		try {
 			content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				this.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				this.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			com.google.gson.JsonObject body = JsonUtil.fromJson(content, com.google.gson.JsonObject.class);
 			modelName = JsonUtil.getJsonString(body, "model");
 			if (modelName == null || modelName.trim().isEmpty()) {
-				this.sendJsonResponse(ctx, ApiResponse.error("缺少参数: model"));
+				this.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_MISSING));
 				return;
 			}
 			modelName = modelName.trim();
 		} catch (Exception e) {
 			logger.info("control解析参数失败", e);
-			this.sendJsonResponse(ctx, ApiResponse.error("解析参数失败: " + e.getMessage()));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PARSE_FAILED + ": " + e.getMessage()));
 			return;
 		}
 
@@ -335,7 +350,6 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			}
 		}
 
-		// 本地未加载，搜索远程节点
 		logger.info("[Control路由] 本地模型未加载，开始搜索远程节点: model={}", modelName);
 		String targetUrl = this.resolveControlRemoteUrl(modelName);
 		if (targetUrl != null) {
@@ -420,7 +434,7 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				if (parsed != null) {
 					this.sendJsonResponse(ctx, parsed);
 				} else {
-					this.sendJsonResponse(ctx, ApiResponse.error("模型返回了非JSON响应"));
+					this.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_RESPONSE_NOT_JSON));
 				}
 				return;
 			}
@@ -429,11 +443,11 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				this.sendJsonResponse(ctx, parsed);
 				return;
 			}
-			String msg = responseBody == null || responseBody.isBlank() ? ("模型错误: HTTP " + responseCode) : responseBody;
+			String msg = responseBody == null || responseBody.isBlank() ? (I18N_MODEL_HTTP_ERROR + ": HTTP " + responseCode) : responseBody;
 			this.sendJsonResponse(ctx, ApiResponse.error(msg));
 		} catch (Exception e) {
 			logger.info("control本地代理失败", e);
-			this.sendJsonResponse(ctx, ApiResponse.error("control失败: " + e.getMessage()));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_CONTROL_FAILED + ": " + e.getMessage()));
 		} finally {
 			if (connection != null) {
 				try {
@@ -491,7 +505,7 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				if (parsed != null) {
 					this.sendJsonResponse(ctx, parsed);
 				} else {
-					this.sendJsonResponse(ctx, ApiResponse.error("远程节点返回了非JSON响应"));
+					this.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_RESPONSE_FORMAT));
 				}
 				return;
 			}
@@ -500,11 +514,11 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				this.sendJsonResponse(ctx, parsed);
 				return;
 			}
-			String msg = responseBody == null || responseBody.isBlank() ? ("远程节点错误: HTTP " + responseCode) : responseBody;
+			String msg = responseBody == null || responseBody.isBlank() ? (I18N_REMOTE_HTTP_ERROR + ": HTTP " + responseCode) : responseBody;
 			this.sendJsonResponse(ctx, ApiResponse.error(msg));
 		} catch (Exception e) {
 			logger.info("control远程代理失败", e);
-			this.sendJsonResponse(ctx, ApiResponse.error("control远程转发失败: " + e.getMessage()));
+			this.sendJsonResponse(ctx, ApiResponse.error(I18N_CONTROL_REMOTE_FAILED + ": " + e.getMessage()));
 		} finally {
 			if (connection != null) {
 				try {

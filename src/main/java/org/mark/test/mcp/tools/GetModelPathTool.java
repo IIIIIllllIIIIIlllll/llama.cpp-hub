@@ -25,6 +25,8 @@ public class GetModelPathTool implements IMCPTool {
 
 	// private static final Logger logger = LoggerFactory.getLogger(GetModelPathTool.class);
 
+	private static final String I18N_MODELPATH_LIST_FAILED = "api.error.modelpath.list.failed";
+
 	@Override
 	public String getMcpName() {
 		return "get_model_paths";
@@ -52,7 +54,7 @@ public class GetModelPathTool implements IMCPTool {
 			return new McpMessage().addText(JsonUtil.toJson(this.buildResponse()));
 		} catch (Exception e) {
 			// logger.info("MCP工具执行失败: name={}, serviceKey={}", this.getMcpName(), serviceKey, e);
-			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error("获取模型路径列表失败: " + e.getMessage())));
+			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error(I18N_MODELPATH_LIST_FAILED + ": " + e.getMessage())));
 		}
 	}
 

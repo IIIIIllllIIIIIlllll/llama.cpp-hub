@@ -50,6 +50,25 @@ public class PerplexityController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(PerplexityController.class);
 
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_GET_DELETE_ONLY = "common.method.get.delete.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_PARAM_LLAMABINPATH_REQUIRED = "api.error.param.llamaBinPath.required";
+	private static final String I18N_PERPLEXITY_RECORDS_LIST_FAILED = "api.error.perplexity.records.list.failed";
+	private static final String I18N_PERPLEXITY_FILENAME_MISSING = "api.error.perplexity.filename.missing";
+	private static final String I18N_PERPLEXITY_FILENAME_INVALID = "api.error.perplexity.filename.invalid";
+	private static final String I18N_PERPLEXITY_FILE_NOTFOUND = "api.error.perplexity.file.notfound";
+	private static final String I18N_PERPLEXITY_RECORD_PARSE_FAILED = "api.error.perplexity.record.parse.failed";
+	private static final String I18N_PERPLEXITY_RECORD_READ_FAILED = "api.error.perplexity.record.read.failed";
+	private static final String I18N_PERPLEXITY_RECORD_DELETE_FAILED = "api.error.perplexity.record.delete.failed";
+	private static final String I18N_PERPLEXITY_REMOTE_RECORD_FAILED = "api.error.perplexity.remote.record.failed";
+	private static final String I18N_UNKNOWN = "api.error.unknown";
+	private static final String I18N_NODE_NOTFOUND = "api.error.node.notfound";
+
 	private final PerplexityService perplexityService = new PerplexityService();
 	private final ConcurrentHashMap<ChannelHandlerContext, Process> activeProcesses = new ConcurrentHashMap<>();
 	private final ConcurrentHashMap<ChannelHandlerContext, StreamResult> activeRemoteCalls = new ConcurrentHashMap<>();
@@ -81,11 +100,11 @@ public class PerplexityController implements BaseController {
 	}
 
 	private void handleRun(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		String content = request.content().toString(CharsetUtil.UTF_8);
 		if (content == null || content.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 			return;
 		}
 
@@ -93,11 +112,11 @@ public class PerplexityController implements BaseController {
 		try {
 			json = JsonUtil.fromJson(content, JsonObject.class);
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE + ": " + e.getMessage()));
 			return;
 		}
 		if (json == null) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 			return;
 		}
 
@@ -105,11 +124,11 @@ public class PerplexityController implements BaseController {
 		String llamaBinPath = JsonUtil.getJsonString(json, "llamaBinPath", "").trim();
 
 		if (modelId.isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 modelId 参数"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 			return;
 		}
 		if (llamaBinPath.isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 llamaBinPath 参数"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LLAMABINPATH_REQUIRED));
 			return;
 		}
 
@@ -146,7 +165,7 @@ public class PerplexityController implements BaseController {
 		if (!result.isSuccess()) {
 			result.abort();
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(
-					"远程节点调用失败 (HTTP " + result.getStatusCode() + ")"));
+					I18N_REMOTE_CALL_FAILED + " (HTTP " + result.getStatusCode() + ")"));
 			return;
 		}
 
@@ -184,7 +203,7 @@ public class PerplexityController implements BaseController {
 
 	@SuppressWarnings("unchecked")
 	private void handleListRecords(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			List<Map<String, Object>> records = new ArrayList<>();
 			// 读取本地记录
@@ -257,7 +276,7 @@ public class PerplexityController implements BaseController {
 			data.put("count", records.size());
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取困惑度测试记录列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_RECORDS_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -350,11 +369,11 @@ public class PerplexityController implements BaseController {
 	private void handleRecordByFilename(ChannelHandlerContext ctx, FullHttpRequest request, String fileName)
 			throws RequestMethodException {
 		if (fileName == null || fileName.isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少文件名"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_FILENAME_MISSING));
 			return;
 		}
 		if (!fileName.matches("[a-zA-Z0-9._\\-]+") || !fileName.startsWith("PPL_") || !fileName.endsWith(".json")) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件名不合法"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_FILENAME_INVALID));
 			return;
 		}
 
@@ -380,7 +399,7 @@ public class PerplexityController implements BaseController {
 			} else if (request.method() == HttpMethod.DELETE) {
 				handleDeleteRecord(ctx, fileName);
 			} else {
-				this.assertRequestMethod(true, "只支持GET或DELETE请求");
+				this.assertRequestMethod(true, I18N_METHOD_GET_DELETE_ONLY);
 			}
 			return;
 		}
@@ -388,7 +407,7 @@ public class PerplexityController implements BaseController {
 		// 远程节点：验证节点存在
 		var node = NodeManager.getInstance().getNode(nodeId);
 		if (node == null) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_NOTFOUND + ": " + nodeId));
 			return;
 		}
 
@@ -398,7 +417,7 @@ public class PerplexityController implements BaseController {
 		} else if (request.method() == HttpMethod.DELETE) {
 			handleForwardRecord(ctx, nodeId, fileName, "DELETE");
 		} else {
-			this.assertRequestMethod(true, "只支持GET或DELETE请求");
+			this.assertRequestMethod(true, I18N_METHOD_GET_DELETE_ONLY);
 		}
 	}
 
@@ -407,18 +426,18 @@ public class PerplexityController implements BaseController {
 			File dir = new File("benchmarks");
 			File target = new File(dir, fileName);
 			if (!target.exists() || !target.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_FILE_NOTFOUND));
 				return;
 			}
 			String content = new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8);
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("记录解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_RECORD_PARSE_FAILED));
 				return;
 			}
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(obj));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取困惑度测试记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_RECORD_READ_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -427,7 +446,7 @@ public class PerplexityController implements BaseController {
 			File dir = new File("benchmarks");
 			File jsonFile = new File(dir, fileName);
 			if (!jsonFile.exists() || !jsonFile.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_FILE_NOTFOUND));
 				return;
 			}
 			Files.delete(jsonFile.toPath());
@@ -444,7 +463,7 @@ public class PerplexityController implements BaseController {
 			data.put("deleted", true);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除困惑度测试记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PERPLEXITY_RECORD_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -457,7 +476,7 @@ public class PerplexityController implements BaseController {
 					(JsonObject) null, Collections.emptyMap(), 10000);
 			if (!sr.isSuccess()) {
 				sr.abort();
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败 (HTTP " + sr.getStatusCode() + ")"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + " (HTTP " + sr.getStatusCode() + ")"));
 				return;
 			}
 			try (InputStream in = sr.getBody()) {
@@ -473,7 +492,7 @@ public class PerplexityController implements BaseController {
 					}
 					LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 				} else {
-					String error = obj != null && obj.has("error") ? obj.get("error").getAsString() : "未知错误";
+					String error = obj != null && obj.has("error") ? obj.get("error").getAsString() : I18N_UNKNOWN;
 					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(error));
 				}
 			} finally {
@@ -481,7 +500,7 @@ public class PerplexityController implements BaseController {
 			}
 		} catch (Exception e) {
 			String action = "GET".equals(method) ? "读取" : "删除";
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(action + "远程困惑度记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(action + I18N_PERPLEXITY_REMOTE_RECORD_FAILED + ": " + e.getMessage()));
 		}
 	}
 

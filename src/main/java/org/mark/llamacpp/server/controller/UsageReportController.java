@@ -24,6 +24,17 @@ public class UsageReportController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(UsageReportController.class);
 
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_REPORT_TOKEN_SUMMARY_FAILED = "api.error.report.token.summary.failed";
+	private static final String I18N_REPORT_DAILY_TOKENS_FAILED = "api.error.report.daily.tokens.failed";
+	private static final String I18N_REPORT_REQUEST_LOGS_FAILED = "api.error.report.request.logs.failed";
+	private static final String I18N_REPORT_AVAILABLE_YEARS_FAILED = "api.error.report.available.years.failed";
+	private static final String I18N_REPORT_DELETE_RECORDS_FAILED = "api.error.report.delete.records.failed";
+
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		if (uri.startsWith("/api/report/token-summary")) {
@@ -54,13 +65,13 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Object data = UsageReportService.getInstance().getTokenSummary();
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取Token用量概览时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取Token用量概览失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REPORT_TOKEN_SUMMARY_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -69,7 +80,7 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			int year = Integer.parseInt(params.getOrDefault("year", String.valueOf(LocalDate.now().getYear())));
@@ -84,7 +95,7 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取每日Token用量时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取每日Token用量失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REPORT_DAILY_TOKENS_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -93,7 +104,7 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			int page = parseInt(params.get("page"), 1);
@@ -103,7 +114,7 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取请求记录时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取请求记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REPORT_REQUEST_LOGS_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -121,13 +132,13 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Object data = UsageReportService.getInstance().getAvailableYears();
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取可用年份时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取可用年份失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REPORT_AVAILABLE_YEARS_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -136,21 +147,21 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId");
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			long deletedCount = LlamaRecordService.getInstance().deleteModelRecords(modelId);
@@ -161,7 +172,7 @@ public class UsageReportController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("删除模型记录时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除模型记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REPORT_DELETE_RECORDS_FAILED + ": " + e.getMessage()));
 		}
 	}
 }

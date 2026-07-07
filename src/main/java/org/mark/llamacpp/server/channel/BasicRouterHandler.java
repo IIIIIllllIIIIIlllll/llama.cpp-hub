@@ -69,6 +69,23 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 
 	private static final Logger logger = LoggerFactory.getLogger(BasicRouterHandler.class);
 
+	private static final String I18N_INTERNAL = "api.error.internal";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_PARAM_MODEL_ID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_FILE_NOT_FOUND = "api.error.file.notfound";
+	private static final String I18N_REQUEST_PARSE_FAILED = "api.error.request.parse.failed";
+	private static final String I18N_DIRECTORY_ACCESS_DENIED = "api.error.directory.access.denied";
+	private static final String I18N_PROPS_GET_FAILED = "api.error.props.get.failed";
+	private static final String I18N_PROPS_REMOTE_FAILED = "api.error.props.remote.failed";
+	private static final String I18N_MODEL_LOAD_FAILED = "api.error.model.load.failed";
+	private static final String I18N_MODEL_REMOTE_LOAD_FAILED = "api.error.model.remote.load.failed";
+	private static final String I18N_MODEL_STOP_FAILED = "api.error.model.stop.failed";
+	private static final String I18N_MODEL_UNLOAD_FAILED = "api.error.model.unload.failed";
+	private static final String I18N_TOOL_LIST_FAILED = "api.error.tool.list.failed";
+
 	private static final ExecutorService async = Executors.newVirtualThreadPerTaskExecutor();
 	
 	private static final List<BaseController> pipeline = new LinkedList<>();
@@ -120,7 +137,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	 */
 	private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (!request.decoderResult().isSuccess()) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求解析失败");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_REQUEST_PARSE_FAILED);
 			return;
 		}
 		String uri = request.uri();
@@ -180,7 +197,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				return;
 			}
 			// 断言一下请求方式
-			this.assertRequestMethod(request.method() != HttpMethod.GET, "仅支持GET请求");
+			this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 			// 解码URI
 			String path = URLDecoder.decode(uri, "UTF-8");
 			if(path.indexOf('?') > 0) {
@@ -198,19 +215,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			URL url = LlamaServer.class.getResource("/web" + path);
 
 			if (url == null) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_FILE_NOT_FOUND + ": " + path);
 				return;
 			}
 			// 对于非API请求，只允许访问静态文件，不允许目录浏览
 			// 首先尝试从resources目录获取文件
 			File file = Paths.get(url.toURI()).toFile();
 			if (!file.exists()) {
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + path);
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_FILE_NOT_FOUND + ": " + path);
 				return;
 			}
 			if (file.isDirectory()) {
-				// 不允许直接访问目录，必须通过API
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.FORBIDDEN, "不允许直接访问目录，请使用API获取文件列表");
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.FORBIDDEN, I18N_DIRECTORY_ACCESS_DENIED);
 			} else {
 				LlamaServer.sendStaticFile(ctx, file, request);
 			}
@@ -218,7 +234,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("处理静态文件请求时发生错误", e);
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_INTERNAL);
 		}
 	}
 
@@ -326,7 +342,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	}
 
 	private void handleProps(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
@@ -339,7 +355,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				this.handleModelProps(ctx, model.trim(), autoload != null && Boolean.parseBoolean(autoload));
 			}
 		} catch (Exception e) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取props失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_PROPS_GET_FAILED + ": " + e.getMessage());
 		}
 	}
 
@@ -473,11 +489,11 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					}
 					responseBody = sb.toString();
 				}
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, "获取远程props失败: " + responseBody);
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, I18N_PROPS_REMOTE_FAILED + ": " + responseBody);
 			}
 			connection.disconnect();
 		} catch (Exception e) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取远程props失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_PROPS_REMOTE_FAILED + ": " + e.getMessage());
 		}
 	}
 
@@ -515,32 +531,32 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					}
 					responseBody = sb.toString();
 				}
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, "获取props失败: " + responseBody);
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, I18N_PROPS_GET_FAILED + ": " + responseBody);
 			}
 			connection.disconnect();
 		} catch (Exception e) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取props失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_PROPS_GET_FAILED + ": " + e.getMessage());
 		}
 	}
 
 	private void handleLoadModel(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 				return;
 			}
 
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 				return;
 			}
 
 			String modelId = JsonUtil.getJsonString(obj, "model");
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的model参数");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_MODEL_ID_REQUIRED);
 				return;
 			}
 			modelId = modelId.trim();
@@ -560,7 +576,6 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				return;
 			}
 
-			// 尝试本地加载
 			if (manager.resolveModelId(modelId) != null) {
 				logger.info("[llama.cpp API] 加载模型: modelId={}", modelId);
 				String err = manager.autoLoadModelFromConfig(modelId, 600000);
@@ -573,7 +588,6 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				logger.warn("[llama.cpp API] 本地加载失败: modelId={}, error={}", modelId, err);
 			}
 
-			// 本地不可加载，搜索远程节点
 			logger.info("[llama.cpp API] 本地无法加载，开始搜索远程节点: modelId={}", modelId);
 			String remoteUrl = this.resolveLoadModelRemoteUrl(modelId);
 			if (remoteUrl != null) {
@@ -584,7 +598,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "Model not found: " + modelId);
 		} catch (Exception e) {
 			logger.info("加载模型时发生错误", e);
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "加载模型失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_LOAD_FAILED + ": " + e.getMessage());
 		}
 	}
 
@@ -670,12 +684,12 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 					responseBody = sb.toString();
 				}
 				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY,
-					"远程加载失败: " + (responseBody != null ? responseBody : "HTTP " + responseCode));
+					I18N_MODEL_REMOTE_LOAD_FAILED + ": " + (responseBody != null ? responseBody : "HTTP " + responseCode));
 			}
 			connection.disconnect();
 		} catch (Exception e) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR,
-				"远程加载失败: " + e.getMessage());
+				I18N_MODEL_REMOTE_LOAD_FAILED + ": " + e.getMessage());
 		} finally {
 			if (connection != null) {
 				try {
@@ -687,23 +701,23 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	}
 
 	private void handleUnloadModel(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 				return;
 			}
 
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 				return;
 			}
 
 			String modelId = JsonUtil.getJsonString(obj, "model");
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的model参数");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_MODEL_ID_REQUIRED);
 				return;
 			}
 			modelId = modelId.trim();
@@ -720,7 +734,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			logger.info("[llama.cpp API] 卸载模型: modelId={}", modelId);
 			boolean success = manager.stopModel(modelId);
 			if (!success) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "模型停止失败或模型未加载");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_STOP_FAILED);
 				return;
 			}
 
@@ -729,12 +743,12 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendJsonResponse(ctx, resp);
 		} catch (Exception e) {
 			logger.info("卸载模型时发生错误", e);
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "卸载模型失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_UNLOAD_FAILED + ": " + e.getMessage());
 		}
 	}
 
 	private void handleTools(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		DefaultMcpServiceImpl mcpService = LlamaServer.getMcpServerService();
 		if (mcpService == null) {
@@ -799,7 +813,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendExpressJsonResponse(ctx, HttpResponseStatus.OK, result, true);
 		} catch (Exception e) {
 			logger.info("获取工具列表失败", e);
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取工具列表失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_TOOL_LIST_FAILED + ": " + e.getMessage());
 		}
 	}
 }

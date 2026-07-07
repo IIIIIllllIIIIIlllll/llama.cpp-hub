@@ -42,6 +42,14 @@ public class CertController implements BaseController {
 
     private static final Logger logger = LoggerFactory.getLogger(CertController.class);
 
+    private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+    private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+    private static final String I18N_CERT_STATUS_FAILED = "api.error.cert.status.failed";
+    private static final String I18N_CERT_FILE_NOTFOUND = "api.error.cert.file.notfound";
+    private static final String I18N_CERT_DOWNLOAD_FAILED = "api.error.cert.download.failed";
+    private static final String I18N_CERT_PASSWORD_MINLENGTH = "api.error.cert.password.minlength";
+    private static final String I18N_CERT_GENERATE_FAILED = "api.error.cert.generate.failed";
+
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
             throws RequestMethodException {
@@ -62,7 +70,7 @@ public class CertController implements BaseController {
 
     private void handleStatus(ChannelHandlerContext ctx, FullHttpRequest request) {
         try {
-            this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+            this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
             String keystorePath = LlamaServer.getHttpsCertPath();
             Path path = Paths.get(keystorePath).toAbsolutePath().normalize();
             boolean exists = Files.exists(path) && Files.isRegularFile(path);
@@ -86,13 +94,13 @@ public class CertController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             logger.error("获取证书状态时发生异常", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取证书状态失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CERT_STATUS_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleDownload(ChannelHandlerContext ctx, FullHttpRequest request) {
         if (request.method() != HttpMethod.GET) {
-            LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "只支持GET请求");
+            LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_METHOD_GET_ONLY);
             return;
         }
         try {
@@ -125,7 +133,7 @@ public class CertController implements BaseController {
             }
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-                LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "证书文件不存在");
+                LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_CERT_FILE_NOTFOUND);
                 return;
             }
 
@@ -150,13 +158,13 @@ public class CertController implements BaseController {
             });
         } catch (Exception e) {
             logger.error("下载证书时发生异常", e);
-            LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "下载证书失败: " + e.getMessage());
+            LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_CERT_DOWNLOAD_FAILED + ": " + e.getMessage());
         }
     }
 
     private void handleGenerate(ChannelHandlerContext ctx, FullHttpRequest request) {
         try {
-            this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+            this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
             JsonObject body = JsonUtil.parseFullHttpRequestToJsonObject(request, ctx);
             if (body == null)
                 return;
@@ -171,7 +179,7 @@ public class CertController implements BaseController {
                 password = generatePassword();
             }
             if (password.length() < 6) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("密码长度至少为 6 个字符"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CERT_PASSWORD_MINLENGTH));
                 return;
             }
             int keysize = JsonUtil.getJsonInt(body, "keysize", 2048);
@@ -335,7 +343,7 @@ public class CertController implements BaseController {
                 Files.deleteIfExists(serverChain);
             } catch (Exception e) {
                 logger.error("证书生成失败", e);
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("证书生成失败: " + e.getMessage()));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CERT_GENERATE_FAILED + ": " + e.getMessage()));
                 return;
             }
 
@@ -357,7 +365,7 @@ public class CertController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             logger.error("证书生成异常", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("证书生成异常: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CERT_GENERATE_FAILED + ": " + e.getMessage()));
         }
     }
 

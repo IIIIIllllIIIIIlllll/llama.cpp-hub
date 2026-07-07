@@ -20,6 +20,10 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.util.CharsetUtil;
 
 public class JsonUtil {
+
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_BODY_PARSE_FAILED = "api.error.body.parse.failed";
 	
 	
 	//private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -105,17 +109,17 @@ public class JsonUtil {
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return null;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return null;
 			}
 			return obj;
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解析请求体失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE_FAILED + ": " + e.getMessage()));
 			return null;
 		}
 	}

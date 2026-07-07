@@ -52,6 +52,32 @@ public class EasyChatController implements BaseController {
 	private static final Logger logger = LoggerFactory.getLogger(EasyChatController.class);
 	private final EasyChatGlobalLock globalLock = EasyChatGlobalLock.getInstance();
 
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_TOO_LARGE = "api.error.body.too.large";
+	private static final String I18N_FILE_CONTENT_EMPTY = "api.error.file.content.empty";
+	private static final String I18N_PARAM_ASSISTANT_ID_MISSING = "api.error.param.assistantId.missing";
+	private static final String I18N_PARAM_CONVERSATION_ID_REQUIRED = "api.error.param.conversationId.required";
+	private static final String I18N_PARAM_SEQ_REQUIRED = "api.error.param.seq.required";
+	private static final String I18N_PARAM_PAYLOAD_REQUIRED = "api.error.param.payload.required";
+	private static final String I18N_PARAM_OPACITY_INVALID = "api.error.param.opacity.invalid";
+	private static final String I18N_EASYCHAT_LOCK_BUSY = "api.error.easychat.lock.busy";
+	private static final String I18N_EASYCHAT_UPDATE_MESSAGE_FAILED = "api.error.easychat.update.message.failed";
+	private static final String I18N_EASYCHAT_NO_UPLOAD_FILE = "api.error.easychat.no.upload.file";
+	private static final String I18N_EASYCHAT_AVATAR_TOO_LARGE = "api.error.easychat.avatar.too.large";
+	private static final String I18N_EASYCHAT_UPLOAD_FAILED = "api.error.easychat.upload.failed";
+	private static final String I18N_EASYCHAT_AVATAR_NOT_FOUND = "api.error.easychat.avatar.notfound";
+	private static final String I18N_EASYCHAT_READ_AVATAR_FAILED = "api.error.easychat.read.avatar.failed";
+	private static final String I18N_EASYCHAT_BACKGROUND_TOO_LARGE = "api.error.easychat.background.too.large";
+	private static final String I18N_EASYCHAT_LIST_BACKGROUND_FAILED = "api.error.easychat.list.background.failed";
+	private static final String I18N_EASYCHAT_SET_FAILED = "api.error.easychat.set.failed";
+	private static final String I18N_EASYCHAT_PATH_INVALID = "api.error.easychat.path.invalid";
+	private static final String I18N_EASYCHAT_CLEAR_FAILED = "api.error.easychat.clear.failed";
+	private static final String I18N_EASYCHAT_BACKGROUND_NOT_FOUND = "api.error.easychat.background.notfound";
+	private static final String I18N_EASYCHAT_DELETE_FAILED = "api.error.easychat.delete.failed";
+	private static final String I18N_EASYCHAT_READ_BACKGROUND_FAILED = "api.error.easychat.read.background.failed";
+
 	private static final String PATH_STREAM_CHAT = "/api/chat/stream-chat";
 	private static final String PATH_MESSAGE_UPDATE = "/api/chat/message/update";
 	private static final String PATH_GENERATE_TITLE = "/api/chat/generate-title";
@@ -150,7 +176,7 @@ public class EasyChatController implements BaseController {
 
 	private void sendGlobalLockBusy(ChannelHandlerContext ctx, String requestedOperation) {
 		EasyChatGlobalLock.LockState current = globalLock.current();
-		String message = "Easy Chat 正在执行其它操作，请稍后再试";
+		String message = I18N_EASYCHAT_LOCK_BUSY;
 		Map<String, Object> data = new HashMap<>();
 		data.put("requestedOperation", requestedOperation);
 		if (current != null) {
@@ -171,7 +197,7 @@ public class EasyChatController implements BaseController {
 
 	private void handleGenerateTitleRequest(ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		EasyChatService.getInstance().handleGenerateTitle(ctx, request);
 	}
 
@@ -182,7 +208,7 @@ public class EasyChatController implements BaseController {
 	}
 
 	private void handleMessageUpdateRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			JsonObject body = JsonUtil.parseFullHttpRequestToJsonObject(request, ctx);
 			if (body == null) {
@@ -190,11 +216,11 @@ public class EasyChatController implements BaseController {
 			}
 			String conversationId = JsonUtil.getJsonString(body, "conversationId", "");
 			if (conversationId == null || conversationId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("conversationId 为必填项"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONVERSATION_ID_REQUIRED));
 				return;
 			}
 			if (!body.has("seq") || body.get("seq").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("seq 为必填项"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SEQ_REQUIRED));
 				return;
 			}
 			long seq = body.get("seq").getAsLong();
@@ -203,7 +229,7 @@ public class EasyChatController implements BaseController {
 			JsonObject payloadObj = body.has("payload") && !body.get("payload").isJsonNull()
 				? body.getAsJsonObject("payload") : null;
 			if (payloadObj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("payload 为必填项"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PAYLOAD_REQUIRED));
 				return;
 			}
 			byte[] payloadBytes = JsonUtil.toJson(payloadObj).getBytes(StandardCharsets.UTF_8);
@@ -214,7 +240,7 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(Map.of("updated", true, "seq", seq)));
 		} catch (Exception e) {
 			logger.info("更新 easy-chat 消息失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("更新消息失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_UPDATE_MESSAGE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -222,22 +248,22 @@ public class EasyChatController implements BaseController {
 
 	private void handleAvatarUpload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_POST_ONLY));
 			return;
 		}
 		String assistantId = ParamTool.getQueryParam(request.uri()).get("assistantId");
 		if (assistantId == null || assistantId.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少assistantId参数"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ASSISTANT_ID_MISSING));
 			return;
 		}
 		assistantId = assistantId.trim();
 
 		if (request.content() == null || request.content().readableBytes() <= 0) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 			return;
 		}
 		if (request.content().readableBytes() > MAX_AVATAR_UPLOAD_BYTES) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体过大"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_TOO_LARGE));
 			return;
 		}
 
@@ -259,16 +285,16 @@ public class EasyChatController implements BaseController {
 				}
 			}
 			if (upload == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到上传文件"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_NO_UPLOAD_FILE));
 				return;
 			}
 			if (upload.length() > MAX_AVATAR_UPLOAD_BYTES) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("头像文件超过最大限制: 1MB"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_AVATAR_TOO_LARGE));
 				return;
 			}
 			byte[] bytes = upload.get();
 			if (bytes == null || bytes.length == 0) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件内容为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_CONTENT_EMPTY));
 				return;
 			}
 
@@ -285,7 +311,7 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 上传头像失败 assistantId={}", assistantId, e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("上传失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_UPLOAD_FAILED + ": " + e.getMessage()));
 		} finally {
 			if (decoder != null) {
 				try {
@@ -298,12 +324,12 @@ public class EasyChatController implements BaseController {
 
 	private void handleAvatarGet(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.GET) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_GET_ONLY));
 			return;
 		}
 		String assistantId = ParamTool.getQueryParam(request.uri()).get("assistantId");
 		if (assistantId == null || assistantId.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少assistantId参数"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ASSISTANT_ID_MISSING));
 			return;
 		}
 		assistantId = assistantId.trim();
@@ -311,7 +337,7 @@ public class EasyChatController implements BaseController {
 		try {
 			Path file = EasyChatAvatarService.getInstance().findAvatarFile(assistantId);
 			if (file == null || !Files.isRegularFile(file)) {
-				LlamaServer.sendExpressJsonResponse(ctx, HttpResponseStatus.NOT_FOUND, ApiResponse.error("头像不存在"), true);
+				LlamaServer.sendExpressJsonResponse(ctx, HttpResponseStatus.NOT_FOUND, ApiResponse.error(I18N_EASYCHAT_AVATAR_NOT_FOUND), true);
 				return;
 			}
 			sendAvatarFile(ctx, file, EasyChatAvatarService.inferImageContentType(file));
@@ -319,7 +345,7 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 读取头像失败 assistantId={}", assistantId, e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取头像失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_READ_AVATAR_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -372,15 +398,15 @@ public class EasyChatController implements BaseController {
 
 	private void handleBackgroundUpload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_POST_ONLY));
 			return;
 		}
 		if (request.content() == null || request.content().readableBytes() <= 0) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 			return;
 		}
 		if (request.content().readableBytes() > MAX_BACKGROUND_UPLOAD_BYTES) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("背景图片超过最大限制: 2MB"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_BACKGROUND_TOO_LARGE));
 			return;
 		}
 
@@ -402,16 +428,16 @@ public class EasyChatController implements BaseController {
 				}
 			}
 			if (upload == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到上传文件"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_NO_UPLOAD_FILE));
 				return;
 			}
 			if (upload.length() > MAX_BACKGROUND_UPLOAD_BYTES) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("背景图片超过最大限制: 2MB"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_BACKGROUND_TOO_LARGE));
 				return;
 			}
 			byte[] bytes = upload.get();
 			if (bytes == null || bytes.length == 0) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件内容为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_CONTENT_EMPTY));
 				return;
 			}
 
@@ -430,7 +456,7 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 上传背景失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("上传失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_UPLOAD_FAILED + ": " + e.getMessage()));
 		} finally {
 			if (decoder != null) {
 				try {
@@ -443,7 +469,7 @@ public class EasyChatController implements BaseController {
 
 	private void handleBackgroundList(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.GET) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_GET_ONLY));
 			return;
 		}
 		try {
@@ -467,13 +493,13 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 获取背景列表失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取背景列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_LIST_BACKGROUND_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleBackgroundActive(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_POST_ONLY));
 			return;
 		}
 		try {
@@ -493,13 +519,13 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 设置当前背景失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleBackgroundOpacity(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_POST_ONLY));
 			return;
 		}
 		try {
@@ -509,14 +535,14 @@ public class EasyChatController implements BaseController {
 			}
 			int opacity = JsonUtil.getJsonInt(body, "opacity", -1);
 			if (opacity < 0 || opacity > 100) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("透明度必须在 0-100 之间"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_OPACITY_INVALID));
 				return;
 			}
 			EasyChatBackgroundService.getInstance().setOpacity(opacity);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(Map.of("opacity", opacity)));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 设置背景透明度失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -528,25 +554,24 @@ public class EasyChatController implements BaseController {
 			path = path.substring(0, q);
 		}
 		if (!path.startsWith(PATH_BACKGROUND_PREFIX)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径错误"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_PATH_INVALID));
 			return;
 		}
 		String rest = path.substring(PATH_BACKGROUND_PREFIX.length());
 		if (rest.isEmpty()) {
-			// 清空全部
 			try {
 				EasyChatBackgroundService.getInstance().clearAll();
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(Map.of("cleared", true)));
 			} catch (Exception e) {
 				logger.info("[EasyChatController] 清空背景失败", e);
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("清空失败: " + e.getMessage()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_CLEAR_FAILED + ": " + e.getMessage()));
 			}
 			return;
 		}
 		try {
 			boolean deleted = EasyChatBackgroundService.getInstance().deleteBackground(rest);
 			if (!deleted) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("背景图片不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_BACKGROUND_NOT_FOUND));
 				return;
 			}
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(Map.of("deleted", true)));
@@ -554,7 +579,7 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 删除背景失败 id={}", rest, e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -568,7 +593,7 @@ public class EasyChatController implements BaseController {
 
 	private void handleBackgroundFileGet(ChannelHandlerContext ctx, FullHttpRequest request, String prefix, boolean thumb) {
 		if (request.method() != HttpMethod.GET) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持GET请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_GET_ONLY));
 			return;
 		}
 		String path = request.uri();
@@ -577,7 +602,7 @@ public class EasyChatController implements BaseController {
 			path = path.substring(0, q);
 		}
 		if (!path.startsWith(prefix)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径错误"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_PATH_INVALID));
 			return;
 		}
 		String id = path.substring(prefix.length());
@@ -585,7 +610,7 @@ public class EasyChatController implements BaseController {
 			EasyChatBackgroundService service = EasyChatBackgroundService.getInstance();
 			Path file = thumb ? service.findThumbnailFile(id) : service.findBackgroundFile(id);
 			if (file == null || !Files.isRegularFile(file)) {
-				LlamaServer.sendExpressJsonResponse(ctx, HttpResponseStatus.NOT_FOUND, ApiResponse.error("背景图片不存在"), true);
+				LlamaServer.sendExpressJsonResponse(ctx, HttpResponseStatus.NOT_FOUND, ApiResponse.error(I18N_EASYCHAT_BACKGROUND_NOT_FOUND), true);
 				return;
 			}
 			String contentType = EasyChatBackgroundService.inferImageContentType(file);
@@ -595,7 +620,7 @@ public class EasyChatController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			logger.info("[EasyChatController] 读取背景文件失败 id={}", id, e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取背景文件失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_EASYCHAT_READ_BACKGROUND_FAILED + ": " + e.getMessage()));
 		}
 	}
 }

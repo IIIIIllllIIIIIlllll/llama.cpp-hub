@@ -34,6 +34,8 @@ public class EasyChatStreamingHandler extends ChannelInboundHandlerAdapter {
 
 	private static final Logger logger = LoggerFactory.getLogger(EasyChatStreamingHandler.class);
 
+	private static final String I18N_STREAM_RECEIVE_FAILED = "api.error.stream.receive.failed";
+
 	public static final AttributeKey<Path> STREAMING_BODY_FILE = AttributeKey.newInstance("easyChatStreamingBodyFile");
 
 	private static final String PATH_STREAM_CHAT = "/api/chat/stream-chat";
@@ -109,7 +111,7 @@ public class EasyChatStreamingHandler extends ChannelInboundHandlerAdapter {
 			}
 		} catch (Exception e) {
 			logger.info("[EasyChat][Streaming] 接收请求体失败", e);
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "接收请求失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_STREAM_RECEIVE_FAILED + ": " + e.getMessage());
 			this.reset();
 		} finally {
 			ReferenceCountUtil.release(msg);

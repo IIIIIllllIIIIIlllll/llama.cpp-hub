@@ -22,6 +22,23 @@ public class AutoLoadPolicyController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(AutoLoadPolicyController.class);
 
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_PARAM_MODELID_MISSING = "api.error.param.modelId.missing";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_REMOTE_NODE_INVALID = "api.error.remote.node.invalid";
+	private static final String I18N_REMOTE_NODE_CALL_FAILED = "api.error.remote.node.call.failed";
+	private static final String I18N_AUTO_LOAD_UNSUPPORTED_METHOD = "api.error.autoload.unsupported.method";
+	private static final String I18N_AUTO_LOAD_MODE_INVALID = "api.error.autoload.mode.invalid";
+	private static final String I18N_AUTO_LOAD_AUTO_UNLOAD_INVALID = "api.error.autoload.autoUnload.invalid";
+	private static final String I18N_AUTO_LOAD_TIMEOUT_POSITIVE = "api.error.autoload.timeout.positive";
+	private static final String I18N_AUTO_LOAD_TIMEOUT_INVALID = "api.error.autoload.timeout.invalid";
+	private static final String I18N_AUTO_LOAD_GET_FAILED = "api.error.autoload.get.failed";
+	private static final String I18N_AUTO_LOAD_SET_FAILED = "api.error.autoload.set.failed";
+	private static final String I18N_AUTO_LOAD_RESET_FAILED = "api.error.autoload.reset.failed";
+
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		if (uri.startsWith("/api/auto-load/policy")) {
@@ -44,7 +61,7 @@ public class AutoLoadPolicyController implements BaseController {
 		} else if (request.method() == HttpMethod.DELETE) {
 			handleResetPolicy(ctx, request);
 		} else {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不支持的请求方法"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_UNSUPPORTED_METHOD));
 		}
 	}
 
@@ -68,7 +85,7 @@ public class AutoLoadPolicyController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取自动加载策略失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取自动加载策略失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -76,13 +93,13 @@ public class AutoLoadPolicyController implements BaseController {
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
@@ -95,7 +112,7 @@ public class AutoLoadPolicyController implements BaseController {
 
 			String modelId = JsonUtil.getJsonString(obj, "modelId");
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 modelId 参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_MISSING));
 				return;
 			}
 
@@ -105,7 +122,7 @@ public class AutoLoadPolicyController implements BaseController {
 			String mode = JsonUtil.getJsonString(obj, "mode");
 			if (mode != null && !mode.isBlank()) {
 				if (!("allow".equalsIgnoreCase(mode) || "deny".equalsIgnoreCase(mode))) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("mode 参数无效，必须为 allow 或 deny"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_MODE_INVALID));
 					return;
 				}
 				String error = manager.setModelPolicy(modelId, mode);
@@ -119,7 +136,7 @@ public class AutoLoadPolicyController implements BaseController {
 			String autoUnload = JsonUtil.getJsonString(obj, "autoUnload");
 			if (autoUnload != null && !autoUnload.isBlank()) {
 				if (!("allow".equalsIgnoreCase(autoUnload) || "deny".equalsIgnoreCase(autoUnload))) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("autoUnload 参数无效，必须为 allow 或 deny"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_AUTO_UNLOAD_INVALID));
 					return;
 				}
 				String error = manager.setAutoUnloadPolicy(modelId, autoUnload);
@@ -134,7 +151,7 @@ public class AutoLoadPolicyController implements BaseController {
 				try {
 					long timeoutMs = obj.get("autoUnloadTimeoutMs").getAsLong();
 					if (timeoutMs <= 0) {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("autoUnloadTimeoutMs 必须为正数"));
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_TIMEOUT_POSITIVE));
 						return;
 					}
 					String error = manager.setAutoUnloadTimeoutMs(modelId, timeoutMs);
@@ -143,7 +160,7 @@ public class AutoLoadPolicyController implements BaseController {
 						return;
 					}
 				} catch (Exception e) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("autoUnloadTimeoutMs 格式无效"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_TIMEOUT_INVALID));
 					return;
 				}
 			}
@@ -151,7 +168,7 @@ public class AutoLoadPolicyController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(null));
 		} catch (Exception e) {
 			logger.info("设置自动加载策略失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置自动加载策略失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -193,7 +210,7 @@ public class AutoLoadPolicyController implements BaseController {
 			}
 
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 modelId 参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_MISSING));
 				return;
 			}
 
@@ -220,7 +237,7 @@ public class AutoLoadPolicyController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(null));
 		} catch (Exception e) {
 			logger.info("重置自动加载策略失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("重置自动加载策略失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_AUTO_LOAD_RESET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -229,7 +246,7 @@ public class AutoLoadPolicyController implements BaseController {
 	 */
 	private void proxyGetRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
 		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_INVALID + ": " + nodeId));
 			return;
 		}
 		try {
@@ -253,7 +270,7 @@ public class AutoLoadPolicyController implements BaseController {
 			writeRemoteResult(ctx, result, nodeId);
 		} catch (Exception e) {
 			logger.warn("[自动加载策略] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -262,7 +279,7 @@ public class AutoLoadPolicyController implements BaseController {
 	 */
 	private void proxyPutRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
 		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_INVALID + ": " + nodeId));
 			return;
 		}
 		try {
@@ -277,7 +294,7 @@ public class AutoLoadPolicyController implements BaseController {
 			writeRemoteResult(ctx, result, nodeId);
 		} catch (Exception e) {
 			logger.warn("[自动加载策略] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -286,7 +303,7 @@ public class AutoLoadPolicyController implements BaseController {
 	 */
 	private void proxyDeleteRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path, String modelId) {
 		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_INVALID + ": " + nodeId));
 			return;
 		}
 		try {
@@ -299,7 +316,7 @@ public class AutoLoadPolicyController implements BaseController {
 			writeRemoteResult(ctx, result, nodeId);
 		} catch (Exception e) {
 			logger.warn("[自动加载策略] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -307,7 +324,7 @@ public class AutoLoadPolicyController implements BaseController {
 		if (result.isSuccess()) {
 			NodeManager.writeHttpResultToChannel(ctx, result, "[自动加载策略]");
 		} else {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 		}
 	}
 }

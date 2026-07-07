@@ -67,6 +67,35 @@ public class LlamacppController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(LlamacppController.class);
 	private static final ExecutorService worker = Executors.newVirtualThreadPerTaskExecutor();
+
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
+	private static final String I18N_PARAM_PATH_EMPTY = "api.error.param.path.empty";
+	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_PATH_EXISTS = "api.error.path.exists";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_MODEL_NOT_LOADED = "api.error.model.not.loaded";
+	private static final String I18N_MODEL_PORT_NOT_FOUND = "api.error.model.port.not.found";
+	private static final String I18N_LLAMACPP_ADD_FAILED = "api.error.llamacpp.add.failed";
+	private static final String I18N_LLAMACPP_REMOVE_FAILED = "api.error.llamacpp.remove.failed";
+	private static final String I18N_LLAMACPP_LIST_FAILED = "api.error.llamacpp.list.failed";
+	private static final String I18N_LLAMACPP_TEST_FAILED = "api.error.llamacpp.test.failed";
+	private static final String I18N_REMOTE_LLAMACPP_LIST_FAILED = "api.error.remote.llamacpp.list.failed";
+	private static final String I18N_DIR_INVALID_OR_MISSING_EXE = "api.error.llamacpp.dir.invalid";
+	private static final String I18N_PATH_FORMAT_INVALID = "api.error.param.path.invalid";
+	private static final String I18N_DIR_IN_USE_BY_LOADED_MODEL = "api.error.llamacpp.dir.in.use";
+	private static final String I18N_LLAMA_CLI_NOT_FOUND = "api.error.llamacpp.cli.not.found";
+	private static final String I18N_RELEASE_INFO_FETCH_FAILED = "api.error.release.info.fetch.failed";
+	private static final String I18N_GITHUB_API_PARSE_FAILED = "api.error.github.api.parse.failed";
+	private static final String I18N_PARAM_MESSAGES_MISSING = "api.error.param.messages.missing";
+	private static final String I18N_MODEL_RESPONSE_NOT_JSON = "api.error.model.response.not.json";
+	private static final String I18N_MODEL_ERROR_HTTP = "api.error.model.error.http";
+	private static final String I18N_INFILL_FAILED = "api.error.infill.failed";
+	private static final String I18N_PROXY_FORWARD_FAILED = "api.error.proxy.forward.failed";
+	private static final String I18N_REMOTE_NODE_ACTION_FAILED = "api.error.remote.node.action.failed";
 	private static final String HEADER_NODE_ID = "x-node-id";
 	
 	
@@ -136,7 +165,7 @@ public class LlamacppController implements BaseController {
 	 */
 	private void handleLlamaCppAdd(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
 			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -145,12 +174,12 @@ public class LlamacppController implements BaseController {
 			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			LlamaCppDataStruct reqData = JsonUtil.fromJson(content, LlamaCppDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("path不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
 			}
 
@@ -164,7 +193,7 @@ public class LlamacppController implements BaseController {
 			String normalized = reqData.getPath().trim();
 			Path validated = this.validateAndNormalizeLlamaBinDirectory(normalized);
 			if (validated == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("目录无效、不可访问或缺少llama-server可执行文件"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_INVALID_OR_MISSING_EXE));
 				return;
 			}
 			normalized = validated.toString();
@@ -176,7 +205,7 @@ public class LlamacppController implements BaseController {
 				}
 			}
 			if (exists) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径已存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_EXISTS));
 				return;
 			}
 			LlamaCppDataStruct item = new LlamaCppDataStruct();
@@ -201,7 +230,7 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("添加llama.cpp路径时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加llama.cpp路径失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LLAMACPP_ADD_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -213,7 +242,7 @@ public class LlamacppController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleLlamaCppRemove(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
 			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -222,12 +251,12 @@ public class LlamacppController implements BaseController {
 			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			LlamaCppDataStruct reqData = JsonUtil.fromJson(content, LlamaCppDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("path不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
 			}
 			String normalized = reqData.getPath().trim();
@@ -256,7 +285,7 @@ public class LlamacppController implements BaseController {
 			try {
 				targetDir = Paths.get(normalized).toAbsolutePath().normalize();
 			} catch (Exception e) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径格式无效: " + normalized));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_FORMAT_INVALID + ": " + normalized));
 				return;
 			}
 
@@ -311,7 +340,7 @@ public class LlamacppController implements BaseController {
 						continue;
 					}
 					if (procDir.equals(targetDir)) {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该目录正在被已加载的模型使用，无法删除"));
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_IN_USE_BY_LOADED_MODEL));
 						return;
 					}
 				}
@@ -328,7 +357,7 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("移除llama.cpp路径时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("移除llama.cpp路径失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LLAMACPP_REMOVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -412,7 +441,7 @@ public class LlamacppController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleLlamaCppList(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
 			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -479,7 +508,7 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取llama.cpp路径列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取llama.cpp路径列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LLAMACPP_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -498,11 +527,11 @@ public class LlamacppController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[llamacpp远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("获取远程节点llama.cpp列表失败: nodeId={}, error={}", nodeId, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取远程节点llama.cpp列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_LLAMACPP_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -528,11 +557,11 @@ public class LlamacppController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[llamacpp远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("远程节点调用失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -543,7 +572,7 @@ public class LlamacppController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleLlamaCppTest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
 			if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -552,12 +581,12 @@ public class LlamacppController implements BaseController {
 			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			LlamaCppDataStruct reqData = JsonUtil.fromJson(content, LlamaCppDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("path不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
 			}
 
@@ -575,7 +604,7 @@ public class LlamacppController implements BaseController {
 				}
 			}
 			if (!exeFile.exists() || !exeFile.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("llama-cli可执行文件不存在: " + exeFile.getAbsolutePath()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LLAMA_CLI_NOT_FOUND + ": " + exeFile.getAbsolutePath()));
 				return;
 			}
 
@@ -606,7 +635,7 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("执行llama.cpp测试命令时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行llama.cpp测试失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LLAMACPP_TEST_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -635,7 +664,7 @@ public class LlamacppController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleLlamaCppReleaseLatest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String proxy = params.get("proxy");
@@ -660,7 +689,7 @@ public class LlamacppController implements BaseController {
 						? ("GitHub API 错误: HTTP " + resp.statusCode()) : responseBody;
 				Map<String, Object> err = new HashMap<>();
 				err.put("success", false);
-				err.put("error", "获取 release 信息失败: " + msg);
+				err.put("error", I18N_RELEASE_INFO_FETCH_FAILED + ": " + msg);
 				LlamaServer.sendJsonResponse(ctx, err);
 				return;
 			}
@@ -669,7 +698,7 @@ public class LlamacppController implements BaseController {
 			if (root == null) {
 				Map<String, Object> err = new HashMap<>();
 				err.put("success", false);
-				err.put("error", "解析 GitHub API 响应失败");
+				err.put("error", I18N_GITHUB_API_PARSE_FAILED);
 				LlamaServer.sendJsonResponse(ctx, err);
 				return;
 			}
@@ -752,7 +781,7 @@ public class LlamacppController implements BaseController {
 			logger.info("获取 llama.cpp release 信息失败", e);
 			Map<String, Object> err = new HashMap<>();
 			err.put("success", false);
-			err.put("error", "获取 release 信息失败: " + e.getMessage());
+			err.put("error", I18N_RELEASE_INFO_FETCH_FAILED + ": " + e.getMessage());
 			LlamaServer.sendJsonResponse(ctx, err);
 		}
 	}
@@ -768,17 +797,17 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		String content = request.content().toString(CharsetUtil.UTF_8);
 		if (content == null || content.trim().isEmpty()) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 			return;
 		}
 
 		JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 		if (obj == null) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 			return;
 		}
 
@@ -810,16 +839,16 @@ public class LlamacppController implements BaseController {
 		}
 
 		if (!manager.getLoadedProcesses().containsKey(modelId)) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "模型未加载: " + modelId);
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_MODEL_NOT_LOADED + ": " + modelId);
 			return;
 		}
 		if (modelId == null || modelId.trim().isEmpty()) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.SERVICE_UNAVAILABLE, "模型未加载");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.SERVICE_UNAVAILABLE, I18N_MODEL_NOT_LOADED);
 			return;
 		}
 		Integer port = manager.getModelPort(modelId);
 		if (port == null) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "未找到模型端口: " + modelId);
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_PORT_NOT_FOUND + ": " + modelId);
 			return;
 		}
 
@@ -841,17 +870,17 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		String content = request.content().toString(CharsetUtil.UTF_8);
 		if (content == null || content.trim().isEmpty()) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 			return;
 		}
 
 		JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 		if (obj == null) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 			return;
 		}
 
@@ -861,7 +890,7 @@ public class LlamacppController implements BaseController {
 			modelId = params.get("modelId");
 		}
 		if (modelId == null || modelId.trim().isEmpty()) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的modelId参数");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_MODELID_REQUIRED);
 			return;
 		}
 		modelId = modelId.trim();
@@ -878,18 +907,18 @@ public class LlamacppController implements BaseController {
 		}
 
 		if (!obj.has("messages") || obj.get("messages") == null || obj.get("messages").isJsonNull() || !obj.get("messages").isJsonArray()) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的messages参数");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_MESSAGES_MISSING);
 			return;
 		}
 
 		LlamaServerManager manager = LlamaServerManager.getInstance();
 		if (!manager.getLoadedProcesses().containsKey(modelId)) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "模型未加载: " + modelId);
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_MODEL_NOT_LOADED + ": " + modelId);
 			return;
 		}
 		Integer port = manager.getModelPort(modelId);
 		if (port == null) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "未找到模型端口: " + modelId);
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_PORT_NOT_FOUND + ": " + modelId);
 			return;
 		}
 
@@ -905,12 +934,12 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		HttpURLConnection connection = null;
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 				return;
 			}
 			
@@ -938,16 +967,16 @@ public class LlamacppController implements BaseController {
 			if (modelId == null) {
 				modelId = manager.getFirstModelName();
 			} else if (!manager.getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "模型未加载: " + modelId);
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_MODEL_NOT_LOADED + ": " + modelId);
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.SERVICE_UNAVAILABLE, "模型未加载");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.SERVICE_UNAVAILABLE, I18N_MODEL_NOT_LOADED);
 				return;
 			}
 			Integer port = manager.getModelPort(modelId);
 			if (port == null) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "未找到模型端口: " + modelId);
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_PORT_NOT_FOUND + ": " + modelId);
 				return;
 			}
 			
@@ -991,7 +1020,7 @@ public class LlamacppController implements BaseController {
 				if (parsed != null) {
 					LlamaServer.sendJsonResponse(ctx, parsed);
 				} else {
-					LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, "模型返回了非JSON响应");
+					LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, I18N_MODEL_RESPONSE_NOT_JSON);
 				}
 				return;
 			}
@@ -1000,11 +1029,11 @@ public class LlamacppController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, parsed);
 				return;
 			}
-			String msg = responseBody == null || responseBody.isBlank() ? ("模型错误: HTTP " + responseCode) : responseBody;
+			String msg = responseBody == null || responseBody.isBlank() ? (I18N_MODEL_ERROR_HTTP + ": " + responseCode) : responseBody;
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, msg);
 		} catch (Exception e) {
 			logger.info("infill代理失败", e);
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "infill失败: " + e.getMessage());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_INFILL_FAILED + ": " + e.getMessage());
 		} finally {
 			if (connection != null) {
 				try {
@@ -1102,7 +1131,7 @@ public class LlamacppController implements BaseController {
 		} catch (Exception e) {
 			logger.info("proxyRawBytes失败: {}", targetUrl, e);
 			if (!responseStarted && ctx.channel().isActive()) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, "代理转发失败: " + e.getMessage());
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, I18N_PROXY_FORWARD_FAILED + ": " + e.getMessage());
 			} else if (ctx.channel().isActive()) {
 				ctx.close();
 			}
@@ -1122,7 +1151,7 @@ public class LlamacppController implements BaseController {
 			byte[] bytes = result.getBody().getBytes(StandardCharsets.UTF_8);
 			writeRawResponse(ctx, 200, bytes);
 		} else {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, "远程节点" + path + "失败: " + result.getBody());
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_GATEWAY, I18N_REMOTE_NODE_ACTION_FAILED + " (" + path + "): " + result.getBody());
 		}
 	}
 

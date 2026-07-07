@@ -29,6 +29,22 @@ import io.netty.util.CharsetUtil;
 public class ToolController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(ToolController.class);
+
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_TOOL_EXECUTE_FAILED = "api.error.tool.execute.failed";
+	private static final String I18N_MCP_ADD_FAILED = "api.error.mcp.add.failed";
+	private static final String I18N_MCP_TOOLS_LIST_FAILED = "api.error.mcp.tools.list.failed";
+	private static final String I18N_PARAM_URL_MISSING = "api.error.param.url.missing";
+	private static final String I18N_PARAM_NAME_MISSING = "api.error.param.name.missing";
+	private static final String I18N_MCP_SERVER_NOTFOUND = "api.error.mcp.server.notfound";
+	private static final String I18N_MCP_REMOVE_FAILED = "api.error.mcp.remove.failed";
+	private static final String I18N_MCP_RENAME_FAILED = "api.error.mcp.rename.failed";
+	private static final String I18N_PARAM_TOOLNAME_MISSING = "api.error.param.toolName.missing";
+	private static final String I18N_MCP_TOOL_CALL_FAILED = "api.error.mcp.tool.call.failed";
+	private static final String I18N_MCP_TOOL_CALL_EMPTY_RESULT = "api.error.mcp.tool.call.empty.result";
 				
 	/** MCP 客户端服务，用于管理 MCP 服务器和调用 MCP 工具 */
 	private static final McpClientService mcpClientService = McpClientService.getInstance();
@@ -83,34 +99,29 @@ public class ToolController implements BaseController {
 		if (handleCorsOptions(ctx, request)) {
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			// 1. 读取并验证请求体
 			String content = readRequestBodyOrSendError(ctx, request);
 			if (content == null) {
 				return;
 			}
 
-			// 2. 解析 JSON 请求体
 			JsonObject obj = parseJsonObjectOrSendError(ctx, content);
 			if (obj == null) {
 				return;
 			}
 
-			// 3. 提取工具名称
 			String toolName = extractToolNameOrSendError(ctx, obj);
 			if (toolName == null) {
 				return;
 			}
 
-			// 4. 提取预设查询和工具参数
 			String preparedQuery = JsonUtil.getJsonString(obj, "preparedQuery", "");
 			if (preparedQuery == null) preparedQuery = "";
 
 			String toolArguments = extractToolArguments(obj);
 
-			// 5. 处理 MCP 工具调用
 			String url = extractMcpUrl(obj);
 
 			String tn = toolName;
@@ -127,14 +138,14 @@ public class ToolController implements BaseController {
 						return;
 					}
 					logger.info("执行工具失败", e);
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行工具失败: " + e.getMessage()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_TOOL_EXECUTE_FAILED + ": " + e.getMessage()));
 				}
 			});
 			ctx.channel().closeFuture().addListener(ignored -> fut.cancel(true));
 			return;
 		} catch (Exception e) {
 			logger.info("执行工具失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行工具失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_TOOL_EXECUTE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -146,7 +157,7 @@ public class ToolController implements BaseController {
 		if (handleCorsOptions(ctx, request)) {
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = readRequestBodyOrSendError(ctx, request);
@@ -160,13 +171,13 @@ public class ToolController implements BaseController {
 					LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 				} catch (Exception e) {
 					logger.info("添加MCP服务失败", e);
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加MCP服务失败: " + e.getMessage()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_ADD_FAILED + ": " + e.getMessage()));
 				}
 			});
 			return;
 		} catch (Exception e) {
 			logger.info("添加MCP服务失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加MCP服务失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_ADD_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -177,10 +188,9 @@ public class ToolController implements BaseController {
 		if (handleCorsOptions(ctx, request)) {
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
-			// 获取保存的工具注册表
 			JsonObject registry = mcpClientService.getSavedToolsRegistry();
 			JsonObject servers = (registry == null) ? null : registry.getAsJsonObject("servers");
 			if (servers == null) servers = new JsonObject();
@@ -189,7 +199,7 @@ public class ToolController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取MCP工具失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取MCP工具失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_TOOLS_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -200,7 +210,7 @@ public class ToolController implements BaseController {
 		if (handleCorsOptions(ctx, request)) {
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = readRequestBodyOrSendError(ctx, request);
@@ -209,17 +219,15 @@ public class ToolController implements BaseController {
 			JsonObject obj = parseJsonObjectOrSendError(ctx, content);
 			if (obj == null) return;
 
-			// 提取要移除的 MCP 服务 URL
 			String url = extractMcpUrl(obj);
 			if (url == null) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的url参数");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_URL_MISSING);
 				return;
 			}
 
-			// 执行移除操作
 			boolean removed = mcpClientService.removeServerByUrl(url);
 			if (!removed) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到该MCP服务: " + url));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_SERVER_NOTFOUND + ": " + url));
 				return;
 			}
 			Map<String, Object> data = new HashMap<>();
@@ -227,7 +235,7 @@ public class ToolController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("移除MCP服务失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("移除MCP服务失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_REMOVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -235,7 +243,7 @@ public class ToolController implements BaseController {
 		if (handleCorsOptions(ctx, request)) {
 			return;
 		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = readRequestBodyOrSendError(ctx, request);
@@ -246,7 +254,7 @@ public class ToolController implements BaseController {
 
 			String url = extractMcpUrl(obj);
 			if (url == null) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的url参数");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_URL_MISSING);
 				return;
 			}
 
@@ -255,13 +263,13 @@ public class ToolController implements BaseController {
 				name = trimToNull(JsonUtil.getJsonString(obj, "serverName", null));
 			}
 			if (name == null) {
-				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的name参数");
+				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_NAME_MISSING);
 				return;
 			}
 
 			boolean renamed = mcpClientService.renameServerByUrl(url, name);
 			if (!renamed) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到该MCP服务: " + url));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_SERVER_NOTFOUND + ": " + url));
 				return;
 			}
 			Map<String, Object> data = new HashMap<>();
@@ -269,7 +277,7 @@ public class ToolController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("修改MCP服务名称失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("修改MCP服务名称失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_RENAME_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -292,34 +300,28 @@ public class ToolController implements BaseController {
 	private static String readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
 		String content = request.content().toString(CharsetUtil.UTF_8);
 		if (content == null || content.trim().isEmpty()) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 			return null;
 		}
 		return content;
 	}
 
-	/**
-	 * 将字符串解析为 JsonObject，如果解析失败则发送错误响应。
-	 */
 	private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, String content) {
 		JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 		if (obj == null) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 			return null;
 		}
 		return obj;
 	}
 
-	/**
-	 * 从 JSON 对象中提取工具名称，支持 'tool_name' 和 'name' 字段。
-	 */
 	private static String extractToolNameOrSendError(ChannelHandlerContext ctx, JsonObject obj) {
 		String toolName = trimToNull(JsonUtil.getJsonString(obj, "tool_name", null));
 		if (toolName == null) {
 			toolName = trimToNull(JsonUtil.getJsonString(obj, "name", null));
 		}
 		if (toolName == null) {
-			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少必需的tool_name参数");
+			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_TOOLNAME_MISSING);
 			return null;
 		}
 		return toolName;
@@ -370,19 +372,17 @@ public class ToolController implements BaseController {
 	 */
 	private static void sendMcpToolResponse(ChannelHandlerContext ctx, JsonObject mcpResp) {
 		if (mcpResp == null) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("MCP工具调用失败: 返回为空"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_TOOL_CALL_EMPTY_RESULT));
 			return;
 		}
-		// 检查 MCP 响应中是否包含错误
 		if (mcpResp.has("error") && mcpResp.get("error") != null && mcpResp.get("error").isJsonObject()) {
 			JsonObject err = mcpResp.getAsJsonObject("error");
 			String msg = JsonUtil.getJsonString(err, "message", null);
-			ApiResponse api = ApiResponse.error("MCP工具调用失败" + (msg == null || msg.isBlank() ? "" : (": " + msg.trim())));
+			ApiResponse api = ApiResponse.error(I18N_MCP_TOOL_CALL_FAILED + (msg == null || msg.isBlank() ? "" : (": " + msg.trim())));
 			api.setData(contentData(mcpResp.toString()));
 			LlamaServer.sendJsonResponse(ctx, api);
 			return;
 		}
-		// 成功调用，返回结果
 		LlamaServer.sendJsonResponse(ctx, ApiResponse.success(contentData(mcpResp.toString())));
 	}
 }

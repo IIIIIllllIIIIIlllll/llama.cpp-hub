@@ -84,7 +84,10 @@ public class LlamaServerManager {
 /**
  	 * 	这是锁。
  	 */
- 	private static final ConcurrentHashMap<String, Object> CAPABILITIES_FILE_LOCKS = new ConcurrentHashMap<>();
+ 	private static final String I18N_SLOT_SAVE_FAILED = "api.error.model.slot.save.failed";
+	private static final String I18N_SLOT_LOAD_FAILED = "api.error.model.slot.load.failed";
+
+	private static final ConcurrentHashMap<String, Object> CAPABILITIES_FILE_LOCKS = new ConcurrentHashMap<>();
 
  	/**
  	 * 	自动加载缓存文件路径
@@ -2614,10 +2617,10 @@ public class LlamaServerManager {
 				data.put("result", parsed);
 				return ApiResponse.success(data);
 			}
-			return ApiResponse.error("保存slot失败: " + r.body);
+			return ApiResponse.error(I18N_SLOT_SAVE_FAILED + ": " + r.body);
 		} catch (Exception e) {
 			logger.info("保存slot缓存时发生错误", e);
-			return ApiResponse.error("保存slot失败: " + e.getMessage());
+			return ApiResponse.error(I18N_SLOT_SAVE_FAILED + ": " + e.getMessage());
 		}
 	}
 	
@@ -2642,10 +2645,10 @@ public class LlamaServerManager {
 				data.put("result", parsed);
 				return ApiResponse.success(data);
 			}
-			return ApiResponse.error("加载slot失败: " + r.body);
+			return ApiResponse.error(I18N_SLOT_LOAD_FAILED + ": " + r.body);
 		} catch (Exception e) {
 			logger.info("加载slot缓存时发生错误", e);
-			return ApiResponse.error("加载slot失败: " + e.getMessage());
+			return ApiResponse.error(I18N_SLOT_LOAD_FAILED + ": " + e.getMessage());
 		}
 	}
 	

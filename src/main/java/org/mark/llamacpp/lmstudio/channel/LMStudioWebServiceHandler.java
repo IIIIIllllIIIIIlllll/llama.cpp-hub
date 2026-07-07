@@ -28,6 +28,9 @@ public class LMStudioWebServiceHandler extends SimpleChannelInboundHandler<FullH
 	
 	private static final ExecutorService async = Executors.newVirtualThreadPerTaskExecutor();
 	private static final Gson gson = JsonUtil.gson();
+	private static final String I18N_REQUEST_PARSE_FAILED = "api.error.request.parse.failed";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_NOT_FOUND = "api.error.notfound";
 	
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
@@ -43,7 +46,7 @@ public class LMStudioWebServiceHandler extends SimpleChannelInboundHandler<FullH
 	
 	private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (!request.decoderResult().isSuccess()) {
-			sendJson(ctx, request, HttpResponseStatus.BAD_REQUEST, errorJson("bad_request", "请求解析失败"));
+			sendJson(ctx, request, HttpResponseStatus.BAD_REQUEST, errorJson("bad_request", I18N_REQUEST_PARSE_FAILED));
 			return;
 		}
 		
@@ -61,7 +64,7 @@ public class LMStudioWebServiceHandler extends SimpleChannelInboundHandler<FullH
 		
 		if ("/health".equals(path)) {
 			if (request.method() != HttpMethod.GET) {
-				sendJson(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED, errorJson("method_not_allowed", "只支持GET"));
+				sendJson(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED, errorJson("method_not_allowed", I18N_METHOD_GET_ONLY));
 				return;
 			}
 			JsonObject ok = new JsonObject();
@@ -84,14 +87,14 @@ public class LMStudioWebServiceHandler extends SimpleChannelInboundHandler<FullH
 		
 		if ("/".equals(path)) {
 			if (request.method() != HttpMethod.GET) {
-				sendJson(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED, errorJson("method_not_allowed", "只支持GET"));
+				sendJson(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED, errorJson("method_not_allowed", I18N_METHOD_GET_ONLY));
 				return;
 			}
 			sendText(ctx, request, HttpResponseStatus.OK, "LMStudio Web Service");
 			return;
 		}
 		
-		sendJson(ctx, request, HttpResponseStatus.NOT_FOUND, errorJson("not_found", "未找到资源"));
+		sendJson(ctx, request, HttpResponseStatus.NOT_FOUND, errorJson("not_found", I18N_NOT_FOUND));
 	}
 	
 	private JsonObject errorJson(String code, String message) {

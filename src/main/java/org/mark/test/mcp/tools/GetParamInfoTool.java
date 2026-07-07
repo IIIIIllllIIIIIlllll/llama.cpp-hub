@@ -20,6 +20,9 @@ public class GetParamInfoTool implements IMCPTool {
 	// private static final Logger logger = LoggerFactory.getLogger(GetParamInfoTool.class);
 	private static final String RESOURCE_NAME = "server-params.json";
 
+	private static final String I18N_PARAM_LIST_FAILED = "api.error.param.list.failed";
+	private static final String I18N_PARAM_CONFIG_NOT_FOUND = "api.error.param.config.notfound";
+
 	@Override
 	public String getMcpName() {
 		return "get_param_info";
@@ -47,7 +50,7 @@ public class GetParamInfoTool implements IMCPTool {
 			return new McpMessage().addText(JsonUtil.toJson(this.buildResponse()));
 		} catch (Exception e) {
 			// logger.info("MCP工具执行失败: name={}, serviceKey={}", this.getMcpName(), serviceKey, e);
-			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error("获取参数列表失败: " + e.getMessage())));
+			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error(I18N_PARAM_LIST_FAILED + ": " + e.getMessage())));
 		}
 	}
 
@@ -56,7 +59,7 @@ public class GetParamInfoTool implements IMCPTool {
 			if (inputStream == null) {
 				Map<String, Object> errorResponse = new HashMap<>();
 				errorResponse.put("success", false);
-				errorResponse.put("error", "参数配置文件不存在: " + RESOURCE_NAME);
+				errorResponse.put("error", I18N_PARAM_CONFIG_NOT_FOUND + ": " + RESOURCE_NAME);
 				return errorResponse;
 			}
 			String content = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);

@@ -32,6 +32,17 @@ public class ProxyController implements BaseController {
 
     private static final Logger logger = LoggerFactory.getLogger(ProxyController.class);
 
+    private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+    private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+    private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+    private static final String I18N_BODY_PARSE = "api.error.body.parse";
+    private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+    private static final String I18N_PROXY_GET_FAILED = "api.error.proxy.get.failed";
+    private static final String I18N_PROXY_SAVE_FAILED = "api.error.proxy.save.failed";
+    private static final String I18N_PROXY_HOST_EMPTY = "api.error.proxy.host.empty";
+    private static final String I18N_PROXY_PORT_INVALID = "api.error.proxy.port.invalid";
+    private static final String I18N_PROXY_TEST_FAILED = "api.error.proxy.test.failed";
+
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
         if (uri.startsWith("/api/proxy/get")) {
@@ -71,11 +82,11 @@ public class ProxyController implements BaseController {
             if (result.isSuccess()) {
                 NodeManager.writeHttpResultToChannel(ctx, result, "[代理远程]");
             } else {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
             }
         } catch (Exception e) {
             logger.warn("远程节点调用失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -85,11 +96,11 @@ public class ProxyController implements BaseController {
             if (result.isSuccess()) {
                 NodeManager.writeHttpResultToChannel(ctx, result, "[代理远程]");
             } else {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
             }
         } catch (Exception e) {
             logger.warn("远程节点调用失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -97,7 +108,7 @@ public class ProxyController implements BaseController {
      * GET /api/proxy/get
      */
     private void handleProxyGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
         try {
             String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
             if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -117,7 +128,7 @@ public class ProxyController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
         } catch (Exception e) {
             logger.info("获取代理配置时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取代理配置失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_GET_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -125,7 +136,7 @@ public class ProxyController implements BaseController {
      * POST /api/proxy/save
      */
     private void handleProxySave(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         try {
             String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
             if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -134,12 +145,12 @@ public class ProxyController implements BaseController {
             }
             String content = request.content().toString(CharsetUtil.UTF_8);
             if (content == null || content.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
                 return;
             }
             ProxyConfigData reqData = JsonUtil.fromJson(content, ProxyConfigData.class);
             if (reqData == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
                 return;
             }
 
@@ -147,12 +158,12 @@ public class ProxyController implements BaseController {
             if (reqData.isEnabled()) {
                 String host = reqData.getHost();
                 if (host == null || host.trim().isEmpty()) {
-                    LlamaServer.sendJsonResponse(ctx, ApiResponse.error("代理主机不能为空"));
+                    LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_HOST_EMPTY));
                     return;
                 }
                 int port = reqData.getPort();
                 if (port <= 0 || port > 65535) {
-                    LlamaServer.sendJsonResponse(ctx, ApiResponse.error("代理端口必须在 1-65535 之间"));
+                    LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_PORT_INVALID));
                     return;
                 }
             }
@@ -177,7 +188,7 @@ public class ProxyController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
         } catch (Exception e) {
             logger.info("保存代理配置时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存代理配置失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_SAVE_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -185,7 +196,7 @@ public class ProxyController implements BaseController {
      * POST /api/proxy/test
      */
     private void handleProxyTest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         try {
             String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
             if (nodeId != null && !nodeId.isBlank() && !"local".equals(nodeId)) {
@@ -198,12 +209,12 @@ public class ProxyController implements BaseController {
                 reqData = JsonUtil.fromJson(content, ProxyConfigData.class);
             }
             if (reqData == null || reqData.getHost() == null || reqData.getHost().trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("代理主机不能为空"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_HOST_EMPTY));
                 return;
             }
             int port = reqData.getPort();
             if (port <= 0 || port > 65535) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("代理端口必须在 1-65535 之间"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_PORT_INVALID));
                 return;
             }
 
@@ -242,7 +253,7 @@ public class ProxyController implements BaseController {
             }
         } catch (Exception e) {
             logger.info("测试代理连接时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("测试代理连接失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PROXY_TEST_FAILED + ": " + e.getMessage()));
         }
     }
 }

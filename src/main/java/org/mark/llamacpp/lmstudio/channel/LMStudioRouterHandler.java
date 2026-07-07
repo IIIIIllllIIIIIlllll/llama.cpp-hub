@@ -29,6 +29,8 @@ public class LMStudioRouterHandler extends SimpleChannelInboundHandler<FullHttpR
 
 	private static final Logger logger = LoggerFactory.getLogger(LMStudioRouterHandler.class);
 	
+	private static final String I18N_REQUEST_PARSE_FAILED = "api.error.request.parse.failed";
+	
 	private static final ExecutorService async = Executors.newVirtualThreadPerTaskExecutor();
 	
 	private LMStudioService lmStudioService = new LMStudioService();
@@ -67,7 +69,7 @@ public class LMStudioRouterHandler extends SimpleChannelInboundHandler<FullHttpR
 	 */
 	private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (!request.decoderResult().isSuccess()) {
-			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求解析失败");
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_REQUEST_PARSE_FAILED);
 			return;
 		}
 		String uri = request.uri();

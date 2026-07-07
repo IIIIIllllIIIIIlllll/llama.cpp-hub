@@ -32,6 +32,13 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
     static final AttributeKey<HttpResponseStatus> UPLOAD_ERROR_STATUS = AttributeKey.newInstance("uploadErrorStatus");
     static final AttributeKey<String> UPLOAD_ERROR_MSG = AttributeKey.newInstance("uploadErrorMsg");
 
+    private static final String I18N_UPLOAD_PARAM_NAME_MISSING = "api.error.upload.param.name.missing";
+    private static final String I18N_UPLOAD_FILE_NAME_INVALID = "api.error.upload.file.name.invalid";
+    private static final String I18N_UPLOAD_FILE_CREATE_FAILED = "api.error.upload.file.create.failed";
+    private static final String I18N_UPLOAD_LIST_FAILED = "api.error.upload.list.failed";
+    private static final String I18N_UPLOAD_FILE_NOT_FOUND = "api.error.upload.file.notfound";
+    private static final String I18N_UPLOAD_DELETE_FAILED = "api.error.upload.delete.failed";
+
     private static final String UPLOAD_DIR = "llama.cpp-sources";
 
     private static final ConcurrentHashMap<String, ReentrantLock> uploadLocks = new ConcurrentHashMap<>();
@@ -61,20 +68,20 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
                 String fileName = getQueryParam(query, "name");
                 if (fileName == null || fileName.trim().isEmpty()) {
                     if (request instanceof LastHttpContent) {
-                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少name参数");
+                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_PARAM_NAME_MISSING);
                         ReferenceCountUtil.release(request);
                     } else {
-                        setUploadError(ctx, HttpResponseStatus.BAD_REQUEST, "缺少name参数");
+                        setUploadError(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_PARAM_NAME_MISSING);
                     }
                     return;
                 }
                 fileName = sanitizeFileName(fileName.trim());
                 if (fileName == null || fileName.isEmpty()) {
                     if (request instanceof LastHttpContent) {
-                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "文件名不合法");
+                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_FILE_NAME_INVALID);
                         ReferenceCountUtil.release(request);
                     } else {
-                        setUploadError(ctx, HttpResponseStatus.BAD_REQUEST, "文件名不合法");
+                        setUploadError(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_FILE_NAME_INVALID);
                     }
                     return;
                 }
@@ -83,10 +90,10 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
                 Path targetFile = uploadDir.resolve(fileName).toAbsolutePath().normalize();
                 if (!targetFile.startsWith(uploadDir)) {
                     if (request instanceof LastHttpContent) {
-                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "文件名不合法");
+                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_FILE_NAME_INVALID);
                         ReferenceCountUtil.release(request);
                     } else {
-                        setUploadError(ctx, HttpResponseStatus.BAD_REQUEST, "文件名不合法");
+                        setUploadError(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_FILE_NAME_INVALID);
                     }
                     return;
                 }
@@ -104,10 +111,10 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
                     ctx.channel().attr(UPLOAD_PATH).set(targetFile);
                 } catch (Exception e) {
                     if (request instanceof LastHttpContent) {
-                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "创建文件失败: " + e.getMessage());
+                        LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_UPLOAD_FILE_CREATE_FAILED + ": " + e.getMessage());
                         ReferenceCountUtil.release(request);
                     } else {
-                        setUploadError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "创建文件失败: " + e.getMessage());
+                        setUploadError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_UPLOAD_FILE_CREATE_FAILED + ": " + e.getMessage());
                     }
                 } finally {
                     lock.unlock();
@@ -276,7 +283,7 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
             resp.put("files", files);
             LlamaServer.sendJsonResponse(ctx, resp);
         } catch (Exception e) {
-            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "获取文件列表失败: " + e.getMessage());
+            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_UPLOAD_LIST_FAILED + ": " + e.getMessage());
         }
     }
 
@@ -284,19 +291,19 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
         try {
             String fileName = getQueryParam(query, "name");
             if (fileName == null || fileName.trim().isEmpty()) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少name参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_PARAM_NAME_MISSING);
                 return;
             }
             fileName = sanitizeFileName(fileName.trim());
             if (fileName == null || fileName.isEmpty()) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "文件名不合法");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_FILE_NAME_INVALID);
                 return;
             }
 
             Path uploadDir = getUploadDir();
             Path targetFile = uploadDir.resolve(fileName).toAbsolutePath().normalize();
             if (!targetFile.startsWith(uploadDir)) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "文件名不合法");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_UPLOAD_FILE_NAME_INVALID);
                 return;
             }
 
@@ -305,12 +312,12 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
             resp.put("success", deleted);
             resp.put("name", fileName);
             if (!deleted) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "文件不存在: " + fileName);
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_UPLOAD_FILE_NOT_FOUND + ": " + fileName);
                 return;
             }
             LlamaServer.sendJsonResponse(ctx, resp);
         } catch (Exception e) {
-            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, "删除文件失败: " + e.getMessage());
+            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_UPLOAD_DELETE_FAILED + ": " + e.getMessage());
         }
     }
 

@@ -43,8 +43,57 @@ import io.netty.util.CharsetUtil;
 public class ModelInfoController implements BaseController {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ModelInfoController.class);
-	
-	
+
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
+	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_REMOTE_NODE_INVALID = "api.error.remote.node.invalid";
+	private static final String I18N_REMOTE_NODE_CALL_FAILED = "api.error.remote.node.call.failed";
+	private static final String I18N_MODEL_NOT_FOUND = "api.error.model.notfound";
+	private static final String I18N_MODEL_RUNNING_CANNOT_SET_ALIAS = "api.error.model.running.cannot.set.alias";
+	private static final String I18N_PARAM_MODELID_EMPTY = "api.error.param.modelId.empty";
+	private static final String I18N_PARAM_MODELID_OR_ALIAS_REQUIRED = "api.error.param.modelId.or.alias.required";
+	private static final String I18N_PARAM_CONFIG_NAME_MISSING = "api.error.param.configName.missing";
+	private static final String I18N_PARAM_SHARED_NAME_MISSING = "api.error.param.sharedName.missing";
+	private static final String I18N_PARAM_CHAT_TEMPLATE_MISSING = "api.error.param.chatTemplate.missing";
+	private static final String I18N_PARAM_MODELID_MISSING = "api.error.param.modelId.missing";
+	private static final String I18N_MODEL_ALIAS_SET_FAILED = "api.error.model.alias.set.failed";
+	private static final String I18N_MODEL_ALIAS_INVALID_CHARS = "api.error.model.alias.invalid.chars";
+	private static final String I18N_MODEL_ALIAS_DOT_RESERVED = "api.error.model.alias.dot.reserved";
+	private static final String I18N_MODEL_ALIAS_SYSTEM_RESERVED = "api.error.model.alias.system.reserved";
+	private static final String I18N_MODEL_ALIAS_TRAILING_SPACE = "api.error.model.alias.trailing.space";
+	private static final String I18N_MODEL_ALIAS_TOO_LONG = "api.error.model.alias.too.long";
+	private static final String I18N_MODEL_FAVOURITE_FAILED = "api.error.model.favourite.failed";
+	private static final String I18N_MODEL_CONFIG_GET_FAILED = "api.error.model.config.get.failed";
+	private static final String I18N_MODEL_CONFIG_SET_FAILED = "api.error.model.config.set.failed";
+	private static final String I18N_MODEL_CONFIG_SAVE_FAILED = "api.error.model.config.save.failed";
+	private static final String I18N_MODEL_CONFIG_DELETE_FAILED = "api.error.model.config.delete.failed";
+	private static final String I18N_MODEL_CONFIG_DELETE_ITEM_FAILED = "api.error.model.config.delete.item.failed";
+	private static final String I18N_MODEL_CAPABILITIES_SET_FAILED = "api.error.model.capabilities.set.failed";
+	private static final String I18N_MODEL_CAPABILITIES_GET_FAILED = "api.error.model.capabilities.get.failed";
+	private static final String I18N_MODEL_RECORD_FAILED = "api.error.model.record.failed";
+	private static final String I18N_MODEL_SPEED_FAILED = "api.error.model.speed.failed";
+	private static final String I18N_MODEL_LIST_FAILED = "api.error.model.list.failed";
+	private static final String I18N_MODEL_DETAILS_FAILED = "api.error.model.details.failed";
+	private static final String I18N_MODEL_TEMPLATE_GET_FAILED = "api.error.model.template.get.failed";
+	private static final String I18N_MODEL_TEMPLATE_SET_FAILED = "api.error.model.template.set.failed";
+	private static final String I18N_MODEL_TEMPLATE_DELETE_FAILED = "api.error.model.template.delete.failed";
+	private static final String I18N_MODEL_TEMPLATE_DEFAULT_FAILED = "api.error.model.template.default.failed";
+	private static final String I18N_MODEL_SLOTS_GET_FAILED = "api.error.model.slots.get.failed";
+	private static final String I18N_MODEL_SLOTS_SAVE_FAILED = "api.error.model.slots.save.failed";
+	private static final String I18N_MODEL_SLOTS_LOAD_FAILED = "api.error.model.slots.load.failed";
+	private static final String I18N_MODEL_KWARGS_SET_FAILED = "api.error.model.kwargs.set.failed";
+	private static final String I18N_MODEL_KWARGS_GET_FAILED = "api.error.model.kwargs.get.failed";
+	private static final String I18N_MODEL_KWARGS_DELETE_FAILED = "api.error.model.kwargs.delete.failed";
+	private static final String I18N_SHARED_CONFIG_SET_FAILED = "api.error.shared.config.set.failed";
+	private static final String I18N_SHARED_CONFIG_GET_FAILED = "api.error.shared.config.get.failed";
+	private static final String I18N_SHARED_CONFIG_DELETE_FAILED = "api.error.shared.config.delete.failed";
+	private static final String I18N_SHARED_CONFIG_NOT_FOUND = "api.error.shared.config.notfound";
+	private static final String I18N_SHARED_CONFIG_UNSHARE_FAILED = "api.error.shared.config.unshare.failed";
 	
 	public ModelInfoController() {
 		
@@ -193,19 +242,19 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelRecordRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			Object record = LlamaRecordService.getInstance().getRecord(modelId);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(record));
 		} catch (Exception e) {
 			logger.info("获取模型用量记录时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型用量记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_RECORD_FAILED + ": " + e.getMessage()));
 		}
    }
 
@@ -216,7 +265,7 @@ public class ModelInfoController implements BaseController {
      * @throws RequestMethodException
      */
     private void handleModelRecordSpeedRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
         try {
             Map<String, String> params = ParamTool.getQueryParam(request.uri());
             String modelId = params.get("modelId");
@@ -244,7 +293,7 @@ public class ModelInfoController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
         } catch (Exception e) {
             logger.info("获取模型最快速度时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型最快速度失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_SPEED_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -255,16 +304,16 @@ public class ModelInfoController implements BaseController {
      * @throws RequestMethodException
      */
     private void handleModelCapabilitiesSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
@@ -275,7 +324,7 @@ public class ModelInfoController implements BaseController {
 			}
 			String modelId = JsonUtil.getJsonString(json, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			JsonObject capsObj = (json.has("capabilities") && json.get("capabilities") != null && json.get("capabilities").isJsonObject())
@@ -285,7 +334,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
 			logger.info("保存模型能力配置时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型能力配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CAPABILITIES_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -296,7 +345,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelCapabilitiesGetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
@@ -310,7 +359,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
 			logger.info("获取模型能力配置时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型能力配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CAPABILITIES_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -325,7 +374,7 @@ public class ModelInfoController implements BaseController {
 	 */
 	private void handleOpenAIModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {			
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");		
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);		
 		
 		try {
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -403,7 +452,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("获取模型列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型列表时发生错误: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -415,18 +464,17 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleSetModelAliasRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null || !json.has("modelId") || !json.has("alias")) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的参数: modelId 或 alias"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_OR_ALIAS_REQUIRED));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
@@ -438,7 +486,7 @@ public class ModelInfoController implements BaseController {
 			String modelId = json.get("modelId").getAsString();
 			String alias = json.get("alias").getAsString();
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("modelId不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_EMPTY));
 				return;
 			}
 			if (alias == null)
@@ -446,29 +494,29 @@ public class ModelInfoController implements BaseController {
 			alias = alias.trim();
 			if (!alias.isEmpty()) {
 				if (alias.matches(".*[\\\\/:*?\"<>|\\x00-\\x1F].*")) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("别名包含非法字符，禁止使用: \\ / : * ? \" < > | 及控制字符"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALIAS_INVALID_CHARS));
 					return;
 				}
 				if (alias.equals(".") || alias.equals("..")) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("别名不能为 . 或 .."));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALIAS_DOT_RESERVED));
 					return;
 				}
 				String base = alias.replaceAll("\\..*$", "").toUpperCase();
 				if (base.matches("^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$")) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("别名不能使用系统保留名称"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALIAS_SYSTEM_RESERVED));
 					return;
 				}
 				if (alias.endsWith(" ") || alias.endsWith(".")) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("别名不能以空格或点结尾"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALIAS_TRAILING_SPACE));
 					return;
 				}
 				if (alias.length() > 255) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("别名不能超过 255 个字符"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALIAS_TOO_LONG));
 					return;
 				}
 			}
 			if (LlamaServerManager.getInstance().getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型正在运行，无法修改别名。请先停止模型"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_RUNNING_CANNOT_SET_ALIAS));
 				return;
 			}
 			// 更新配置文件
@@ -487,7 +535,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("设置模型别名时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型别名失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALIAS_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -500,22 +548,22 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelFavouriteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null || !json.has("modelId")) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的参数: modelId"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_MISSING));
 				return;
 			}
 			String modelId = json.get("modelId").getAsString();
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("modelId不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_EMPTY));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
@@ -529,7 +577,7 @@ public class ModelInfoController implements BaseController {
 			manager.listModel();
 			GGUFModel model = manager.findModelById(modelId);
 			if (model == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_FOUND + ": " + modelId));
 				return;
 			}
 
@@ -545,7 +593,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("设置模型喜好时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型喜好失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_FAVOURITE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -557,7 +605,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelConfigRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
@@ -568,7 +616,7 @@ public class ModelInfoController implements BaseController {
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			ConfigManager configManager = ConfigManager.getInstance();
@@ -576,7 +624,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(bundle));
 		} catch (Exception e) {
 			logger.info("获取模型启动配置时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型启动配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CONFIG_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -589,16 +637,16 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelConfigSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
 			if (root == null || !root.isJsonObject()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 				return;
 			}
 			JsonObject obj = root.getAsJsonObject();
@@ -614,7 +662,7 @@ public class ModelInfoController implements BaseController {
 			if (obj.has("modelId")) {
 				String modelId = obj.get("modelId").getAsString();
 				if (modelId == null || modelId.trim().isEmpty()) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 					return;
 				}
 				String configName = JsonUtil.getJsonString(obj, "configName", null);
@@ -639,7 +687,7 @@ public class ModelInfoController implements BaseController {
 				// 关键注释：保存到命名配置，并在需要时切换当前选中配置
 				boolean saved = configManager.saveLaunchConfig(modelId, configName, cfgMap, setSelected);
 				if (!saved) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型启动配置失败"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CONFIG_SAVE_FAILED));
 					return;
 				}
 				LlamaServerManager.getInstance().buildAutoLoadModelCache();
@@ -670,7 +718,7 @@ public class ModelInfoController implements BaseController {
 				}
 				boolean saved = configManager.saveLaunchConfig(modelId, null, cfgMap, false);
 				if (!saved) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型启动配置失败"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CONFIG_SAVE_FAILED));
 					return;
 				}
 				LlamaServerManager.getInstance().buildAutoLoadModelCache();
@@ -680,21 +728,21 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(savedData));
 		} catch (Exception e) {
 			logger.info("设置模型启动配置时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型启动配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CONFIG_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleModelConfigDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -705,7 +753,7 @@ public class ModelInfoController implements BaseController {
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			String configName = JsonUtil.getJsonString(obj, "configName", null);
@@ -719,7 +767,7 @@ public class ModelInfoController implements BaseController {
 				deleted = configManager.deleteLaunchConfig(modelId, configName);
 			}
 			if (!deleted) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除模型配置失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CONFIG_DELETE_ITEM_FAILED));
 				return;
 			}
 			// 关键注释：删除后直接返回规范化配置包，前端可立即刷新下拉与当前配置
@@ -727,21 +775,21 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(bundle));
       } catch (Exception e) {
             logger.info("删除模型启动配置时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除模型启动配置失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CONFIG_DELETE_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleModelConfigSharedSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         try {
             String content = request.content().toString(CharsetUtil.UTF_8);
             if (content == null || content.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
                 return;
             }
             JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
             if (obj == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
                 return;
             }
             String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -752,17 +800,17 @@ public class ModelInfoController implements BaseController {
             }
             String modelId = JsonUtil.getJsonString(obj, "modelId", null);
             if (modelId == null || modelId.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
                 return;
             }
             String configName = JsonUtil.getJsonString(obj, "configName", null);
             if (configName == null || configName.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的configName参数"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONFIG_NAME_MISSING));
                 return;
             }
             String sharedName = JsonUtil.getJsonString(obj, "sharedName", null);
             if (sharedName == null || sharedName.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的sharedName参数"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SHARED_NAME_MISSING));
                 return;
             }
             ConfigManager configManager = ConfigManager.getInstance();
@@ -780,12 +828,12 @@ public class ModelInfoController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
         } catch (Exception e) {
             logger.info("设置共享配置时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置共享配置失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SHARED_CONFIG_SET_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleModelConfigSharedGetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
         try {
             Map<String, String> params = ParamTool.getQueryParam(request.uri());
             String nodeId = params.get("nodeId");
@@ -799,21 +847,21 @@ public class ModelInfoController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(shared));
         } catch (Exception e) {
             logger.info("获取共享配置时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取共享配置失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SHARED_CONFIG_GET_FAILED + ": " + e.getMessage()));
         }
     }
 
     private void handleModelConfigSharedDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         try {
             String content = request.content().toString(CharsetUtil.UTF_8);
             if (content == null || content.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
                 return;
             }
             JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
             if (obj == null) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
                 return;
             }
             String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -824,13 +872,13 @@ public class ModelInfoController implements BaseController {
             }
             String sharedName = JsonUtil.getJsonString(obj, "sharedName", null);
             if (sharedName == null || sharedName.trim().isEmpty()) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的sharedName参数"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SHARED_NAME_MISSING));
                 return;
             }
             ConfigManager configManager = ConfigManager.getInstance();
             boolean ok = configManager.unshareLaunchConfig(sharedName);
             if (!ok) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("取消共享失败，共享配置不存在"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SHARED_CONFIG_UNSHARE_FAILED));
                 return;
             }
             Map<String, Object> data = new HashMap<>();
@@ -838,7 +886,7 @@ public class ModelInfoController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
         } catch (Exception e) {
             logger.info("删除共享配置时发生错误", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除共享配置失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SHARED_CONFIG_DELETE_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -850,7 +898,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelDetailsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
@@ -862,7 +910,7 @@ public class ModelInfoController implements BaseController {
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -876,7 +924,7 @@ public class ModelInfoController implements BaseController {
 				}
 			}
 			if (model == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_FOUND + ": " + modelId));
 				return;
 			}
 //			Map<String, Object> metadata = new HashMap<>();
@@ -921,7 +969,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("获取模型详情时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型详情失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_DETAILS_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -933,7 +981,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelTemplateGetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
@@ -944,7 +992,7 @@ public class ModelInfoController implements BaseController {
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			String chatTemplate = ChatTemplateFileTool.readChatTemplateFromCacheFile(modelId);
@@ -959,7 +1007,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取模型聊天模板时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型聊天模板失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_TEMPLATE_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -970,16 +1018,16 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelTemplateSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -990,14 +1038,14 @@ public class ModelInfoController implements BaseController {
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			String chatTemplate = JsonUtil.getJsonString(obj, "chatTemplate", null);
 			if (chatTemplate == null) chatTemplate = JsonUtil.getJsonString(obj, "template", null);
 			if (chatTemplate == null) chatTemplate = JsonUtil.getJsonString(obj, "content", null);
 			if (chatTemplate == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的chatTemplate参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CHAT_TEMPLATE_MISSING));
 				return;
 			}
 
@@ -1018,7 +1066,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("设置模型聊天模板时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置模型聊天模板失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_TEMPLATE_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1030,16 +1078,16 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelTemplateDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -1050,7 +1098,7 @@ public class ModelInfoController implements BaseController {
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 
@@ -1063,7 +1111,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("删除模型聊天模板时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除模型聊天模板失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_TEMPLATE_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1074,7 +1122,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelTemplateDefaultRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
@@ -1085,7 +1133,7 @@ public class ModelInfoController implements BaseController {
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 
@@ -1100,7 +1148,7 @@ public class ModelInfoController implements BaseController {
 				}
 			}
 			if (model == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_FOUND + ": " + modelId));
 				return;
 			}
 
@@ -1122,7 +1170,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取模型默认聊天模板时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型默认聊天模板失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_TEMPLATE_DEFAULT_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1134,7 +1182,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelSlotsGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
@@ -1146,14 +1194,14 @@ public class ModelInfoController implements BaseController {
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			JsonObject result = LlamaServerManager.getInstance().handleModelSlotsGet(modelId);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
 			logger.info("获取模型slots信息时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型slots信息失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_SLOTS_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1165,17 +1213,17 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelSlotsSave(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
@@ -1196,7 +1244,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("保存模型slots缓存时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型slots缓存失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_SLOTS_SAVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1207,16 +1255,16 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleChatTemplateKwargsSet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -1227,7 +1275,7 @@ public class ModelInfoController implements BaseController {
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			JsonObject kwargs = (obj.has("chat_template_kwargs") && obj.get("chat_template_kwargs") != null
@@ -1241,7 +1289,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("设置chat template kwargs时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("设置chat template kwargs失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_KWARGS_SET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1252,7 +1300,7 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleChatTemplateKwargsGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String modelId = params.get("modelId");
@@ -1263,7 +1311,7 @@ public class ModelInfoController implements BaseController {
 				return;
 			}
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			JsonObject kwargs = ChatTemplateKwargsService.getInstance().getOpenAIChatTemplateKwargs(modelId);
@@ -1273,7 +1321,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取chat template kwargs时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取chat template kwargs失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_KWARGS_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1284,16 +1332,16 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleChatTemplateKwargsDelete(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(obj, "nodeId", "");
@@ -1304,7 +1352,7 @@ public class ModelInfoController implements BaseController {
 			}
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			ChatTemplateKwargsService.getInstance().deleteKwargsConfig(modelId);
@@ -1314,7 +1362,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("删除chat template kwargs时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除chat template kwargs失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_KWARGS_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1326,17 +1374,17 @@ public class ModelInfoController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleModelSlotsLoad(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String nodeId = JsonUtil.getJsonString(json, "nodeId", "");
@@ -1357,7 +1405,7 @@ public class ModelInfoController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("加载模型slots缓存时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型slots缓存失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_SLOTS_LOAD_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1366,7 +1414,7 @@ public class ModelInfoController implements BaseController {
 	 */
 	private void proxyGetRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
 		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_INVALID + ": " + nodeId));
 			return;
 		}
 		try {
@@ -1390,7 +1438,7 @@ public class ModelInfoController implements BaseController {
 			this.writeRemoteResult(ctx, result, nodeId);
 		} catch (Exception e) {
 			logger.warn("[模型信息] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1399,7 +1447,7 @@ public class ModelInfoController implements BaseController {
 	 */
 	private void proxyPostRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
 		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_INVALID + ": " + nodeId));
 			return;
 		}
 		try {
@@ -1414,7 +1462,7 @@ public class ModelInfoController implements BaseController {
 			this.writeRemoteResult(ctx, result, nodeId);
 		} catch (Exception e) {
 			logger.warn("[模型信息] 远程代理失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1422,7 +1470,7 @@ public class ModelInfoController implements BaseController {
 		if (result.isSuccess()) {
 			NodeManager.writeHttpResultToChannel(ctx, result, "[模型信息]");
 		} else {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 		}
 	}
 }

@@ -35,6 +35,23 @@ public class ModelPathController implements BaseController {
 
 	
 	private static final Logger logger = LoggerFactory.getLogger(ModelPathController.class);
+
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_PARAM_PATH_EMPTY = "api.error.param.path.empty";
+	private static final String I18N_PARAM_ORIGINAL_PATH_EMPTY = "api.error.param.originalPath.empty";
+	private static final String I18N_DIR_INVALID = "api.error.dir.invalid";
+	private static final String I18N_DIR_SYSTEM_ROOT = "api.error.dir.system.root";
+	private static final String I18N_PATH_EXISTS = "api.error.path.exists";
+	private static final String I18N_PATH_OVERLAP = "api.error.path.overlap";
+	private static final String I18N_PATH_EXISTS_OR_OVERLAP = "api.error.path.exists.or.overlap";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_MODEL_PATH_ADD_FAILED = "api.error.model.path.add.failed";
+	private static final String I18N_MODEL_PATH_REMOVE_FAILED = "api.error.model.path.remove.failed";
+	private static final String I18N_MODEL_PATH_UPDATE_FAILED = "api.error.model.path.update.failed";
+	private static final String I18N_MODEL_PATH_LIST_FAILED = "api.error.model.path.list.failed";
+	private static final String I18N_MODEL_PATH_CONFIG_NOTFOUND = "api.error.model.path.config.notfound";
+	private static final String I18N_MODEL_PATH_NOTFOUND = "api.error.model.path.notfound";
 	
 	
 	public ModelPathController() {
@@ -54,11 +71,11 @@ public class ModelPathController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[模型路径远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("远程节点调用失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -68,11 +85,11 @@ public class ModelPathController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[模型路径远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("远程节点调用失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -121,12 +138,12 @@ public class ModelPathController implements BaseController {
 			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			ModelPathDataStruct reqData = JsonUtil.fromJson(content, ModelPathDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("path不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
 			}
 
@@ -142,12 +159,12 @@ public class ModelPathController implements BaseController {
 			String normalized = reqData.getPath().trim();
 			Path validated = this.validateAndNormalizeDirectory(normalized);
 			if (validated == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("目录无效或不可访问"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_INVALID));
 				return;
 			}
 			normalized = validated.toString();
 			if (this.isVolumeRoot(validated)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不允许添加卷根目录"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_SYSTEM_ROOT));
 				return;
 			}
 			boolean conflict = false;
@@ -177,7 +194,7 @@ public class ModelPathController implements BaseController {
 				}
 			}
 			if (conflict) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径已存在或与其他路径重叠"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_EXISTS_OR_OVERLAP));
 				return;
 			}
 			ModelPathDataStruct item = new ModelPathDataStruct();
@@ -203,7 +220,7 @@ public class ModelPathController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("添加模型路径时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("添加模型路径失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PATH_ADD_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -225,12 +242,12 @@ public class ModelPathController implements BaseController {
 			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			ModelPathDataStruct reqData = JsonUtil.fromJson(content, ModelPathDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("path不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
 			}
 			String normalized = reqData.getPath().trim();
@@ -257,7 +274,7 @@ public class ModelPathController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("移除模型路径时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("移除模型路径失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PATH_REMOVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -279,12 +296,12 @@ public class ModelPathController implements BaseController {
 			}
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 			String originalPath = obj.has("originalPath") ? obj.get("originalPath").getAsString() : null;
@@ -293,11 +310,11 @@ public class ModelPathController implements BaseController {
 			String description = obj.has("description") ? obj.get("description").getAsString() : null;
 
 			if (originalPath == null || originalPath.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("originalPath不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ORIGINAL_PATH_EMPTY));
 				return;
 			}
 			if (newPath == null || newPath.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("path不能为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
 			}
 
@@ -305,7 +322,7 @@ public class ModelPathController implements BaseController {
 			String newNormalized = newPath.trim();
 			Path validated = this.validateAndNormalizeDirectory(newNormalized);
 			if (validated == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("目录无效或不可访问"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_INVALID));
 				return;
 			}
 			newNormalized = validated.toString();
@@ -317,7 +334,7 @@ public class ModelPathController implements BaseController {
 
 			List<ModelPathDataStruct> items = cfg.getItems();
 			if (items == null || items.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到可更新的路径配置"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PATH_CONFIG_NOTFOUND));
 				return;
 			}
 
@@ -330,14 +347,14 @@ public class ModelPathController implements BaseController {
 				}
 			}
 			if (target == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到要更新的路径: " + originalNormalized));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PATH_NOTFOUND + ": " + originalNormalized));
 				return;
 			}
 
 			boolean pathChanged = !this.isSamePath(originalNormalized, newNormalized);
 			if (pathChanged) {
 				if (this.isVolumeRoot(validated)) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不允许添加卷根目录"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_SYSTEM_ROOT));
 					return;
 				}
 				for (ModelPathDataStruct i : items) {
@@ -346,12 +363,12 @@ public class ModelPathController implements BaseController {
 					String existing = i.getPath().trim();
 					Path existingPath = Paths.get(existing).toAbsolutePath().normalize();
 					if (this.isSamePath(newNormalized, existing)) {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径已存在"));
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_EXISTS));
 						return;
 				}
 				try {
 					if (validated.startsWith(existingPath) || existingPath.startsWith(validated)) {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径与其他路径重叠"));
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_OVERLAP));
 						return;
 					}
 				} catch (Exception ignore) {
@@ -361,7 +378,7 @@ public class ModelPathController implements BaseController {
 			Path defaultModelsPath = Paths.get(LlamaServer.getDefaultModelsPath()).toAbsolutePath().normalize();
 			try {
 				if (validated.equals(defaultModelsPath) || validated.startsWith(defaultModelsPath) || defaultModelsPath.startsWith(validated)) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("路径与其他路径重叠"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_OVERLAP));
 					return;
 				}
 			} catch (Exception ignore) {
@@ -389,7 +406,7 @@ public class ModelPathController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("更新模型路径时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("更新模型路径失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PATH_UPDATE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -472,7 +489,7 @@ public class ModelPathController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取模型路径列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取模型路径列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PATH_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 

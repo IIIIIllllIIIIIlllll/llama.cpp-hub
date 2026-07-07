@@ -51,7 +51,61 @@ public class ModelActionController implements BaseController {
 	
 	
 	private static final Logger logger = LoggerFactory.getLogger(ModelActionController.class);
-	
+
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_PARAM_MODELID_MISSING = "api.error.param.modelId.missing";
+	private static final String I18N_PARAM_CMD_MISSING = "api.error.param.cmd.missing";
+	private static final String I18N_PARAM_CLONE_ID_MISSING = "api.error.param.cloneId.missing";
+	private static final String I18N_PARAM_SOURCE_MODEL_ID_MISSING = "api.error.param.sourceModelId.missing";
+	private static final String I18N_PARAM_FILE_NAME_MISSING = "api.error.param.fileName.missing";
+	private static final String I18N_PARAM_LINE_NUMBER_MISSING = "api.error.param.lineNumber.missing";
+	private static final String I18N_PARAM_LLAMA_BIN_PATH_MISSING = "api.error.param.llamaBinPath.missing";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_REMOTE_NODE_CALL_FAILED = "api.error.remote.node.call.failed";
+	private static final String I18N_REMOTE_NODE_INVALID = "api.error.remote.node.invalid";
+	private static final String I18N_MODEL_NOT_FOUND = "api.error.model.notfound";
+	private static final String I18N_MODEL_NOT_LOADED = "api.error.model.not.loaded";
+	private static final String I18N_MODEL_STOP_FAILED_OR_NOT_LOADED = "api.error.model.stop.failed.or.not.loaded";
+	private static final String I18N_MODEL_REFRESH_LIST_FAILED = "api.error.model.refresh.list.failed";
+	private static final String I18N_MODEL_LIST_FAILED = "api.error.model.list.failed";
+	private static final String I18N_MODEL_LOADED_LIST_FAILED = "api.error.model.loaded.list.failed";
+	private static final String I18N_MODEL_STOP_FAILED = "api.error.model.stop.failed";
+	private static final String I18N_MODEL_LOAD_FAILED = "api.error.model.load.failed";
+	private static final String I18N_MODEL_CLONE_CREATE_FAILED = "api.error.model.clone.create.failed";
+	private static final String I18N_MODEL_CLONE_ID_CONFLICT = "api.error.model.clone.id.conflict";
+	private static final String I18N_MODEL_CLONE_CONFIG_EXISTS = "api.error.model.clone.config.exists";
+	private static final String I18N_MODEL_CLONE_SOURCE_NOT_FOUND = "api.error.model.clone.source.notfound";
+	private static final String I18N_MODEL_CLONE_SOURCE_IS_CLONE = "api.error.model.clone.source.is.clone";
+	private static final String I18N_MODEL_CLONE_NO_LAUNCH_PARAMS = "api.error.model.clone.no.launch.params";
+	private static final String I18N_MODEL_CLONE_NO_BIN_PATH = "api.error.model.clone.no.bin.path";
+	private static final String I18N_MODEL_CLONE_SAVE_FAILED = "api.error.model.clone.save.failed";
+	private static final String I18N_MODEL_CLONE_CONFIG_NOT_FOUND = "api.error.model.clone.config.notfound";
+	private static final String I18N_MODEL_CLONE_SOURCE_MISMATCH = "api.error.model.clone.source.mismatch";
+	private static final String I18N_MODEL_BENCHMARK_CMD_MISSING = "api.error.model.benchmark.cmd.missing";
+	private static final String I18N_MODEL_BENCHMARK_NOT_FOUND = "api.error.model.benchmark.notfound";
+	private static final String I18N_MODEL_BENCHMARK_METADATA_INCOMPLETE = "api.error.model.benchmark.metadata.incomplete";
+	private static final String I18N_MODEL_BENCHMARK_EXE_NOT_FOUND = "api.error.model.benchmark.exe.not.found";
+	private static final String I18N_MODEL_BENCHMARK_TIMEOUT = "api.error.model.benchmark.timeout";
+	private static final String I18N_MODEL_BENCHMARK_FAILED = "api.error.model.benchmark.failed";
+	private static final String I18N_MODEL_BENCHMARK_LIST_FAILED = "api.error.model.benchmark.list.failed";
+	private static final String I18N_MODEL_BENCHMARK_READ_FAILED = "api.error.model.benchmark.read.failed";
+	private static final String I18N_MODEL_BENCHMARK_V2_READ_FAILED = "api.error.model.benchmark.v2.read.failed";
+	private static final String I18N_MODEL_BENCHMARK_DELETE_FAILED = "api.error.model.benchmark.delete.failed";
+	private static final String I18N_MODEL_BENCHMARK_V2_DELETE_FAILED = "api.error.model.benchmark.v2.delete.failed";
+	private static final String I18N_MODEL_METRICS_FAILED = "api.error.model.metrics.failed";
+	private static final String I18N_MODEL_PROPS_FAILED = "api.error.model.props.failed";
+	private static final String I18N_MODEL_LOADED_CMD_MISSING = "api.error.model.loaded.cmd.missing";
+	private static final String I18N_MODEL_ALREADY_LOADED = "api.error.model.already.loaded";
+	private static final String I18N_MODEL_LOADING = "api.error.model.loading";
+	private static final String I18N_FILE_NOT_FOUND = "api.error.file.notfound";
+	private static final String I18N_FILE_NAME_INVALID = "api.error.file.name.invalid";
+	private static final String I18N_RECORD_NOT_FOUND = "api.error.record.notfound";
+	private static final String I18N_MODEL_PORT_NOT_FOUND = "api.error.model.port.not.found";
+
 	/**
 	 * 	
 	 */
@@ -156,7 +210,7 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleRefreshModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			// 检查是否指定了远程节点
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
@@ -168,7 +222,7 @@ public class ModelActionController implements BaseController {
 				if (result.isSuccess()) {
 					NodeManager.writeHttpResultToChannel(ctx, result, "[模型操作刷新远程]");
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点刷新失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
@@ -210,7 +264,7 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("强制刷新模型列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("强制刷新模型列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_REFRESH_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -222,7 +276,7 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
@@ -252,7 +306,7 @@ public class ModelActionController implements BaseController {
 			logger.info("获取模型列表时发生错误", e);
 			Map<String, Object> errorResponse = new HashMap<>();
 			errorResponse.put("success", false);
-			errorResponse.put("error", "获取模型列表失败: " + e.getMessage());
+			errorResponse.put("error", I18N_MODEL_LIST_FAILED + ": " + e.getMessage());
 			LlamaServer.sendJsonResponse(ctx, errorResponse);
 		}
 	}
@@ -454,23 +508,23 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleStopModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
 			String modelId = JsonUtil.getJsonString(obj, "modelId");
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 
@@ -497,7 +551,7 @@ public class ModelActionController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 				LlamaServer.sendModelStopEvent(modelId, sourceModelId, true, "模型停止成功");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型停止失败或模型未加载"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_STOP_FAILED_OR_NOT_LOADED));
 				LlamaServer.sendModelStopEvent(modelId, sourceModelId, false, "模型停止失败或模型未加载");
 			}
 			} else {
@@ -506,7 +560,7 @@ public class ModelActionController implements BaseController {
 			}
 		} catch (Exception e) {
 			logger.info("停止模型时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("停止模型失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_STOP_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -517,7 +571,7 @@ public class ModelActionController implements BaseController {
 		String nodeId = this.findNodeByLoadedModel(modelId);
 		if (nodeId == null) {
 			logger.warn("[模型操作] 远程节点也未找到已加载模型: modelId={}", modelId);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + modelId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_LOADED + ": " + modelId));
 			return;
 		}
 		logger.info("[模型操作] 找到模型所在远程节点: modelId={}, nodeId={}", modelId, nodeId);
@@ -533,7 +587,7 @@ public class ModelActionController implements BaseController {
 		body.addProperty("modelId", modelId);
 		NodeManager.HttpResult result = manager.callRemoteApi(nodeId, "POST", "api/models/stop", body);
 		if (!result.isSuccess()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + result.getBody()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + result.getBody()));
 			return;
 		}
 		String remoteError = this.extractRemoteError(result.getBody());
@@ -563,7 +617,7 @@ public class ModelActionController implements BaseController {
 			}
 			String error = JsonUtil.getJsonString(root, "error");
 			if (error == null || error.isEmpty()) {
-				error = "远程节点操作失败";
+				error = I18N_REMOTE_CALL_FAILED;
 			}
 			return error;
 		} catch (Exception e) {
@@ -580,7 +634,7 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleLoadedModelsRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			String nodeId = ParamTool.getQueryParam(request.uri()).get("nodeId");
@@ -608,7 +662,7 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("获取已加载模型时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取已加载模型失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOADED_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -736,17 +790,17 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleCloneCreateRequest(ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
@@ -765,11 +819,11 @@ public class ModelActionController implements BaseController {
 			String cloneId = JsonUtil.getJsonString(obj, "cloneId", null);
 			String sourceModelId = JsonUtil.getJsonString(obj, "sourceModelId", null);
 			if (cloneId == null || cloneId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 cloneId 参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CLONE_ID_MISSING));
 				return;
 			}
 			if (sourceModelId == null || sourceModelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的 sourceModelId 参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SOURCE_MODEL_ID_MISSING));
 				return;
 			}
 			String trimmedCloneId = cloneId.trim();
@@ -779,26 +833,26 @@ public class ModelActionController implements BaseController {
 
 			// 1. cloneId 不能与本地磁盘模型冲突
 			if (manager.findModelById(trimmedCloneId) != null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("cloneId 与现有本地模型冲突: " + trimmedCloneId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_ID_CONFLICT + ": " + trimmedCloneId));
 				return;
 			}
 
 			// 2. cloneId 不能已有启动配置
 			ConfigManager configManager = ConfigManager.getInstance();
 			if (configManager.loadAllLaunchConfigs().containsKey(trimmedCloneId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("cloneId 已存在启动配置: " + trimmedCloneId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_CONFIG_EXISTS + ": " + trimmedCloneId));
 				return;
 			}
 
 			// 3. 源模型必须存在
 			if (manager.findModelById(trimmedSourceId) == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到源模型: " + trimmedSourceId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_SOURCE_NOT_FOUND + ": " + trimmedSourceId));
 				return;
 			}
 
 			// 4. 源模型不能是克隆体（禁止套娃）
 			if (manager.getSourceModelId(trimmedSourceId) != null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("源模型不能是克隆体: " + trimmedSourceId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_SOURCE_IS_CLONE + ": " + trimmedSourceId));
 				return;
 			}
 
@@ -807,7 +861,7 @@ public class ModelActionController implements BaseController {
 			if (cmd != null) cmd = cmd.trim();
 			if (extraParams != null) extraParams = extraParams.trim();
 			if (cmd.isEmpty() && extraParams.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数 cmd 或 extraParams"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_NO_LAUNCH_PARAMS));
 				return;
 			}
 
@@ -816,7 +870,7 @@ public class ModelActionController implements BaseController {
 				llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
 			}
 			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供 llamaBinPathSelect"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_NO_BIN_PATH));
 				return;
 			}
 
@@ -840,7 +894,7 @@ public class ModelActionController implements BaseController {
 			boolean saved = configManager.saveCloneLaunchConfig(trimmedCloneId, trimmedSourceId, configName,
 					launchConfig);
 			if (!saved) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存克隆体配置失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_SAVE_FAILED));
 				return;
 			}
 
@@ -853,7 +907,7 @@ public class ModelActionController implements BaseController {
 			logger.info("[模型操作] 创建克隆体配置成功: cloneId={}, sourceModelId={}", trimmedCloneId, trimmedSourceId);
 		} catch (Exception e) {
 			logger.warn("创建克隆体配置时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("创建克隆体配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_CREATE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -865,17 +919,17 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException 
 	 */
 	private void handleLoadModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
@@ -901,7 +955,7 @@ public class ModelActionController implements BaseController {
 			boolean isCloneRequest = sourceModelId != null && !sourceModelId.trim().isEmpty();
 
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 
@@ -910,16 +964,16 @@ public class ModelActionController implements BaseController {
 				// 克隆体：配置必须预先存在（用户通过创建流程建立），加载时仅查找并拉起
 				String configSourceId = manager.getSourceModelId(modelId);
 				if (configSourceId == null) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到克隆体配置: " + modelId + "，请先创建配置"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_CONFIG_NOT_FOUND + ": " + modelId));
 					return;
 				}
 				if (!configSourceId.equals(sourceModelId.trim())) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("克隆体配置的 sourceModelId(" + configSourceId + ") 与请求(" + sourceModelId.trim() + ")不一致"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_SOURCE_MISMATCH + ": " + configSourceId + " vs " + sourceModelId.trim()));
 					return;
 				}
 				// 用源模型判定本地是否存在（克隆体本身不在磁盘上）
 				if (manager.findModelById(sourceModelId.trim()) == null) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到源模型: " + sourceModelId));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_SOURCE_NOT_FOUND + ": " + sourceModelId));
 					return;
 				}
 				logger.info("[模型操作] 本地加载克隆体: modelId={}, sourceModelId={}", modelId, sourceModelId);
@@ -935,7 +989,7 @@ public class ModelActionController implements BaseController {
 			}
 		} catch (Exception e) {
 			logger.info("加载模型时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载模型失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOAD_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -946,7 +1000,7 @@ public class ModelActionController implements BaseController {
 		String nodeId = this.findNodeByModel(modelId);
 		if (nodeId == null) {
 			logger.warn("[模型操作] 远程节点也未找到模型: modelId={}", modelId);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到ID为 " + modelId + " 的模型"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_FOUND + ": " + modelId));
 			return;
 		}
 		logger.info("[模型操作] 找到模型所在远程节点: modelId={}, nodeId={}", modelId, nodeId);
@@ -962,7 +1016,7 @@ public class ModelActionController implements BaseController {
 		if (cmd != null) cmd = cmd.trim();
 		if (extraParams != null) extraParams = extraParams.trim();
 		if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOADED_CMD_MISSING));
 			return;
 		}
 		boolean enableVision = ParamTool.parseJsonBoolean(obj, "enableVision", true);
@@ -985,15 +1039,15 @@ public class ModelActionController implements BaseController {
 		}
 
 		if (manager.getLoadedProcesses().containsKey(modelId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型已经加载"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_ALREADY_LOADED));
 			return;
 		}
 		if (manager.isLoading(modelId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该模型正在加载中"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOADING));
 			return;
 		}
 		if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未提供llamaBinPath"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_NO_BIN_PATH));
 			return;
 		}
 		// 克隆体的 chat template 文件从源模型查找（克隆体自身无磁盘目录）
@@ -1001,7 +1055,7 @@ public class ModelActionController implements BaseController {
 		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(chatTemplateLookupId);
 		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId);
 		if (!started) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交加载任务失败"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOAD_FAILED));
 			return;
 		}
 
@@ -1031,7 +1085,7 @@ public class ModelActionController implements BaseController {
 		NodeManager manager = NodeManager.getInstance();
 		NodeManager.HttpResult result = manager.callRemoteApi(nodeId, "POST", "api/models/load", body);
 		if (!result.isSuccess()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: " + result.getBody()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + result.getBody()));
 			return;
 		}
 		String remoteError = this.extractRemoteError(result.getBody());
@@ -1053,17 +1107,17 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleModelBenchmark(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
@@ -1077,7 +1131,7 @@ public class ModelActionController implements BaseController {
 
 			String modelId = json.has("modelId") ? json.get("modelId").getAsString() : null;
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			String cmd = JsonUtil.getJsonString(json, "cmd", null);
@@ -1086,7 +1140,7 @@ public class ModelActionController implements BaseController {
 				if (cmd.isEmpty()) cmd = null;
 			}
 			if (cmd == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的cmd参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CMD_MISSING));
 				return;
 			}
 			String llamaBinPath = null;
@@ -1110,16 +1164,16 @@ public class ModelActionController implements BaseController {
 				}
 			}
 			if (model == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到指定模型: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_FOUND + ": " + modelId));
 				return;
 			}
 			if (model.getPrimaryModel() == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型元数据不完整，无法执行基准测试"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_METADATA_INCOMPLETE));
 				return;
 			}
 			String modelPath = model.getPrimaryModel().getFilePath();
 			if (llamaBinPath == null || llamaBinPath.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的llama.cpp路径参数: llamaBinPath"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LLAMA_BIN_PATH_MISSING));
 				return;
 			}
 			String osName = System.getProperty("os.name").toLowerCase();
@@ -1130,7 +1184,7 @@ public class ModelActionController implements BaseController {
 			File benchFile = new File(llamaBinPath, executableName);
 			if (!benchFile.exists() || !benchFile.isFile()) {
 				LlamaServer.sendJsonResponse(ctx,
-						ApiResponse.error("llama-bench可执行文件不存在: " + benchFile.getAbsolutePath()));
+						ApiResponse.error(I18N_MODEL_BENCHMARK_EXE_NOT_FOUND + ": " + benchFile.getAbsolutePath()));
 				return;
 			}
 			List<String> command = new ArrayList<>();
@@ -1206,7 +1260,7 @@ public class ModelActionController implements BaseController {
 			boolean finished = process.waitFor(600, TimeUnit.SECONDS);
 			if (!finished) {
 				process.destroyForcibly();
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("llama-bench执行超时"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_TIMEOUT));
 				return;
 			}
 			int exitCode = process.exitValue();
@@ -1242,7 +1296,7 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("执行模型基准测试时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行模型基准测试失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1253,16 +1307,16 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelBenchmarkV2(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
@@ -1283,7 +1337,7 @@ public class ModelActionController implements BaseController {
 			if (msg != null && msg.startsWith("执行模型基准测试失败")) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(msg));
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("执行模型基准测试失败: " + e.getMessage()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_FAILED + ": " + e.getMessage()));
 			}
 		}
 	}
@@ -1298,7 +1352,7 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleModelBenchmarkList(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		
 		try {
 			String query = request.uri();
@@ -1311,7 +1365,7 @@ public class ModelActionController implements BaseController {
 			String modelId = params.get("modelId");
 
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			String safeModelId = modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
@@ -1340,7 +1394,7 @@ public class ModelActionController implements BaseController {
 			data.put("count", files.size());
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取基准测试结果列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1351,7 +1405,7 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelBenchmarkV2Get(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		
 		try {
 			String query = request.uri();
@@ -1364,7 +1418,7 @@ public class ModelActionController implements BaseController {
 			String modelId = params.get("modelId");
 			if (modelId != null) modelId = modelId.trim();
 			if (modelId == null || modelId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			String safeModelId = modelId.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
@@ -1372,7 +1426,7 @@ public class ModelActionController implements BaseController {
 			String fileName = safeModelId + "_V2.jsonl";
 			File target = new File(dir, fileName);
 			if (!target.exists() || !target.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_NOT_FOUND));
 				return;
 			}
 			List<String> lines = Files.readAllLines(target.toPath(), StandardCharsets.UTF_8);
@@ -1395,7 +1449,7 @@ public class ModelActionController implements BaseController {
 			data.put("savedPath", target.getAbsolutePath());
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取基准测试V2结果失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_V2_READ_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1407,17 +1461,17 @@ public class ModelActionController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleModelBenchmarkV2Delete(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
 			if (json == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体解析失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
 			}
 
@@ -1432,12 +1486,12 @@ public class ModelActionController implements BaseController {
 			String modelId = JsonUtil.getJsonString(json, "modelId", null);
 			if (modelId != null) modelId = modelId.trim();
 			if (modelId == null || modelId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			Integer lineNumber = JsonUtil.getJsonInt(json, "lineNumber", null);
 			if (lineNumber == null || lineNumber.intValue() <= 0) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的lineNumber参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LINE_NUMBER_MISSING));
 				return;
 			}
 
@@ -1446,14 +1500,14 @@ public class ModelActionController implements BaseController {
 			String fileName = safeModelId + "_V2.jsonl";
 			File target = new File(dir, fileName);
 			if (!target.exists() || !target.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_NOT_FOUND));
 				return;
 			}
 
 			List<String> lines = Files.readAllLines(target.toPath(), StandardCharsets.UTF_8);
 			int lineIndex = lineNumber.intValue() - 1;
 			if (lineIndex < 0 || lineIndex >= lines.size()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("记录不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_RECORD_NOT_FOUND));
 				return;
 			}
 			lines.remove(lineIndex);
@@ -1466,7 +1520,7 @@ public class ModelActionController implements BaseController {
 			data.put("deleted", true);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除基准测试V2记录失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_V2_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1479,7 +1533,7 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleModelBenchmarkGet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		
 		try {
 			String query = request.uri();
@@ -1493,17 +1547,17 @@ public class ModelActionController implements BaseController {
 			
 			fileName = params.get("fileName");
 			if (fileName == null || fileName.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的fileName参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_FILE_NAME_MISSING));
 				return;
 			}
 			if (!fileName.matches("[a-zA-Z0-9._\\-]+")) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件名不合法"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_NAME_INVALID));
 				return;
 			}
 			File dir = new File("benchmarks");
 			File target = new File(dir, fileName);
 			if (!target.exists() || !target.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_NOT_FOUND));
 				return;
 			}
 			byte[] bytes = Files.readAllBytes(target.toPath());
@@ -1514,7 +1568,7 @@ public class ModelActionController implements BaseController {
 			data.put("savedPath", target.getAbsolutePath());
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取基准测试结果失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_READ_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1527,7 +1581,7 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleModelBenchmarkDelete(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		
 		try {
 			String query = request.uri();
@@ -1544,17 +1598,17 @@ public class ModelActionController implements BaseController {
 			}
 			
 			if (fileName == null || fileName.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的fileName参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_FILE_NAME_MISSING));
 				return;
 			}
 			if (!fileName.matches("[a-zA-Z0-9._\\-]+")) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件名不合法"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_NAME_INVALID));
 				return;
 			}
 			File dir = new File("benchmarks");
 			File target = new File(dir, fileName);
 			if (!target.exists() || !target.isFile()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("文件不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FILE_NOT_FOUND));
 				return;
 			}
 			Files.delete(target.toPath());
@@ -1563,7 +1617,7 @@ public class ModelActionController implements BaseController {
 			data.put("deleted", true);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除基准测试结果失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1577,7 +1631,7 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleModelMetrics(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			String query = request.uri();
@@ -1586,17 +1640,17 @@ public class ModelActionController implements BaseController {
 			modelId = params.get("modelId");
 			
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			if (!manager.getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_LOADED + ": " + modelId));
 				return;
 			}
 			Integer port = manager.getModelPort(modelId);
 			if (port == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到模型端口: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PORT_NOT_FOUND + ": " + modelId));
 				return;
 			}
 			String targetUrl = String.format("http://localhost:%d/metrics", port.intValue());
@@ -1632,12 +1686,12 @@ public class ModelActionController implements BaseController {
 					}
 					responseBody = sb.toString();
 				}
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取metrics失败: " + responseBody));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_METRICS_FAILED + ": " + responseBody));
 			}
 			connection.disconnect();
 		} catch (Exception e) {
 			logger.info("获取metrics时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取metrics失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_METRICS_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1650,7 +1704,7 @@ public class ModelActionController implements BaseController {
 	 */
 	private void handleModelProps(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
 			String query = request.uri();
@@ -1659,17 +1713,17 @@ public class ModelActionController implements BaseController {
 			modelId = params.get("modelId");
 			
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_REQUIRED));
 				return;
 			}
 			LlamaServerManager manager = LlamaServerManager.getInstance();
 			if (!manager.getLoadedProcesses().containsKey(modelId)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("模型未加载: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_NOT_LOADED + ": " + modelId));
 				return;
 			}
 			Integer port = manager.getModelPort(modelId);
 			if (port == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未找到模型端口: " + modelId));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PORT_NOT_FOUND + ": " + modelId));
 				return;
 			}
 			String targetUrl = String.format("http://localhost:%d/props", port.intValue());
@@ -1705,12 +1759,12 @@ public class ModelActionController implements BaseController {
 					}
 					responseBody = sb.toString();
 				}
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取props失败: " + responseBody));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PROPS_FAILED + ": " + responseBody));
 			}
 			connection.disconnect();
 		} catch (Exception e) {
 			logger.info("获取props时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取props失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_PROPS_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1868,7 +1922,7 @@ public class ModelActionController implements BaseController {
 	 */
 	private void proxyGetRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
 		if (nodeId == null || nodeId.isBlank() || "local".equals(nodeId)) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("无效的远程节点: " + nodeId));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_INVALID + ": " + nodeId));
 			return;
 		}
 		try {
@@ -1892,7 +1946,7 @@ public class ModelActionController implements BaseController {
 			writeRemoteResult(ctx, result);
 		} catch (Exception e) {
 			logger.warn("[模型操作] 远程代理 GET 失败: nodeId={}, path={}, error={}", nodeId, path, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_NODE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1903,7 +1957,7 @@ public class ModelActionController implements BaseController {
 		if (result.isSuccess()) {
 			NodeManager.writeHttpResultToChannel(ctx, result, "[模型操作]");
 		} else {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 		}
 	}
 }

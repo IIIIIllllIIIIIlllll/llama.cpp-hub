@@ -59,6 +59,29 @@ import io.netty.handler.codec.http.LastHttpContent;
 	public class EasyChatService {
 
 	private static final Logger logger = LoggerFactory.getLogger(EasyChatService.class);
+
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_PARSE = "api.error.body.parse";
+	private static final String I18N_PARAM_CONVERSATION_ID_REQUIRED = "api.error.param.conversationId.required";
+	private static final String I18N_PARAM_MODEL_ID_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_MODEL_NOT_FOUND = "api.error.model.notfound";
+	private static final String I18N_CHAT_EPHEMERAL_CONTINUE_UNSUPPORTED = "api.error.chat.ephemeral.continue.unsupported";
+	private static final String I18N_CHAT_CONTINUE_SEQ_INVALID = "api.error.chat.continue.seq.invalid";
+	private static final String I18N_CHAT_CONTINUE_TARGET_NOTFOUND = "api.error.chat.continue.target.notfound";
+	private static final String I18N_CHAT_CONTINUE_TOOLCALLS_UNSUPPORTED = "api.error.chat.continue.toolcalls.unsupported";
+	private static final String I18N_CHAT_REGENERATE_TOOLCONTEXT_UNSUPPORTED = "api.error.chat.regenerate.toolcontext.unsupported";
+	private static final String I18N_CHAT_PARAM_CONFLICT = "api.error.chat.param.conflict";
+	private static final String I18N_CHAT_PROCESS_FAILED = "api.error.chat.process.failed";
+	private static final String I18N_CHAT_MODEL_PORT_NOTFOUND = "api.error.chat.model.port.notfound";
+	private static final String I18N_CHAT_MODEL_LOAD_FAILED = "api.error.chat.model.load.failed";
+	private static final String I18N_CHAT_PARAM_PROMPT_MISSING = "api.error.chat.param.prompt.missing";
+	private static final String I18N_CHAT_TITLE_GENERATE_FAILED = "api.error.chat.title.generate.failed";
+	private static final String I18N_CHAT_MODEL_RESPONSE_ERROR = "api.error.chat.model.response.error";
+	private static final String I18N_CHAT_REMOTE_RESPONSE_ERROR = "api.error.chat.remote.response.error";
+	private static final String I18N_CHAT_GLOBAL_LOCK_BUSY = "api.error.chat.global.lock.busy";
+	private static final String I18N_CHAT_HISTORY_FAILED = "api.error.chat.history.failed";
+
 	private static final int STREAM_TIMEOUT_MS = 36000 * 1000;
 	
 
@@ -126,7 +149,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	 */
 	public void handleStreamChat(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("只支持POST请求"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_METHOD_POST_ONLY));
 			return;
 		}
 
@@ -150,14 +173,14 @@ import io.netty.handler.codec.http.LastHttpContent;
             String hdrConvId = decodeHeader(request.headers().get("X-Conversation-Id"));
             String conversationId = (hdrConvId != null) ? hdrConvId : "";
 			if (conversationId.isBlank()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少conversationId"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONVERSATION_ID_REQUIRED));
 				return;
 			}
 
        String hdrModelId = decodeHeader(request.headers().get("X-Model-Id"));
             String modelId = (hdrModelId != null) ? hdrModelId : "";
 			if (modelId.isBlank()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_REQUIRED));
 				return;
 			}
 
@@ -278,12 +301,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 				// For regenerate/continue: no body needed, backend reads messages from fragments
 				// bodyBytes can be empty
 			} else if (bodyBytes != null && bodyBytes.length == 0) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			} else if (bodyBytes == null && streamingBodyFile != null) {
 				long fileSize = Files.size(streamingBodyFile);
 				if (fileSize == 0) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 					return;
 				}
 			}
@@ -297,16 +320,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 			int continueVariantIndex = 0;
 			if (isContinue) {
 				if (isEphemeral) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("临时会话不支持继续生成"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_EPHEMERAL_CONTINUE_UNSUPPORTED));
 					return;
 				}
 				if (continueSeq < 0 || continueSeq % 2 != 1) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("X-Continue-Seq 必须指向 assistant 消息"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_SEQ_INVALID));
 					return;
 				}
 				EasyChatStorage.FragmentHeader header = storage.readFragmentHeader(convDir, continueSeq);
 				if (header == null || storage.isDeleted(header)) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("继续生成目标消息不存在或已删除"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_TARGET_NOTFOUND));
 					return;
 				}
 			continueVariantIndex = storage.resolveVariantIndex(header, variants != null ? variants.get(continueSeq) : null);
@@ -316,13 +339,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 			if (continueVariantIndex < 0) {
 				continueVariantIndex = 0;
 			}
-			// Reject continue on a tool_calls-bearing message: llama.cpp's continuation
-			// path (common/chat-auto-parser-generator.cpp:53-70) only renders
-			// reasoning_content + render_content() and silently drops tool_calls from
-			// the prompt, which would lose the tool call data and mislead the model.
 			try {
 				if (fragmentHasNonEmptyToolCalls(convDir, continueSeq, continueVariantIndex)) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("暂不支持对带工具调用的消息继续生成"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_TOOLCALLS_UNSUPPORTED));
 					return;
 				}
 			} catch (Exception e) {
@@ -330,10 +349,6 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 		}
 
-		// Reject regenerate of a tool-call-following assistant: llama.cpp emits EOS
-		// immediately when regenerating the final reply after a tool result, producing
-		// an empty response. Regenerate of the tool_calls-bearing assistant itself
-		// remains allowed (the user may want different tool calls).
 		if (isRegenerate && !isEphemeral && convDir != null) {
 			try {
 				boolean targetHasToolCalls = false;
@@ -346,10 +361,6 @@ import io.netty.handler.codec.http.LastHttpContent;
 					targetHasToolCalls = fragmentHasNonEmptyToolCalls(convDir, regenerateSeq, regVariant);
 				}
 				if (!targetHasToolCalls) {
-					// Only reject when the immediate preceding non-deleted fragment is a
-					// tool result — that is the case where llama.cpp emits EOS immediately.
-					// Regenerating later messages (whose preceding fragment is a user or
-					// assistant message) is safe.
 					for (long seq = regenerateSeq - 1; seq >= 0; seq--) {
 						EasyChatStorage.FragmentHeader h = storage.readFragmentHeader(convDir, seq);
 						if (h == null || storage.isDeleted(h)) { continue; }
@@ -359,7 +370,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 						String role = fragmentTopLevelRole(convDir, seq, v);
 						if (role == null) { break; }
 						if ("tool".equals(role)) {
-							LlamaServer.sendJsonResponse(ctx, ApiResponse.error("该回复依赖工具调用上下文，无法重新生成"));
+							LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_REGENERATE_TOOLCONTEXT_UNSUPPORTED));
 							return;
 						}
 						break;
@@ -384,7 +395,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 					long idxSeq = storage.readIndexSeq(indexPath);
 
 					if (isRegenerate && isContinue) {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不能同时指定 X-Regenerate-Id 和 X-Continue-Seq"));
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_PARAM_CONFLICT));
 						return;
 					}
 					if (isRegenerate) {
@@ -654,7 +665,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 		} catch (Exception e) {
 			logger.info("[EasyChat] 处理stream-chat请求失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_PROCESS_FAILED + ": " + e.getMessage()));
 		} finally {
 			if (globalLease != null) {
 				channelLeaseMap.remove(ctx);
@@ -677,7 +688,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			return;
 		}
 		if (conversationId == null || conversationId.isBlank()) {
-			sendHistoryError(ctx, "缺少conversationId");
+			sendHistoryError(ctx, I18N_PARAM_CONVERSATION_ID_REQUIRED);
 			globalLease.close();
 			return;
 		}
@@ -687,7 +698,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			convDir = storage.getConversationDir(conversationId);
 		} catch (IOException e) {
 			logger.info("[EasyChat] 获取碎片目录失败 conversation={}", conversationId, e);
-			sendHistoryError(ctx, "获取目录失败: " + e.getMessage());
+			sendHistoryError(ctx, I18N_CHAT_HISTORY_FAILED + ": " + e.getMessage());
 			globalLease.close();
 			return;
 		}
@@ -722,7 +733,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 		} catch (Exception e) {
 			logger.info("[EasyChat] 预扫描碎片失败 conversation={}", conversationId, e);
-			sendHistoryError(ctx, "扫描碎片失败: " + e.getMessage());
+			sendHistoryError(ctx, I18N_CHAT_HISTORY_FAILED + ": " + e.getMessage());
 			globalLease.close();
 			return;
 		}
@@ -916,16 +927,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 				if (loadError == null) {
 					modelPort = manager.getModelPort(resolvedModelId);
 					if (modelPort == null) {
-						return ModelTarget.error("自动加载后未找到模型端口: " + resolvedModelId);
+						return ModelTarget.error(I18N_CHAT_MODEL_PORT_NOTFOUND + ": " + resolvedModelId);
 					}
 					logger.info("[EasyChat][自动加载] 加载成功: model={}, port={}", resolvedModelId, modelPort);
 					manager.updateModelLastUsedTime(resolvedModelId);
 				} else {
 					logger.warn("[EasyChat][自动加载] 加载失败: model={}, error={}", resolvedModelId, loadError);
-					return ModelTarget.error("模型加载失败: " + loadError);
+					return ModelTarget.error(I18N_CHAT_MODEL_LOAD_FAILED + ": " + loadError);
 				}
 			} else {
-				return ModelTarget.error("模型未找到: " + resolvedModelId);
+				return ModelTarget.error(I18N_MODEL_NOT_FOUND + ": " + resolvedModelId);
 			}
 		} else {
 			manager.updateModelLastUsedTime(resolvedModelId);
@@ -933,7 +944,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 		if (modelPort == null) {
 			modelPort = manager.getModelPort(resolvedModelId);
 			if (modelPort == null) {
-				return ModelTarget.error("模型端口未找到: " + resolvedModelId);
+				return ModelTarget.error(I18N_CHAT_MODEL_PORT_NOTFOUND + ": " + resolvedModelId);
 			}
 		}
 		return new ModelTarget(resolvedModelId, modelPort, null, false, null);
@@ -977,20 +988,20 @@ import io.netty.handler.codec.http.LastHttpContent;
 		try {
 			body = JsonUtil.parseFullHttpRequestToJsonObject(request, ctx);
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解析请求体失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE + ": " + e.getMessage()));
 			return;
 		}
 		if (body == null) {
-			return; // parseFullHttpRequestToJsonObject 已发送错误响应
+			return;
 		}
 		String conversationId = JsonUtil.getJsonString(body, "conversationId", "");
 		if (conversationId == null || conversationId.isBlank()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少conversationId"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONVERSATION_ID_REQUIRED));
 			return;
 		}
 		String modelId = JsonUtil.getJsonString(body, "model", "");
 		if (modelId == null || modelId.isBlank()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少model"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_REQUIRED));
 			return;
 		}
 		String nodeId = JsonUtil.getJsonString(body, "nodeId", "");
@@ -999,7 +1010,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 		String prompt = JsonUtil.getJsonString(body, "prompt", "");
 		if (prompt == null || prompt.isBlank()) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少prompt"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_PARAM_PROMPT_MISSING));
 			return;
 		}
 		String systemPrompt = JsonUtil.getJsonString(body, "systemPrompt", "");
@@ -1036,7 +1047,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 					return;
 				}
 				if (title == null) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("标题生成失败：未返回有效内容"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_TITLE_GENERATE_FAILED));
 					return;
 				}
 				Map<String, Object> data = new HashMap<>();
@@ -1045,7 +1056,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			} catch (Exception e) {
 				logger.info("[EasyChat][TitleGen] 生成标题失败 conversation={}", finalConversationId, e);
 				if (ctx.channel().isActive()) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("生成标题失败: " + e.getMessage()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_TITLE_GENERATE_FAILED + ": " + e.getMessage()));
 				}
 			}
 		});
@@ -1103,7 +1114,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			if (!(responseCode >= 200 && responseCode < 300)) {
 				String errBody = readErrorBody(connection);
 				logger.warn("[EasyChat][TitleGen] llama.cpp错误响应 code={} body={}", responseCode, errBody);
-				throw new IOException("模型返回错误: " + responseCode);
+				throw new IOException(I18N_CHAT_MODEL_RESPONSE_ERROR + ": " + responseCode);
 			}
 			byte[] responseBytes = connection.getInputStream().readAllBytes();
 			String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
@@ -1119,7 +1130,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			nodeId, "POST", "v1/chat/completions", requestBody, TITLE_GEN_TIMEOUT_MS, TITLE_GEN_TIMEOUT_MS);
 		if (!result.isSuccess()) {
 			logger.warn("[EasyChat][TitleGen][Remote] 远程节点错误 code={} body={}", result.getStatusCode(), result.getBody());
-			throw new RuntimeException("远程节点返回错误: " + result.getStatusCode());
+			throw new RuntimeException(I18N_CHAT_REMOTE_RESPONSE_ERROR + ": " + result.getStatusCode());
 		}
 		return parseTitleFromResponse(result.getBody());
 	}
@@ -1159,12 +1170,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private void sendGlobalLockBusy(ChannelHandlerContext ctx, String requestedOperation) {
 		EasyChatGlobalLock.LockState current = globalLock.current();
-		String message = "Easy Chat 正在执行其它操作，请稍后再试";
+		String message = I18N_CHAT_GLOBAL_LOCK_BUSY;
 		Map<String, Object> data = new HashMap<>();
 		data.put("requestedOperation", requestedOperation);
 		if (current != null) {
 			if (current.operationName() != null && !current.operationName().isBlank()) {
-				message += "（当前操作: " + current.operationName() + "）";
+				message += " (" + current.operationName() + ")";
 				data.put("activeOperation", current.operationName());
 			}
 			data.put("startedAt", current.startedAt());

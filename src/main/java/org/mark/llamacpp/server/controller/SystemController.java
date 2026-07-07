@@ -55,6 +55,7 @@ public class SystemController implements BaseController {
 	// i18n keys — returned to frontend for translation
 	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
 	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	// update
 	private static final String I18N_NOT_OFFICIAL_BUILD = "update.not.official.build";
 	private static final String I18N_URL_MISSING = "update.url.missing";
 	private static final String I18N_GITHUB_ONLY = "update.github.only";
@@ -63,6 +64,56 @@ public class SystemController implements BaseController {
 	private static final String I18N_APPLY_FAILED = "update.apply.failed";
 	private static final String I18N_STATUS_FAILED = "update.status.failed";
 	private static final String I18N_CANCEL_FAILED = "update.cancel.failed";
+	// dir browse
+	private static final String I18N_PATH_INVALID = "api.error.path.invalid";
+	private static final String I18N_DIR_NOT_FOUND = "api.error.dir.notfound";
+	private static final String I18N_NOT_DIR = "api.error.not.dir";
+	private static final String I18N_SYMLINK_NOT_ALLOWED = "api.error.symlink.not.allowed";
+	private static final String I18N_DIR_BROWSE_FAILED = "api.error.dir.browse.failed";
+	// body
+	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+	private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
+	// param validation
+	private static final String I18N_PARAM_ENABLE_REQUIRED = "api.error.param.enable.required";
+	private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
+	private static final String I18N_PARAM_OLLAMA_PORT_INVALID = "api.error.param.ollama.port.invalid";
+	private static final String I18N_PARAM_LMSTUDIO_PORT_INVALID = "api.error.param.lmstudio.port.invalid";
+	private static final String I18N_PARAM_WEB_PORT_INVALID = "api.error.param.web.port.invalid";
+	private static final String I18N_PARAM_MODEL_ID_MISSING = "api.error.param.modelId.missing";
+	private static final String I18N_PARAM_MODEL_ID_MISSING_REQUIRED = "api.error.param.modelId.required";
+	private static final String I18N_PARAM_LLAMA_BIN_REQUIRED = "api.error.param.llamaBinPath.required";
+	private static final String I18N_PARAM_SAMPLING_CONFIG_MISSING = "api.error.param.samplingConfigName.missing";
+	private static final String I18N_PARAM_SAVABLE_MISSING = "api.error.param.savable.missing";
+	private static final String I18N_PARAM_LAUNCH_REQUIRED = "api.error.param.launch.required";
+	// operation results
+	private static final String I18N_COMPAT_STATUS_FAILED = "api.error.compat.status.failed";
+	private static final String I18N_VERSION_INFO_FAILED = "api.error.version.info.failed";
+	private static final String I18N_PID_FAILED = "api.error.pid.failed";
+	private static final String I18N_OLLAMA_TOGGLE_FAILED = "api.error.ollama.toggle.failed";
+	private static final String I18N_LMSTUDIO_TOGGLE_FAILED = "api.error.lmstudio.toggle.failed";
+	private static final String I18N_MCP_TOGGLE_FAILED = "api.error.mcp.toggle.failed";
+	private static final String I18N_SETTINGS_GET_FAILED = "api.error.settings.get.failed";
+	private static final String I18N_SETTINGS_SAVE_FAILED = "api.error.settings.save.failed";
+	private static final String I18N_SAMPLING_SAVE_FAILED = "api.error.sampling.save.failed";
+	private static final String I18N_SAMPLING_QUERY_FAILED = "api.error.sampling.query.failed";
+	private static final String I18N_SAMPLING_CONFIG_LIST_FAILED = "api.error.sampling.config.list.failed";
+	private static final String I18N_SAMPLING_CONFIG_SAVE_FAILED = "api.error.sampling.config.save.failed";
+	private static final String I18N_SAMPLING_CONFIG_DELETE_FAILED = "api.error.sampling.config.delete.failed";
+	private static final String I18N_COMPUTER_INFO_FAILED = "api.error.computer.info.failed";
+	private static final String I18N_SHUTDOWN_FAILED = "api.error.shutdown.failed";
+	private static final String I18N_SYSLOG_READ_FAILED = "api.error.syslog.read.failed";
+	private static final String I18N_SYSLOG_LIST_FAILED = "api.error.syslog.list.failed";
+	private static final String I18N_DEVICE_LIST_FAILED = "api.error.device.list.failed";
+	private static final String I18N_DEVICE_REMOTE_LIST_FAILED = "api.error.device.remote.list.failed";
+	private static final String I18N_VRAM_ESTIMATE_FAILED = "api.error.vram.estimate.failed";
+	private static final String I18N_FIT_PARAMS_FAILED = "api.error.fit.params.failed";
+	private static final String I18N_REMOTE_CALL_FAILED = "api.error.remote.call.failed";
+	private static final String I18N_REMOTE_FS_BROWSE_FAILED = "api.error.remote.fs.browse.failed";
+	private static final String I18N_STARTUP_STATUS_FAILED = "api.error.startup.status.failed";
+	private static final String I18N_STARTUP_TOGGLE_FAILED = "api.error.startup.toggle.failed";
+	private static final String I18N_MODEL_LOG_READ_FAILED = "api.error.model.log.read.failed";
+	private static final String I18N_REMOTE_RESPONSE_FORMAT = "api.error.remote.response.format";
+	private static final String I18N_WINDOWS_ONLY = "api.error.windows.only";
 	
 	/**
 	 * 	依旧请求入口。
@@ -333,20 +384,20 @@ public class SystemController implements BaseController {
 			try {
 				raw = Paths.get(in);
 			} catch (Exception e) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("非法路径"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_INVALID));
 				return;
 			}
 			Path abs = raw.toAbsolutePath().normalize();
 			if (!Files.exists(abs)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("目录不存在"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_NOT_FOUND));
 				return;
 			}
 			if (!Files.isDirectory(abs)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不是目录"));
-				return;
-			}
-			if (this.pathHasSymlink(abs)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不允许使用符号链接目录"));
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NOT_DIR));
+			return;
+		}
+		if (this.pathHasSymlink(abs)) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SYMLINK_NOT_ALLOWED));
 				return;
 			}
 			
@@ -357,7 +408,7 @@ public class SystemController implements BaseController {
 				base = abs;
 			}
 			if (!Files.isDirectory(base)) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("不是目录"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NOT_DIR));
 				return;
 			}
 			
@@ -436,7 +487,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("处理目录浏览请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("目录浏览失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DIR_BROWSE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -617,7 +668,7 @@ public class SystemController implements BaseController {
 //						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点响应格式错误"));
 //					}
 //				} else {
-//					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+//					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 //				}
 //				return;
 //			}
@@ -676,7 +727,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取兼容服务状态时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取兼容服务状态失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_COMPAT_STATUS_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -694,7 +745,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取版本信息时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取版本信息失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_VERSION_INFO_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -716,7 +767,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取PID时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取PID失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PID_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -738,7 +789,7 @@ public class SystemController implements BaseController {
 				return;
 			}
 			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的enable参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ENABLE_REQUIRED));
 				return;
 			}
 			
@@ -746,7 +797,7 @@ public class SystemController implements BaseController {
 			Integer port = JsonUtil.getJsonInt(obj, "port", null);
 			int bindPort = port == null ? LlamaServer.getOllamaCompatPort() : port.intValue();
 			if (bindPort <= 0 || bindPort > 65535) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("port参数不合法"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PORT_INVALID));
 				return;
 			}
 			
@@ -766,7 +817,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("处理ollama启停请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理ollama启停失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_OLLAMA_TOGGLE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -788,7 +839,7 @@ public class SystemController implements BaseController {
 				return;
 			}
 			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的enable参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ENABLE_REQUIRED));
 				return;
 			}
 			
@@ -796,7 +847,7 @@ public class SystemController implements BaseController {
 			Integer port = JsonUtil.getJsonInt(obj, "port", null);
 			int bindPort = port == null ? LlamaServer.getLmstudioCompatPort() : port.intValue();
 			if (bindPort <= 0 || bindPort > 65535) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("port参数不合法"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PORT_INVALID));
 				return;
 			}
 			
@@ -816,7 +867,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("处理lmstudio启停请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理lmstudio启停失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LMSTUDIO_TOGGLE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -838,7 +889,7 @@ public class SystemController implements BaseController {
 				return;
 			}
 			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的enable参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ENABLE_REQUIRED));
 				return;
 			}
 
@@ -852,7 +903,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("处理MCP服务启停请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理MCP服务启停失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MCP_TOGGLE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -916,7 +967,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取系统设置时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取系统设置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SETTINGS_GET_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -956,13 +1007,13 @@ public class SystemController implements BaseController {
 				&& webPort == null && apiKeyEnabled == null && apiKey == null
 				&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
 				&& downloadDirectory == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少可保存参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SAVABLE_MISSING));
 				return;
 			}
 
 			if (ollamaPort != null) {
 				if (!isValidPort(ollamaPort.intValue())) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("ollamaPort参数不合法"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_OLLAMA_PORT_INVALID));
 					return;
 				}
 				LlamaServer.updateOllamaCompatConfig(LlamaServer.isOllamaCompatEnabled(), ollamaPort.intValue());
@@ -970,7 +1021,7 @@ public class SystemController implements BaseController {
 
 			if (lmstudioPort != null) {
 				if (!isValidPort(lmstudioPort.intValue())) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("lmstudioPort参数不合法"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LMSTUDIO_PORT_INVALID));
 					return;
 				}
 				LlamaServer.updateLmstudioCompatConfig(LlamaServer.isLmstudioCompatEnabled(), lmstudioPort.intValue());
@@ -982,7 +1033,7 @@ public class SystemController implements BaseController {
 			
 			if (webPort != null) {
 				if (webPort != null && !isValidPort(webPort.intValue())) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("webPort参数不合法"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_WEB_PORT_INVALID));
 					return;
 				}
 				LlamaServer.updateServerPorts(webPort);
@@ -1020,7 +1071,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("处理系统设置请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存系统设置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SETTINGS_SAVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1044,7 +1095,7 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
@@ -1052,7 +1103,7 @@ public class SystemController implements BaseController {
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			modelId = modelId == null ? "" : modelId.trim();
 			if (modelId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_MISSING));
 				return;
 			}
 			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
@@ -1087,7 +1138,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("处理模型采样设定请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("保存模型采样设定失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SAMPLING_SAVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1102,7 +1153,7 @@ public class SystemController implements BaseController {
 			String modelId = params.get("modelId");
 			modelId = modelId == null ? "" : modelId.trim();
 			if (modelId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_MISSING));
 				return;
 			}
 			
@@ -1114,7 +1165,7 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
@@ -1137,7 +1188,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("查询模型采样设定请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("查询模型采样设定失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SAMPLING_QUERY_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1156,7 +1207,7 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
@@ -1164,7 +1215,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取采样配置列表请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取采样配置列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SAMPLING_CONFIG_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1188,14 +1239,14 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
 
 			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
 			if (samplingConfigName.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少samplingConfigName参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SAMPLING_CONFIG_MISSING));
 				return;
 			}
 			JsonObject sampling = new JsonObject();
@@ -1217,7 +1268,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("新增或更新采样配置请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("新增或更新采样配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SAMPLING_CONFIG_SAVE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1241,21 +1292,21 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					NodeManager.writeHttpResultToChannel(ctx, result, "[采样配置远程]");
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
 
 			String samplingConfigName = JsonUtil.getJsonStringAny(obj, "", "samplingConfigName", "configName");
 			if (samplingConfigName.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少samplingConfigName参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SAMPLING_CONFIG_MISSING));
 				return;
 			}
 			Map<String, Object> data = ModelSamplingService.getInstance().deleteSamplingConfig(samplingConfigName);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("删除采样配置请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除采样配置失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SAMPLING_CONFIG_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1547,10 +1598,10 @@ public class SystemController implements BaseController {
 					if (remoteResp != null && remoteResp.has("data")) {
 						LlamaServer.sendJsonResponse(ctx, ApiResponse.success(remoteResp.get("data")));
 					} else {
-						LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点响应格式错误"));
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_RESPONSE_FORMAT));
 					}
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
@@ -1586,7 +1637,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(resp));
 		} catch (Exception e) {
 			logger.info("获取计算机信息时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取计算机信息失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_COMPUTER_INFO_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1631,7 +1682,7 @@ public class SystemController implements BaseController {
 
 		} catch (Exception e) {
 			logger.info("处理停止服务请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("停止服务失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SHUTDOWN_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1653,13 +1704,13 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					LlamaServer.sendTextResponse(ctx, result.getBody());
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
 			LlamaServer.sendTextResponse(ctx, LlamaServer.getConsoleBufferText());
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取系统日志失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SYSLOG_READ_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1684,7 +1735,7 @@ public class SystemController implements BaseController {
 			}
 
 			if (llamaBinPath == null || llamaBinPath.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的llamaBinPath参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LLAMA_BIN_REQUIRED));
 				return;
 			}
 
@@ -1695,7 +1746,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取设备列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取设备列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DEVICE_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1708,11 +1759,11 @@ public class SystemController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[设备列表远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("获取远程节点设备列表失败: nodeId={}, error={}", nodeId, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取远程节点设备列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_DEVICE_REMOTE_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -1729,13 +1780,13 @@ public class SystemController implements BaseController {
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
 			if (root == null || !root.isJsonObject()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 				return;
 			}
 			JsonObject obj = root.getAsJsonObject();
@@ -1759,7 +1810,7 @@ public class SystemController implements BaseController {
 			if (cmd != null) cmd = cmd.trim();
 			if (extraParams != null) extraParams = extraParams.trim();
 			if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的启动参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LAUNCH_REQUIRED));
 				return;
 			}
 			String combinedCmd = "";
@@ -1791,7 +1842,7 @@ public class SystemController implements BaseController {
 			if (output == null || output.trim().isEmpty()) {
 				String error = result.get("error");
 				logger.warn("[显存估算] 执行失败: modelId={}, error={}", modelId, error);
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(error != null ? error.trim() : "估算显存失败"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(error != null ? error.trim() : I18N_VRAM_ESTIMATE_FAILED));
 				return;
 			}
 			Map<String, Object> data = new HashMap<>();
@@ -1823,7 +1874,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("估算显存时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("估算显存失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_VRAM_ESTIMATE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1838,11 +1889,11 @@ public class SystemController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[显存估算远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("[显存估算] 远程节点调用异常: nodeId={}, error={}", nodeId, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1852,13 +1903,13 @@ public class SystemController implements BaseController {
 		try {
 			String content = request.content().toString(CharsetUtil.UTF_8);
 			if (content == null || content.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
 			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
 			if (root == null || !root.isJsonObject()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 				return;
 			}
 			JsonObject obj = root.getAsJsonObject();
@@ -1887,7 +1938,7 @@ public class SystemController implements BaseController {
 
 			String modelId = JsonUtil.getJsonString(obj, "modelId", null);
 			if (modelId == null || modelId.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_MISSING_REQUIRED));
 				return;
 			}
 			String llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPathSelect", null);
@@ -1895,7 +1946,7 @@ public class SystemController implements BaseController {
 				llamaBinPathSelect = JsonUtil.getJsonString(obj, "llamaBinPath", null);
 			}
 			if (llamaBinPathSelect == null || llamaBinPathSelect.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的llamaBinPath参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LLAMA_BIN_REQUIRED));
 				return;
 			}
 
@@ -1920,7 +1971,7 @@ public class SystemController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("拟合参数时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("拟合参数失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_FIT_PARAMS_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1935,11 +1986,11 @@ public class SystemController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[拟合参数远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("[拟合参数] 远程节点调用异常: nodeId={}, error={}", nodeId, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1965,11 +2016,11 @@ public class SystemController implements BaseController {
 			if (result.isSuccess()) {
 				NodeManager.writeHttpResultToChannel(ctx, result, "[文件系统远程]");
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 			}
 		} catch (Exception e) {
 			logger.warn("远程文件系统浏览失败: nodeId={}, error={}", nodeId, e.getMessage());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程文件系统浏览失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_FS_BROWSE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -1986,13 +2037,13 @@ public class SystemController implements BaseController {
 //		try {
 //			String content = request.content().toString(CharsetUtil.UTF_8);
 //			if (content == null || content.trim().isEmpty()) {
-//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体为空"));
+//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 //				return;
 //			}
 //
 //			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
 //			if (root == null || !root.isJsonObject()) {
-//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("请求体必须为JSON对象"));
+//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 //				return;
 //			}
 //			JsonObject obj = root.getAsJsonObject();
@@ -2096,11 +2147,11 @@ public class SystemController implements BaseController {
 //			if (result.isSuccess()) {
 //				NodeManager.writeHttpResultToChannel(ctx, result, "[gguf-mem估算远程]");
 //			} else {
-//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+//				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 //			}
 //		} catch (Exception e) {
 //			logger.warn("[gguf-mem估算] 远程节点调用异常: nodeId={}, error={}", nodeId, e.getMessage());
-//			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("调用远程节点失败: " + e.getMessage()));
+//			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 //		}
 //	}
 
@@ -2121,7 +2172,7 @@ public class SystemController implements BaseController {
 
 		String osName = System.getProperty("os.name", "").toLowerCase();
 		if (!osName.startsWith("windows")) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("仅支持 Windows 系统"));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_WINDOWS_ONLY));
 			return;
 		}
 
@@ -2134,7 +2185,7 @@ public class SystemController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 			} catch (Exception e) {
 				logger.info("查询开机自启状态时发生错误", e);
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("查询开机自启状态失败: " + e.getMessage()));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_STARTUP_STATUS_FAILED + ": " + e.getMessage()));
 			}
 			return;
 		}
@@ -2147,7 +2198,7 @@ public class SystemController implements BaseController {
 				return;
 			}
 			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的enable参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ENABLE_REQUIRED));
 				return;
 			}
 
@@ -2170,7 +2221,7 @@ public class SystemController implements BaseController {
 			}
 		} catch (Exception e) {
 			logger.info("处理开机自启请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("处理开机自启失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_STARTUP_TOGGLE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -2188,7 +2239,7 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					LlamaServer.sendJsonResponse(ctx, com.google.gson.JsonParser.parseString(result.getBody()));
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode()));
 				}
 				return;
 			}
@@ -2210,7 +2261,7 @@ public class SystemController implements BaseController {
 			response.put("data", modelIds);
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取日志文件列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SYSLOG_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -2231,19 +2282,19 @@ public class SystemController implements BaseController {
 				if (result.isSuccess()) {
 					LlamaServer.sendTextResponse(ctx, result.getBody());
 				} else {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("远程节点调用失败: code=" + result.getStatusCode() + ", body=" + result.getBody()));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": code=" + result.getStatusCode() + ", body=" + result.getBody()));
 				}
 				return;
 			}
 			if (modelId == null || modelId.isBlank()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少modelId参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_MISSING));
 				return;
 			}
 			String text = LlamaServer.getModelLogText(modelId);
 			LlamaServer.sendTextResponse(ctx, text != null ? text : "");
 		} catch (Exception e) {
 			logger.warn("[模型日志] 读取失败: error={}", e.getMessage(), e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("读取模型日志失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOG_READ_FAILED + ": " + e.getMessage()));
 		}
 	}
 }

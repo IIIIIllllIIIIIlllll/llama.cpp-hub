@@ -47,6 +47,20 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 public class ChatStateController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(ChatStateController.class);
+
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_DELETE_ONLY = "common.method.delete.only";
+	private static final String I18N_CHAT_LOCK_BUSY = "api.error.chat.lock.busy";
+	private static final String I18N_CHAT_LOCK_CURRENT_OPERATION = "api.error.chat.lock.current.operation";
+	private static final String I18N_CHAT_STATE_LOAD_FAILED = "api.error.chat.state.load.failed";
+	private static final String I18N_CHAT_REVISION_LOAD_FAILED = "api.error.chat.revision.load.failed";
+	private static final String I18N_CHAT_SYNC_FAILED = "api.error.chat.sync.failed";
+	private static final String I18N_CHAT_PARAM_MISSING = "api.error.chat.param.missing";
+	private static final String I18N_CHAT_DELETE_MESSAGE_SEQ_REQUIRED = "api.error.chat.delete.message.seq.required";
+	private static final String I18N_CHAT_TYPE_UNKNOWN = "api.error.chat.type.unknown";
+	private static final String I18N_CHAT_DELETE_FAILED = "api.error.chat.delete.failed";
+
 	private static final Object STATE_LOCK = new Object();
 	private static final String STATE_REVISION_KEY = "_revision";
 	private static final String BASE_REVISION_FIELD = "baseRevision";
@@ -99,13 +113,13 @@ public class ChatStateController implements BaseController {
 
 	private void sendGlobalLockBusy(ChannelHandlerContext ctx, String requestedOperation) {
 		EasyChatGlobalLock.LockState current = globalLock.current();
-		String message = "Easy Chat 正在执行其它操作，请稍后再试";
+		String message = I18N_CHAT_LOCK_BUSY;
 		Map<String, Object> data = new HashMap<>();
 		data.put("requestedOperation", requestedOperation);
 		long heldMs = -1L;
 		if (current != null) {
 			if (current.operationName() != null && !current.operationName().isBlank()) {
-				message += "（当前操作: " + current.operationName() + "）";
+				message += I18N_CHAT_LOCK_CURRENT_OPERATION + current.operationName() + "）";
 				data.put("activeOperation", current.operationName());
 			}
 			data.put("startedAt", current.startedAt());
@@ -118,7 +132,7 @@ public class ChatStateController implements BaseController {
 	}
 
 	private void handleStateRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Path stateDir = this.getStateDirPath();
 			Path stateFile = this.getStateFilePath(stateDir);
@@ -140,13 +154,13 @@ public class ChatStateController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("加载 chat 状态摘要失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载 chat 状态摘要失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_STATE_LOAD_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleRevisionRequest(ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Path stateDir = this.getStateDirPath();
 			Path stateFile = this.getStateFilePath(stateDir);
@@ -162,12 +176,12 @@ public class ChatStateController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("加载 chat 状态版本失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("加载 chat 状态版本失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_REVISION_LOAD_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleSyncRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
 			JsonObject body = JsonUtil.parseFullHttpRequestToJsonObject(request, ctx);
 			if (body == null) {
@@ -190,12 +204,12 @@ public class ChatStateController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("同步 chat 状态失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("同步 chat 状态失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_SYNC_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.DELETE, "只支持DELETE请求");
+		this.assertRequestMethod(request.method() != HttpMethod.DELETE, I18N_METHOD_DELETE_ONLY);
 		try {
 			JsonObject body = JsonUtil.parseFullHttpRequestToJsonObject(request, ctx);
 			if (body == null) {
@@ -204,7 +218,7 @@ public class ChatStateController implements BaseController {
 			String type = JsonUtil.getJsonString(body, "type", "");
 			String conversationId = JsonUtil.getJsonString(body, "conversationId", "");
 			if (type == null || type.isEmpty() || conversationId == null || conversationId.isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("type 和 conversationId 为必填项"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_PARAM_MISSING));
 				return;
 			}
 			EasyChatService service = EasyChatService.getInstance();
@@ -218,7 +232,7 @@ public class ChatStateController implements BaseController {
 			} else if ("message".equals(type)) {
 				long seq = body.has("seq") ? body.get("seq").getAsLong() : -1;
 				if (seq < 0) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error("message 类型删除需要指定 seq"));
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_DELETE_MESSAGE_SEQ_REQUIRED));
 					return;
 				}
 				Integer variantIndex = null;
@@ -232,13 +246,13 @@ public class ChatStateController implements BaseController {
 				)));
 				return;
 			} else {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("未知的 type: " + type));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_TYPE_UNKNOWN + ": " + type));
 				return;
 			}
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(Map.of("deleted", true)));
 		} catch (Exception e) {
 			logger.info("删除 chat 数据失败", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("删除失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_DELETE_FAILED + ": " + e.getMessage()));
 		}
 	}
 

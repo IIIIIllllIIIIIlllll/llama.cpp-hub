@@ -25,7 +25,11 @@ public class SessionService {
 
 	
 	private static Logger logger = LoggerFactory.getLogger(SessionService.class);
-	
+
+	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_SESSION_CREATE_FAILED = "api.error.session.create.failed";
+	private static final String I18N_SESSION_LIST_FAILED = "api.error.session.list.failed";
 	
 	private static final List<ChatSession> chatSessions = new CopyOnWriteArrayList<>();
 	
@@ -37,7 +41,7 @@ public class SessionService {
 	public ApiResponse handleChatSessionCreate(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
 			if (request.method() != HttpMethod.POST) {
-				return ApiResponse.error("只支持POST请求");
+				return ApiResponse.error(I18N_METHOD_POST_ONLY);
 			}
 			long createdAt = System.currentTimeMillis();
 			long id = generateChatSessionId(createdAt);
@@ -50,14 +54,14 @@ public class SessionService {
 			return ApiResponse.success(data);
 		} catch (Exception e) {
 			logger.info("创建会话失败", e);
-			return ApiResponse.error("创建会话失败: " + e.getMessage());
+			return ApiResponse.error(I18N_SESSION_CREATE_FAILED + ": " + e.getMessage());
 		}
 	}
 
 	public ApiResponse handleChatSessionList(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
 			if (request.method() != HttpMethod.GET) {
-				return ApiResponse.error("只支持GET请求");
+				return ApiResponse.error(I18N_METHOD_GET_ONLY);
 			}
 			List<Map<String, Object>> sessions = new ArrayList<>();
 			for (ChatSession s : chatSessions) {
@@ -71,7 +75,7 @@ public class SessionService {
 			return ApiResponse.success(data);
 		} catch (Exception e) {
 			logger.info("获取会话列表失败", e);
-			return ApiResponse.error("获取会话列表失败: " + e.getMessage());
+			return ApiResponse.error(I18N_SESSION_LIST_FAILED + ": " + e.getMessage());
 		}
 	}
 	

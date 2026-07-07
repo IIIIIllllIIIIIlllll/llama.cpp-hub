@@ -33,6 +33,32 @@ public class BuildController implements BaseController {
     private static final Logger logger = LoggerFactory.getLogger(BuildController.class);
     private static final BuildTaskManager taskManager = BuildTaskManager.getInstance();
 
+    private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+    private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+    private static final String I18N_BODY_EMPTY = "api.error.body.empty";
+    private static final String I18N_BODY_PARSE = "api.error.body.parse";
+    private static final String I18N_PARAM_SOURCE_DIR_MISSING = "api.error.param.sourceDir.missing";
+    private static final String I18N_PARAM_OUTPUT_DIR_NAME_MISSING = "api.error.param.outputDirName.missing";
+    private static final String I18N_PARAM_CMAKE_COMMAND_MISSING = "api.error.param.cmakeCommand.missing";
+    private static final String I18N_PARAM_BUILD_COMMAND_MISSING = "api.error.param.buildCommand.missing";
+    private static final String I18N_PARAM_OUTPUT_DIR_NAME_INVALID = "api.error.param.outputDirName.invalid";
+    private static final String I18N_PARAM_ARCHIVE_MISSING = "api.error.param.archive.missing";
+    private static final String I18N_PARAM_TARGET_DIR_MISSING = "api.error.param.targetDir.missing";
+    private static final String I18N_PARAM_TARGET_DIR_INVALID = "api.error.param.targetDir.invalid";
+    private static final String I18N_BUILD_CMAKE_INVALID = "api.error.build.cmake.invalid";
+    private static final String I18N_BUILD_BUILD_CMD_INVALID = "api.error.build.build.cmd.invalid";
+    private static final String I18N_BUILD_OUTPUT_DIR_EXISTS = "api.error.build.output.dir.exists";
+    private static final String I18N_BUILD_TASK_RUNNING = "api.error.build.task.running";
+    private static final String I18N_BUILD_TASK_NOT_FOUND = "api.error.build.task.notfound";
+    private static final String I18N_BUILD_CANCEL_TASK_NOT_FOUND = "api.error.build.cancel.task.notfound";
+    private static final String I18N_BUILD_ARCHIVE_NOT_FOUND = "api.error.build.archive.notfound";
+    private static final String I18N_BUILD_SUBMIT_FAILED = "api.error.build.submit.failed";
+    private static final String I18N_BUILD_STATUS_FAILED = "api.error.build.status.failed";
+    private static final String I18N_BUILD_CANCEL_FAILED = "api.error.build.cancel.failed";
+    private static final String I18N_BUILD_EXTRACT_FAILED = "api.error.build.extract.failed";
+    private static final String I18N_BUILD_HISTORY_FAILED = "api.error.build.history.failed";
+    private static final String I18N_BUILD_TOOLCHAIN_FAILED = "api.error.build.toolchain.failed";
+
     private static final String PATH_BUILD_SUBMIT = "/api/build/submit";
     private static final String PATH_BUILD_STATUS = "/api/build/status";
     private static final String PATH_BUILD_CANCEL = "/api/build/cancel";
@@ -70,7 +96,7 @@ public class BuildController implements BaseController {
         if (handleCorsOptions(ctx, request)) {
             return;
         }
-        assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
             String content = readRequestBodyOrSendError(ctx, request);
@@ -89,48 +115,45 @@ public class BuildController implements BaseController {
             String buildCommand = trimToNull(JsonUtil.getJsonString(obj, "buildCommand", null));
 
             if (sourceDir == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少sourceDir参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_SOURCE_DIR_MISSING);
                 return;
             }
             if (outputDirName == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少outputDirName参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_OUTPUT_DIR_NAME_MISSING);
                 return;
             }
             if (cmakeCommand == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少cmakeCommand参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_CMAKE_COMMAND_MISSING);
                 return;
             }
             if (buildCommand == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少buildCommand参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_BUILD_COMMAND_MISSING);
                 return;
             }
 
             if (!isValidCmakeCommand(cmakeCommand)) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                        "CMake 命令必须指定构建目录为 build，例如：cmake -B build ...");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BUILD_CMAKE_INVALID);
                 return;
             }
             if (!isValidBuildCommand(buildCommand)) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                        "构建命令必须使用 build 目录，例如：cmake --build build ...");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BUILD_BUILD_CMD_INVALID);
                 return;
             }
 
             outputDirName = sanitizeDirName(outputDirName);
             if (outputDirName == null || outputDirName.isEmpty()) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "输出目录名不合法");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_OUTPUT_DIR_NAME_INVALID);
                 return;
             }
 
             Path llamacppDir = Paths.get(LlamaServer.getDefaultLlamaCppPath()).toAbsolutePath().normalize();
             Path targetPath = llamacppDir.resolve(outputDirName).toAbsolutePath().normalize();
             if (!targetPath.startsWith(llamacppDir)) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "输出目录名不合法");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_OUTPUT_DIR_NAME_INVALID);
                 return;
             }
             if (Files.exists(targetPath)) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.CONFLICT,
-                        "输出目录已存在: " + outputDirName + "，请更换名称或先删除旧目录");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.CONFLICT, I18N_BUILD_OUTPUT_DIR_EXISTS);
                 return;
             }
 
@@ -138,7 +161,7 @@ public class BuildController implements BaseController {
                     cmakeCommand, buildCommand);
 
             if (task == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.CONFLICT, "已有编译任务在运行中");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.CONFLICT, I18N_BUILD_TASK_RUNNING);
                 return;
             }
 
@@ -149,7 +172,7 @@ public class BuildController implements BaseController {
 
         } catch (Exception e) {
             logger.error("提交编译任务失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("提交编译任务失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_SUBMIT_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -158,7 +181,7 @@ public class BuildController implements BaseController {
         if (handleCorsOptions(ctx, request)) {
             return;
         }
-        assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
         try {
             Map<String, String> params = ParamTool.getQueryParam(request.uri());
@@ -167,7 +190,7 @@ public class BuildController implements BaseController {
             BuildTask task = taskManager.getStatus(taskId);
 
             if (task == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "未找到编译任务");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_BUILD_TASK_NOT_FOUND);
                 return;
             }
 
@@ -189,7 +212,7 @@ public class BuildController implements BaseController {
 
         } catch (Exception e) {
             logger.error("获取编译状态失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取编译状态失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_STATUS_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -198,7 +221,7 @@ public class BuildController implements BaseController {
         if (handleCorsOptions(ctx, request)) {
             return;
         }
-        assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
             String content = request.content().toString(CharsetUtil.UTF_8);
@@ -212,8 +235,7 @@ public class BuildController implements BaseController {
 
             boolean cancelled = taskManager.cancelTask(taskId);
             if (!cancelled) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST,
-                        "未找到正在运行的编译任务");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BUILD_CANCEL_TASK_NOT_FOUND);
                 return;
             }
 
@@ -221,7 +243,7 @@ public class BuildController implements BaseController {
 
         } catch (Exception e) {
             logger.error("取消编译任务失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("取消编译任务失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_CANCEL_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -230,7 +252,7 @@ public class BuildController implements BaseController {
         if (handleCorsOptions(ctx, request)) {
             return;
         }
-        assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
+        assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
             String content = readRequestBodyOrSendError(ctx, request);
@@ -246,30 +268,30 @@ public class BuildController implements BaseController {
             String targetDir = trimToNull(JsonUtil.getJsonString(obj, "targetDir", null));
 
             if (archive == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少archive参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_ARCHIVE_MISSING);
                 return;
             }
             if (targetDir == null) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "缺少targetDir参数");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_TARGET_DIR_MISSING);
                 return;
             }
 
             File archiveFile = new File(archive);
             if (!archiveFile.exists()) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, "压缩包不存在: " + archive);
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_BUILD_ARCHIVE_NOT_FOUND + ": " + archive);
                 return;
             }
 
             Path uploadDir = LlamaServer.getCachePath().resolve("llama.cpp-sources").toAbsolutePath().normalize();
             Path targetPath = Paths.get(targetDir).toAbsolutePath().normalize();
             if (!targetPath.startsWith(uploadDir)) {
-                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "目标目录不合法");
+                LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_PARAM_TARGET_DIR_INVALID);
                 return;
             }
 
             boolean extracted = taskManager.extractArchive(archive, targetDir);
             if (!extracted) {
-                LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解压失败，请检查文件格式"));
+                LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_EXTRACT_FAILED));
                 return;
             }
 
@@ -281,7 +303,7 @@ public class BuildController implements BaseController {
 
         } catch (Exception e) {
             logger.error("解压失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解压失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_EXTRACT_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -290,7 +312,7 @@ public class BuildController implements BaseController {
         if (handleCorsOptions(ctx, request)) {
             return;
         }
-        assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
         try {
             List<BuildTask> history = taskManager.getHistory();
@@ -314,7 +336,7 @@ public class BuildController implements BaseController {
 
         } catch (Exception e) {
             logger.error("获取编译历史失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取编译历史失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_HISTORY_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -323,7 +345,7 @@ public class BuildController implements BaseController {
         if (handleCorsOptions(ctx, request)) {
             return;
         }
-        assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+        assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
         try {
             Map<String, CheckResult> results = ToolchainChecker.checkAll();
@@ -341,7 +363,7 @@ public class BuildController implements BaseController {
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
         } catch (Exception e) {
             logger.error("工具链检查失败", e);
-            LlamaServer.sendJsonResponse(ctx, ApiResponse.error("工具链检查失败: " + e.getMessage()));
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_TOOLCHAIN_FAILED + ": " + e.getMessage()));
         }
     }
 
@@ -401,7 +423,7 @@ public class BuildController implements BaseController {
     private static String readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
         String content = request.content().toString(CharsetUtil.UTF_8);
         if (content == null || content.trim().isEmpty()) {
-            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体为空");
+            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
             return null;
         }
         return content;
@@ -410,7 +432,7 @@ public class BuildController implements BaseController {
     private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, String content) {
         JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
         if (obj == null) {
-            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, "请求体解析失败");
+            LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
             return null;
         }
         return obj;

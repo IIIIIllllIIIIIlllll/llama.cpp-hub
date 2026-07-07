@@ -22,6 +22,11 @@ import io.netty.handler.codec.http.HttpMethod;
 public class ParamController implements BaseController {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ParamController.class);
+
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_PARAM_CONFIG_NOTFOUND = "api.error.param.config.notfound";
+	private static final String I18N_PARAM_LIST_FAILED = "api.error.param.list.failed";
+	private static final String I18N_PARAM_BENCHMARK_LIST_FAILED = "api.error.param.benchmark.list.failed";
 	
 	public ParamController() {
 		
@@ -33,12 +38,10 @@ public class ParamController implements BaseController {
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
 		
-		// 列出Server可用的参数API
 		if (uri.startsWith("/api/models/param/server/list")) {
 			this.handleParamServerListRequest(ctx, request);
 			return true;
 		}
-		// 列出benchmark可用参数的API
 		if (uri.startsWith("/api/models/param/benchmark/list")) {
 			this.handleParamBenchmarkListRequest(ctx, request);
 			return true;
@@ -57,32 +60,27 @@ public class ParamController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleParamServerListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		// 断言一下请求方式
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
-			// 从 resources 目录读取 server-params.json 文件
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream("server-params.json");
 			if (inputStream == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("参数配置文件不存在: server-params.json"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONFIG_NOTFOUND + ": server-params.json"));
 				return;
 			}
 			
-			// 读取文件内容
 			String content = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
 			inputStream.close();
 			
-			// 解析为JSON对象并验证格式
 			Object parsed = JsonUtil.fromJson(content, Object.class);
 			
-			// 构建响应
 			Map<String, Object> response = new HashMap<>();
 			response.put("success", true);
 			response.put("params", parsed);
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("获取参数列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取参数列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -95,13 +93,12 @@ public class ParamController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleParamBenchmarkListRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 
 		try {
-			// 从 resources 目录读取 benchmark-params.json 文件
 			InputStream inputStream = getClass().getClassLoader().getResourceAsStream("benchmark-params.json");
 			if (inputStream == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("参数配置文件不存在: benchmark-params.json"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONFIG_NOTFOUND + ": benchmark-params.json"));
 				return;
 			}
 
@@ -115,7 +112,7 @@ public class ParamController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, response);
 		} catch (Exception e) {
 			logger.info("获取基准测试参数列表时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取基准测试参数列表失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_BENCHMARK_LIST_FAILED + ": " + e.getMessage()));
 		}
 	}
 }

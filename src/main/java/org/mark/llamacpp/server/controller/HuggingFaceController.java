@@ -16,10 +16,14 @@ import io.netty.handler.codec.http.HttpMethod;
  * 	
  */
 public class HuggingFaceController implements BaseController {
-	
-	
-	
-	
+
+	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	private static final String I18N_PARAM_QUERY_MISSING = "api.error.param.query.missing";
+	private static final String I18N_HF_SEARCH_FAILED = "api.error.hf.search.failed";
+	private static final String I18N_PARAM_MODEL_MISSING = "api.error.param.model.missing";
+	private static final String I18N_HF_GGUF_PARSE_FAILED = "api.error.hf.gguf.parse.failed";
+	private static final String I18N_HF_README_FAILED = "api.error.hf.readme.failed";
+
 	public HuggingFaceController() {
 		
 	}
@@ -50,12 +54,12 @@ public class HuggingFaceController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleHFSearchRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String query = params.get("query");
 			if (query == null || query.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的query参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_QUERY_MISSING));
 				return;
 			}
 			int limit = parseIntOrDefault(params.get("limit"), 30);
@@ -67,7 +71,7 @@ public class HuggingFaceController implements BaseController {
 			var result = HuggingFaceSearcher.search(query.trim(), limit, timeoutSeconds, startPage, maxPages, base);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("搜索失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_HF_SEARCH_FAILED + ": " + e.getMessage()));
 		}
 	}
 	
@@ -78,13 +82,13 @@ public class HuggingFaceController implements BaseController {
 	 * @throws RequestMethodException
 	 */
 	private void handleHFGGUFRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String input = firstNonBlank(params.get("model"), params.get("repoId"), params.get("modelUrl"), params.get("url"),
 					params.get("input"));
 			if (input == null || input.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的model参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_MISSING));
 				return;
 			}
 			int timeoutSeconds = parseIntOrDefault(params.get("timeoutSeconds"), 20);
@@ -92,18 +96,18 @@ public class HuggingFaceController implements BaseController {
 			var result = HuggingFaceSearcher.listGgufFiles(input.trim(), timeoutSeconds, base);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("解析GGUF失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_HF_GGUF_PARSE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
 	private void handleHFReadmeRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
+		this.assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
 		try {
 			Map<String, String> params = ParamTool.getQueryParam(request.uri());
 			String input = firstNonBlank(params.get("model"), params.get("repoId"), params.get("modelUrl"), params.get("url"),
 					params.get("input"));
 			if (input == null || input.trim().isEmpty()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error("缺少必需的model参数"));
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_MISSING));
 				return;
 			}
 			int timeoutSeconds = parseIntOrDefault(params.get("timeoutSeconds"), 20);
@@ -111,7 +115,7 @@ public class HuggingFaceController implements BaseController {
 			var result = HuggingFaceSearcher.fetchReadme(input.trim(), timeoutSeconds, base);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(result));
 		} catch (Exception e) {
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error("获取README失败: " + e.getMessage()));
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_HF_README_FAILED + ": " + e.getMessage()));
 		}
 	}
 	

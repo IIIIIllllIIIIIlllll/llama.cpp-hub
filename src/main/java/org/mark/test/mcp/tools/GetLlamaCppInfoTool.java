@@ -23,6 +23,8 @@ public class GetLlamaCppInfoTool implements IMCPTool {
 
 	// private static final Logger logger = LoggerFactory.getLogger(GetLlamaCppInfoTool.class);
 
+	private static final String I18N_LLAMACPP_LIST_FAILED = "api.error.llamacpp.list.failed";
+
 	@Override
 	public String getMcpName() {
 		return "get_llamacpp_info";
@@ -50,7 +52,7 @@ public class GetLlamaCppInfoTool implements IMCPTool {
 			return new McpMessage().addText(JsonUtil.toJson(this.buildResponse()));
 		} catch (Exception e) {
 			// logger.info("MCP工具执行失败: name={}, serviceKey={}", this.getMcpName(), serviceKey, e);
-			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error("获取llama.cpp路径列表失败: " + e.getMessage())));
+			return new McpMessage().addText(JsonUtil.toJson(ApiResponse.error(I18N_LLAMACPP_LIST_FAILED + ": " + e.getMessage())));
 		}
 	}
 
