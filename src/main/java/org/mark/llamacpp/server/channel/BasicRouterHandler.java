@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.util.CharsetUtil;
@@ -138,6 +139,12 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (!request.decoderResult().isSuccess()) {
 			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_REQUEST_PARSE_FAILED);
+			return;
+		}
+		// 本服务器只发送压缩响应，不接受压缩请求体
+		if (request.headers().contains(HttpHeaderNames.CONTENT_ENCODING)) {
+			LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.UNSUPPORTED_MEDIA_TYPE,
+					"Compressed request body is not supported");
 			return;
 		}
 		String uri = request.uri();

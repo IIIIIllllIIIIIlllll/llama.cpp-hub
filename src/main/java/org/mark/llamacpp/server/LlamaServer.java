@@ -132,6 +132,9 @@ public class LlamaServer {
 		// 执行一次，创建缓存目录。
 		LlamaServer.getCachePath();
 
+		// 启动时清空静态文件 gzip 缓存，防止 web 资源更新后仍使用旧压缩文件
+		org.mark.llamacpp.server.util.StaticFileGzipCache.clearCache();
+
 		// 加载application.json配置文件
 		logger.info("正在加载application.json配置...");
 		loadApplicationConfig();
@@ -1756,8 +1759,26 @@ public class LlamaServer {
      * 发送静态文件（基于文件属性的 ETag + ChunkedFile 磁盘直读，零堆内存缓存）
      */
     public static void sendStaticFile(ChannelHandlerContext ctx, File file, FullHttpRequest request) throws IOException {
-        long lastModified = file.lastModified();
-        long fileLength = file.length();
+        String requestPath = request.uri();
+        int queryIndex = requestPath.indexOf('?');
+        if (queryIndex >= 0) {
+            requestPath = requestPath.substring(0, queryIndex);
+        }
+
+        // 如果客户端支持 gzip，尝试使用预压缩的缓存文件
+        File fileToServe = file;
+        String contentEncoding = null;
+        String acceptEncoding = request.headers().get(HttpHeaderNames.ACCEPT_ENCODING);
+        if (acceptEncoding != null && acceptEncoding.contains("gzip")) {
+            File gzFile = org.mark.llamacpp.server.util.StaticFileGzipCache.getGzipFile(file, requestPath);
+            if (gzFile != null) {
+                fileToServe = gzFile;
+                contentEncoding = "gzip";
+            }
+        }
+
+        long lastModified = fileToServe.lastModified();
+        long fileLength = fileToServe.length();
         String etag = "\"" + Long.toHexString(lastModified) + "-" + Long.toHexString(fileLength) + "\"";
 
         String ifNoneMatch = request.headers().get(HttpHeaderNames.IF_NONE_MATCH);
@@ -1770,12 +1791,15 @@ public class LlamaServer {
             return;
         }
 
-        RandomAccessFile raf = new RandomAccessFile(file, "r");
+        RandomAccessFile raf = new RandomAccessFile(fileToServe, "r");
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, fileLength);
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, getContentType(file.getName()));
         response.headers().set(HttpHeaderNames.ETAG, etag);
         response.headers().set(HttpHeaderNames.CACHE_CONTROL, "no-cache");
+        if (contentEncoding != null) {
+            response.headers().set(HttpHeaderNames.CONTENT_ENCODING, contentEncoding);
+        }
         setCorsHeaders(response.headers());
 
         ctx.write(response);
