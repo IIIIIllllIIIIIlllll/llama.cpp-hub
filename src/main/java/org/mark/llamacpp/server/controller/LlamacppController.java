@@ -72,7 +72,7 @@ public class LlamacppController implements BaseController {
 	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
 	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
 	private static final String I18N_BODY_PARSE = "api.error.body.parse";
-	private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
+	//private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
 	private static final String I18N_PARAM_PATH_EMPTY = "api.error.param.path.empty";
 	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
 	private static final String I18N_PATH_EXISTS = "api.error.path.exists";

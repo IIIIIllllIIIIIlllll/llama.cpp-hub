@@ -22,8 +22,8 @@ public class AutoLoadPolicyController implements BaseController {
 
 	private static final Logger logger = LoggerFactory.getLogger(AutoLoadPolicyController.class);
 
-	private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
-	private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
+	//private static final String I18N_METHOD_GET_ONLY = "common.method.get.only";
+	//private static final String I18N_METHOD_POST_ONLY = "common.method.post.only";
 	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
 	private static final String I18N_BODY_PARSE = "api.error.body.parse";
 	private static final String I18N_PARAM_MODELID_MISSING = "api.error.param.modelId.missing";

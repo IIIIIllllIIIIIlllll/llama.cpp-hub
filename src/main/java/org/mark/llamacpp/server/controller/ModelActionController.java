@@ -57,7 +57,7 @@ public class ModelActionController implements BaseController {
 	private static final String I18N_BODY_EMPTY = "api.error.body.empty";
 	private static final String I18N_BODY_PARSE = "api.error.body.parse";
 	private static final String I18N_PARAM_MODELID_REQUIRED = "api.error.param.modelId.required";
-	private static final String I18N_PARAM_MODELID_MISSING = "api.error.param.modelId.missing";
+	//private static final String I18N_PARAM_MODELID_MISSING = "api.error.param.modelId.missing";
 	private static final String I18N_PARAM_CMD_MISSING = "api.error.param.cmd.missing";
 	private static final String I18N_PARAM_CLONE_ID_MISSING = "api.error.param.cloneId.missing";
 	private static final String I18N_PARAM_SOURCE_MODEL_ID_MISSING = "api.error.param.sourceModelId.missing";
@@ -85,8 +85,8 @@ public class ModelActionController implements BaseController {
 	private static final String I18N_MODEL_CLONE_SAVE_FAILED = "api.error.model.clone.save.failed";
 	private static final String I18N_MODEL_CLONE_CONFIG_NOT_FOUND = "api.error.model.clone.config.notfound";
 	private static final String I18N_MODEL_CLONE_SOURCE_MISMATCH = "api.error.model.clone.source.mismatch";
-	private static final String I18N_MODEL_BENCHMARK_CMD_MISSING = "api.error.model.benchmark.cmd.missing";
-	private static final String I18N_MODEL_BENCHMARK_NOT_FOUND = "api.error.model.benchmark.notfound";
+	//private static final String I18N_MODEL_BENCHMARK_CMD_MISSING = "api.error.model.benchmark.cmd.missing";
+	//private static final String I18N_MODEL_BENCHMARK_NOT_FOUND = "api.error.model.benchmark.notfound";
 	private static final String I18N_MODEL_BENCHMARK_METADATA_INCOMPLETE = "api.error.model.benchmark.metadata.incomplete";
 	private static final String I18N_MODEL_BENCHMARK_EXE_NOT_FOUND = "api.error.model.benchmark.exe.not.found";
 	private static final String I18N_MODEL_BENCHMARK_TIMEOUT = "api.error.model.benchmark.timeout";

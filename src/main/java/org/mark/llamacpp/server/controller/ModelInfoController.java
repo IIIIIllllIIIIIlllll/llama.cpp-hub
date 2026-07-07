@@ -92,7 +92,7 @@ public class ModelInfoController implements BaseController {
 	private static final String I18N_SHARED_CONFIG_SET_FAILED = "api.error.shared.config.set.failed";
 	private static final String I18N_SHARED_CONFIG_GET_FAILED = "api.error.shared.config.get.failed";
 	private static final String I18N_SHARED_CONFIG_DELETE_FAILED = "api.error.shared.config.delete.failed";
-	private static final String I18N_SHARED_CONFIG_NOT_FOUND = "api.error.shared.config.notfound";
+	//private static final String I18N_SHARED_CONFIG_NOT_FOUND = "api.error.shared.config.notfound";
 	private static final String I18N_SHARED_CONFIG_UNSHARE_FAILED = "api.error.shared.config.unshare.failed";
 	
 	public ModelInfoController() {
