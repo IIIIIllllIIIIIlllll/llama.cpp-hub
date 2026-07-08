@@ -536,6 +536,7 @@ jobs:
             - AMD GPU: 使用 hip 版本，Linux系统，AI MAX+ 395（或其它ROCm7.2支持的GPU）可以使用ROCm7.2版本
             - 其他 GPU（如核显） 或不确定: 使用 vulkan 版本
             - 不需要llamacpp：使用无 llamacpp 版本
+          - **安全警告：** 本应用为局域网工具，不具备互联网安全防护能力。请勿将服务端口直接暴露到公网。如需远程访问，请使用反向代理 + HTTPS。详细安全声明见 README。
 
           ### ⚠️ JVM 内存配置 / JVM Memory Configuration
 
