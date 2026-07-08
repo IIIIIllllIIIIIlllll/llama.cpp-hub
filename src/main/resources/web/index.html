@@ -3618,7 +3618,7 @@ llama.cpp-hub</textarea>
         </div>
         <div class="hf-split">
             <div class="hf-split-left">
-                <div class="model-list-container">
+                <div class="model-list-container" style="margin-top: 0rem;">
                     <div id="hfHitsList">
                         <div class="empty-state" data-i18n="page.hf.empty_state">page.hf.empty_state</div>
                     </div>
@@ -5586,7 +5586,7 @@ llama.cpp-hub</textarea>
             // 生成带 tooltip 的 label
             const flagText = param.fullName || param.abbreviation || '';
             const labelContent = description
-                ? `${displayName} <i class="fas fa-question-circle param-desc-trigger" style="color: #DCDCDC; cursor: pointer; margin-left: 4px;" title="${escapeAttr(description)}" data-param-name="${escapeAttr(displayName)}" data-param-flag="${escapeAttr(flagText)}" data-param-desc="${escapeAttr(description)}"></i>`
+                ? `${displayName} <i class="fas fa-question-circle param-desc-trigger" style="cursor: pointer; margin-left: 4px;" title="${escapeAttr(description)}" data-param-name="${escapeAttr(displayName)}" data-param-flag="${escapeAttr(flagText)}" data-param-desc="${escapeAttr(description)}"></i>`
                 : `${displayName}`;
             const labelHtml = `<div class="param-label-row" style="display:flex; align-items:center; gap: 0.4rem; line-height: 1.1;">` +
                 `<input class="form-check-input param-enable-toggle" type="checkbox" id="${enableId}" checked style="margin: 0; width: 14px; height: 14px; flex: 0 0 auto; transform: translateY(1px);">` +

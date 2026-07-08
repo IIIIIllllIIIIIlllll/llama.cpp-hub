@@ -860,9 +860,9 @@
         var actionsHtml = '';
         if (isMaster) {
             actionsHtml = '<div class="node-row-actions">'
-                + '<button class="btn btn-sm btn-secondary" onclick="SettingsPage.testNode(\'' + nid + '\',this)" title="测试连通性"><i class="fas fa-plug"></i></button>'
-                + '<button class="btn btn-sm btn-secondary" onclick="SettingsPage.editNode(\'' + nid + '\')" title="编辑"><i class="fas fa-edit"></i></button>'
-                + '<button class="btn btn-sm btn-danger" onclick="SettingsPage.removeNode(\'' + nid + '\')" title="删除"><i class="fas fa-trash"></i></button>'
+                + '<button class="btn btn-sm btn-secondary" onclick="SettingsPage.testNode(\'' + nid + '\',this)" title="' + t('page.settings.nodes.test_connectivity', 'Test Connectivity') + '"><i class="fas fa-plug"></i></button>'
+                + '<button class="btn btn-sm btn-secondary" onclick="SettingsPage.editNode(\'' + nid + '\')" title="' + t('common.edit', 'Edit') + '"><i class="fas fa-edit"></i></button>'
+                + '<button class="btn btn-sm btn-danger" onclick="SettingsPage.removeNode(\'' + nid + '\')" title="' + t('common.delete', 'Delete') + '"><i class="fas fa-trash"></i></button>'
                 + '<label class="node-enabled-toggle" title="' + t('common.enable', '启用') + '">'
                 + '<span class="node-enabled-text">' + t('common.enable', '启用') + '</span>'
                 + '<input class="node-enabled-checkbox" type="checkbox" ' + (node.enabled ? 'checked' : '') + ' onchange="SettingsPage.toggleNode(\'' + nid + '\',this.checked)">'
@@ -922,7 +922,7 @@
         if (!nodeId) { toast(t('toast.error', '错误'), t('modal.node.error.id_required', '节点 ID 不能为空'), 'error'); return; }
         if (!baseUrl) { toast(t('toast.error', '错误'), t('modal.node.error.url_required', '地址不能为空'), 'error'); return; }
         if (baseUrl.indexOf('http://') !== 0 && baseUrl.indexOf('https://') !== 0) {
-            toast(t('toast.error', '错误'), '地址必须以 http:// 或 https:// 开头', 'error'); return;
+            toast(t('toast.error', '错误'), t('modal.node.error.url_format', 'URL must start with http:// or https://'), 'error'); return;
         }
 
         var tags = tagsStr ? tagsStr.split(/\s*,\s*/).filter(Boolean) : [];
@@ -978,7 +978,7 @@
                 toast(t('toast.error', '错误'), (result && result.error) ? result.error : t('modal.node.error.delete_failed', '删除失败'), 'error');
                 return;
             }
-            toast(t('toast.success', '成功'), '已删除', 'success');
+            toast(t('toast.success', '成功'), t('common.deleted', 'Deleted'), 'success');
             try { await refreshNodeList(); } catch (e) {}
             loadNodes();
         } catch (e) {
@@ -1000,9 +1000,9 @@
                 var newStatus = d.connected ? 'online' : 'offline';
                 var newLabel = t('page.settings.nodes.status.' + newStatus, d.connected ? '在线' : '离线');
                 if (d.connected) {
-                    toast(t('toast.success', '成功'), nodeId + ' 连通成功 (' + d.latency + 'ms) 版本: ' + (d.version || '未知'), 'success');
+                    toast(t('toast.success', '成功'), t('page.settings.nodes.test_success', { nodeId: nodeId, latency: d.latency, version: d.version || 'unknown' }), 'success');
                 } else {
-                    toast(t('toast.error', '错误'), nodeId + ' 连接失败 (' + (d.statusCode || '超时') + ')', 'error');
+                    toast(t('toast.error', '错误'), t('page.settings.nodes.test_failed', { nodeId: nodeId, reason: d.statusCode || 'timeout' }), 'error');
                 }
                 if (btn) {
                     var card = btn.closest('.node-card');
