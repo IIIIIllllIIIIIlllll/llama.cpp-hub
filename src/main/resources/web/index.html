@@ -9,10 +9,61 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="/icon/icon-192x192.png">
     <meta name="theme-color" content="#f5f5f5">
+    <script>
+        // Restore saved theme before first paint to avoid flash; restore language-switch curtain if needed.
+        (function () {
+            try {
+                const saved = localStorage.getItem('llama-hub-theme');
+                if (saved === 'dark' || saved === 'light') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+                if (sessionStorage.getItem('lh-lang-switching')) {
+                    document.documentElement.classList.add('lang-switching');
+                    sessionStorage.removeItem('lh-lang-switching');
+                }
+            } catch (e) { }
+        })();
+    </script>
     <link rel="stylesheet" href="css/all.min.css">
     <link href="css/css2.css" rel="stylesheet">
     <link rel="stylesheet" href="css/index.css">
     <style>
+        /* Smooth theme fallback: animate color-related properties while switching */
+        html.theme-transitioning,
+        html.theme-transitioning * {
+            transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease, fill 0.35s ease, stroke 0.35s ease !important;
+        }
+
+        /* View-transition tuning */
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation-duration: 0.35s;
+            animation-timing-function: ease-in-out;
+        }
+
+        /* Opt-in to cross-document view transitions for language reloads */
+        @view-transition {
+            navigation: auto;
+        }
+
+        /* Curtain used on browsers without navigation view transitions */
+        .lang-curtain {
+            position: fixed;
+            inset: 0;
+            z-index: 999999;
+            background: var(--bg-color);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+
+        html.lang-switching .lang-curtain {
+            opacity: 1;
+            pointer-events: all;
+        }
+
         .sidebar-quick-links {
             display: flex;
             flex-direction: column;
@@ -2331,6 +2382,9 @@
 </head>
 
 <body>
+    <!-- Language switch curtain (shown during page reload on non-view-transition browsers) -->
+    <div id="langCurtain" class="lang-curtain"></div>
+
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -4544,35 +4598,63 @@ llama.cpp-hub</textarea>
 
     <script>
         // --- Theme ---
-        function applyTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('llama-hub-theme', theme);
-            const icon = document.getElementById('themeToggleIcon');
-            const text = document.getElementById('themeToggleText');
-            const btn = document.getElementById('themeToggle');
-            if (icon && text) {
-                if (theme === 'dark') {
-                    icon.className = 'fas fa-sun';
-                    text.setAttribute('data-i18n', 'common.theme.light');
-                    text.textContent = t('common.theme.light', '\u767d\u5929\u6a21\u5f0f');
-                    if (btn) {
-                        btn.setAttribute('data-i18n', 'common.theme.toggle_title_light');
-                        btn.setAttribute('title', t('common.theme.toggle_title_light', '\u5207\u6362\u767d\u5929\u6a21\u5f0f'));
-                    }
-                } else {
-                    icon.className = 'fas fa-moon';
-                    text.setAttribute('data-i18n', 'common.theme.dark');
-                    text.textContent = t('common.theme.dark', '\u591c\u95f4\u6a21\u5f0f');
-                    if (btn) {
-                        btn.setAttribute('data-i18n', 'common.theme.toggle_title');
-                        btn.setAttribute('title', t('common.theme.toggle_title', '\u5207\u6362\u591c\u95f4\u6a21\u5f0f'));
+        function updateThemeMeta(theme) {
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (!meta) return;
+            meta.setAttribute('content', theme === 'dark' ? '#000000' : '#f5f5f5');
+        }
+
+        function applyTheme(theme, animate) {
+            animate = animate === true;
+            const root = document.documentElement;
+            const update = function () {
+                root.setAttribute('data-theme', theme);
+                localStorage.setItem('llama-hub-theme', theme);
+                updateThemeMeta(theme);
+                const icon = document.getElementById('themeToggleIcon');
+                const text = document.getElementById('themeToggleText');
+                const btn = document.getElementById('themeToggle');
+                if (icon && text) {
+                    if (theme === 'dark') {
+                        icon.className = 'fas fa-sun';
+                        text.setAttribute('data-i18n', 'common.theme.light');
+                        text.textContent = t('common.theme.light', '\u767d\u5929\u6a21\u5f0f');
+                        if (btn) {
+                            btn.setAttribute('data-i18n', 'common.theme.toggle_title_light');
+                            btn.setAttribute('title', t('common.theme.toggle_title_light', '\u5207\u6362\u767d\u5929\u6a21\u5f0f'));
+                        }
+                    } else {
+                        icon.className = 'fas fa-moon';
+                        text.setAttribute('data-i18n', 'common.theme.dark');
+                        text.textContent = t('common.theme.dark', '\u591c\u95f4\u6a21\u5f0f');
+                        if (btn) {
+                            btn.setAttribute('data-i18n', 'common.theme.toggle_title');
+                            btn.setAttribute('title', t('common.theme.toggle_title', '\u5207\u6362\u591c\u95f4\u6a21\u5f0f'));
+                        }
                     }
                 }
+            };
+            if (!animate) {
+                update();
+                return;
+            }
+            // Modern browsers: capture a snapshot and cross-fade to the new theme.
+            if (document.startViewTransition) {
+                document.startViewTransition(update);
+            } else {
+                // Fallback: animate every element's color-related properties at once.
+                root.classList.add('theme-transitioning');
+                requestAnimationFrame(function () {
+                    update();
+                    setTimeout(function () {
+                        root.classList.remove('theme-transitioning');
+                    }, 350);
+                });
             }
         }
         function toggleTheme() {
             const current = document.documentElement.getAttribute('data-theme');
-            applyTheme(current === 'dark' ? 'light' : 'dark');
+            applyTheme(current === 'dark' ? 'light' : 'dark', true);
         }
         function toggleQuickLinks() {
             document.querySelector('.sidebar-quick-links').classList.toggle('open');
@@ -4583,11 +4665,11 @@ llama.cpp-hub</textarea>
         function initTheme() {
             const saved = localStorage.getItem('llama-hub-theme');
             if (saved === 'dark' || saved === 'light') {
-                applyTheme(saved);
+                applyTheme(saved, false);
             } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                applyTheme('dark');
+                applyTheme('dark', false);
             } else {
-                applyTheme('light');
+                applyTheme('light', false);
             }
         }
 
@@ -4605,14 +4687,36 @@ llama.cpp-hub</textarea>
                 btn.setAttribute('title', t('common.lang.toggle_title', 'Switch language'));
             }
         }
+        function supportsViewTransitionNavigation() {
+            try {
+                return typeof CSS !== 'undefined' && CSS.supports('@view-transition', 'navigation: auto');
+            } catch (e) {
+                return false;
+            }
+        }
         function toggleLang() {
             const lang = (window.I18N && window.I18N.lang) || 'zh-CN';
+            // If the browser can't cross-fade the navigation itself, use our own curtain.
+            if (!supportsViewTransitionNavigation()) {
+                try { sessionStorage.setItem('lh-lang-switching', '1'); } catch (e) { }
+            }
             if (lang.startsWith('zh')) {
                 window.setLang('en-US');
             } else {
                 window.setLang('zh-CN');
             }
         }
+
+        // Fade out the language-switch curtain once the new page has rendered.
+        window.addEventListener('load', function () {
+            if (document.documentElement.classList.contains('lang-switching')) {
+                requestAnimationFrame(function () {
+                    setTimeout(function () {
+                        document.documentElement.classList.remove('lang-switching');
+                    }, 50);
+                });
+            }
+        });
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', function () {

@@ -148,119 +148,9 @@ function loadModels() {
         });
 }
 
-const _modelIconMemoryCache = new Map();
-const _modelIconObjectUrlCache = new Map();
-let _modelIconObjectUrlRevokeBound = false;
-
-function getCachedModelIconDataUrl(iconPath) {
-    if (!iconPath) return null;
-    if (_modelIconMemoryCache.has(iconPath)) return _modelIconMemoryCache.get(iconPath);
-    return null;
-}
-
-function _bindModelIconObjectUrlRevokeOnce() {
-    if (_modelIconObjectUrlRevokeBound) return;
-    _modelIconObjectUrlRevokeBound = true;
-    try {
-        window.addEventListener('beforeunload', () => {
-            try {
-                for (const url of _modelIconObjectUrlCache.values()) {
-                    try { URL.revokeObjectURL(url); } catch (e) {}
-                }
-                _modelIconObjectUrlCache.clear();
-            } catch (e) {}
-        }, { once: true });
-    } catch (e) {}
-}
-
-function _dataUrlToBlob(dataUrl) {
-    try {
-        const s = String(dataUrl || '');
-        const idx = s.indexOf(',');
-        if (idx < 0) return null;
-        const meta = s.slice(0, idx);
-        const b64 = s.slice(idx + 1);
-        const m = meta.match(/^data:([^;]+);base64$/i);
-        if (!m) return null;
-        const mime = m[1] || 'application/octet-stream';
-        const bin = atob(b64);
-        const len = bin.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
-        return new Blob([bytes], { type: mime });
-    } catch (e) {
-        return null;
-    }
-}
-
-function getCachedModelIconObjectUrl(iconPath) {
-    if (!iconPath) return null;
-    if (_modelIconObjectUrlCache.has(iconPath)) return _modelIconObjectUrlCache.get(iconPath);
-    const dataUrl = getCachedModelIconDataUrl(iconPath);
-    if (!dataUrl) return null;
-    const blob = _dataUrlToBlob(dataUrl);
-    if (!blob) return null;
-    try {
-        const url = URL.createObjectURL(blob);
-        _bindModelIconObjectUrlRevokeOnce();
-        _modelIconObjectUrlCache.set(iconPath, url);
-        return url;
-    } catch (e) {
-        return null;
-    }
-}
-
-function _tryCacheModelIconFromImg(img, iconPath) {
-    try {
-        if (!img || !iconPath) return null;
-        const w = img.naturalWidth;
-        const h = img.naturalHeight;
-        if (!w || !h) return null;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return null;
-        ctx.drawImage(img, 0, 0, w, h);
-
-        const dataUrl = canvas.toDataURL('image/png');
-        if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
-            _modelIconMemoryCache.set(iconPath, dataUrl);
-            return getCachedModelIconObjectUrl(iconPath) || dataUrl;
-        }
-    } catch (e) {}
-    return null;
-}
-
-function hydrateModelIcons(container) {
-    try {
-        if (!container) return;
-        const imgs = container.querySelectorAll('img[data-model-icon-path]');
-        if (!imgs || imgs.length === 0) return;
-        imgs.forEach(img => {
-            const iconPath = img.getAttribute('data-model-icon-path');
-            if (!iconPath) return;
-            const cachedUrl = getCachedModelIconObjectUrl(iconPath);
-            if (cachedUrl) {
-                if (img.src !== cachedUrl) img.src = cachedUrl;
-                return;
-            }
-            if (img.getAttribute('data-model-icon-cache-bound') === '1') return;
-            img.setAttribute('data-model-icon-cache-bound', '1');
-            const handler = () => {
-                const currentPath = img.getAttribute('data-model-icon-path');
-                if (currentPath !== iconPath) return;
-                const src = _tryCacheModelIconFromImg(img, iconPath);
-                if (src && img.getAttribute('data-model-icon-path') === iconPath) {
-                    img.src = src;
-                }
-            };
-            img.addEventListener('load', handler, { once: true });
-            if (img.complete && img.naturalWidth) handler();
-        });
-    } catch (e) {}
-}
+// Model icons are served as static PNGs and cached by the browser's HTTP cache.
+// The previous canvas/DataURL/ObjectURL cache has been removed to avoid double decoding,
+// base64 overhead and ObjectURL memory management.
 
 let currentModelsData = [];
 
@@ -449,7 +339,7 @@ function renderModelsList(models) {
         }
 
         const modelIconPath = getModelIcon(architecture);
-        const modelIconSrc = modelIconPath ? (getCachedModelIconObjectUrl(modelIconPath) || modelIconPath) : null;
+        const modelIconSrc = modelIconPath || null;
         const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
         const isFavourite = !!model.favourite;
         const nodeId = model.nodeId || '';
@@ -492,7 +382,7 @@ function renderModelsList(models) {
         }
         const borderStyle = isRemote ? ' style="border-left-color:hsl(' + nodeColor + ',65%,50%);"' : '';
         const iconWrapper = `<div class="model-icon-wrapper">
-                            ${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                            ${modelIconPath ? `<img src="${modelIconSrc}" alt="${architecture}" loading="lazy" decoding="async">` : `<i class="fas fa-brain"></i>`}
                         </div>`;
         const badges = `${model.supportsVision ? '<span class="vision-badge"><i class="fas fa-image"></i></span>' : ''}${model.supportsAudio ? '<span class="audio-badge"><i class="fas fa-headphones"></i></span>' : ''}${model.hasMtp ? '<span class="mtp-badge">MTP</span>' : ''}`;
         const hasBadges = badges.length > 0;
@@ -553,7 +443,7 @@ const speedHtml = (model.averagePromptPerSecond ? `<span class="model-meta-promp
                 `;
     });
     modelsList.innerHTML = html;
-    hydrateModelIcons(modelsList);
+    // Icons are rendered directly with <img>; the browser handles HTTP caching.
     const input = document.getElementById('modelSearchInput');
     if (input) filterModels(input.value);
 }

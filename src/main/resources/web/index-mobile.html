@@ -1919,7 +1919,7 @@
                 }
 
                 const modelIconPath = getModelIcon(architecture);
-                const modelIconSrc = modelIconPath ? (getCachedModelIconObjectUrl(modelIconPath) || modelIconPath) : null;
+                const modelIconSrc = modelIconPath || null;
                 const displayName = (model.alias && model.alias.trim()) ? model.alias : model.name;
                 const modelId = encodeURIComponent(model.id);
                 const nodeId = model.nodeId || 'local';
@@ -1937,7 +1937,7 @@
 	                            <i class="${isFavourite ? 'fas' : 'far'} fa-star"></i>
 	                        </button>
 	                        <div class="model-icon-wrapper">
-                             	${modelIconPath ? `<img src="${modelIconSrc}" data-model-icon-path="${modelIconPath}" alt="${architecture}">` : `<i class="fas fa-brain"></i>`}
+                             	${modelIconPath ? `<img src="${modelIconSrc}" alt="${architecture}" loading="lazy" decoding="async">` : `<i class="fas fa-brain"></i>`}
                          	</div>	                        
                         </div>
                         <div class="model-details">
@@ -1963,7 +1963,7 @@
                 `;
             });
             modelsList.innerHTML = html;
-            hydrateModelIcons(modelsList);
+            // Icons are rendered directly with <img>; the browser handles HTTP caching.
             const input = document.getElementById('modelSearchInput');
             if (input) filterModels(input.value);
         }
