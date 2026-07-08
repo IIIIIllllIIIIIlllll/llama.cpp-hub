@@ -296,6 +296,23 @@ The app itself isn't that big, but llama.cpp can be — especially the CUDA and 
 | 1234 | LM Studio compatible API (optional) |
 | 8075 | MCP server (optional) |
 
+> ## ⚠️ Security Disclaimer
+> 
+> **This application is a personal tool designed for local area network (LAN) use only. It does NOT provide internet-grade security.**
+> 
+> The application listens on `0.0.0.0` by default. If you set up port forwarding on your router or use NAT tunneling to expose it to the public internet, please be aware:
+> 
+> - This application has **no** comprehensive authentication, authorization, or attack prevention mechanisms
+> - Even with API key authentication enabled (`security.apiKeyEnabled`), it is only basic access control and insufficient against malicious attacks
+> - Exposing it to the public internet may lead to model service abuse/theft, server resource exhaustion, data leakage (chat records, etc.)
+> 
+> **Strongly recommended:**
+> - Use only within a trusted local network
+> - If public access is required, use a reverse proxy (e.g., Nginx) with HTTPS, access control, rate limiting, etc.
+> - Do not directly expose port 8080 or any other service port to the public internet
+> 
+> **You assume all responsibility for any loss or damage resulting from port forwarding or public exposure of this application.**
+
 ---
 
 ## Tech Stack
