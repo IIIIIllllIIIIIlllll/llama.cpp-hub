@@ -60,6 +60,11 @@
   --danger: #ef4444;
 }
 
+[data-theme="dark"] .model-select,
+[data-theme="dark"] .drawer-input {
+  color-scheme: dark;
+}
+
 [data-theme="dark"] *:hover { scrollbar-color: rgba(255,255,255,0.15) transparent; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
 [data-theme="dark"] *:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
