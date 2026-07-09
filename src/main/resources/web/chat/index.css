@@ -558,6 +558,16 @@ button { cursor: pointer; }
   padding: 14px 16px;
 }
 
+.main.has-background-image .message.user .message-head,
+.main.has-background-image .message.assistant .message-head {
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 78%), transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 6px 10px;
+  margin-bottom: 6px;
+}
+
 /* 消息内各类“卡片/代码块”也一起变淡 */
 .main.has-background-image .reasoning-box,
 .main.has-background-image .tool-result-box,
@@ -585,12 +595,12 @@ button { cursor: pointer; }
 /* 根据背景图整体亮度自动切换聊天区文字颜色：
    偏亮的背景用深色字，偏暗的背景用浅色字（类似 Android 导航栏自适应）。 */
 .main.has-background-image.chat-bg-bright {
-  --chat-contrast-fg: #111;
+  --chat-contrast-fg: #000000;
   --chat-contrast-muted: #444;
 }
 
 .main.has-background-image.chat-bg-dark {
-  --chat-contrast-fg: #fff;
+  --chat-contrast-fg: #ffffff;
   --chat-contrast-muted: #bbb;
 }
 
@@ -695,6 +705,16 @@ button { cursor: pointer; }
 /* 标题/强调文字保持主色 */
 .main.has-background-image.chat-bg-bright .message-head strong,
 .main.has-background-image.chat-bg-dark .message-head strong {
+  color: var(--chat-contrast-fg);
+}
+
+/* 消息头部信息（模型名、时间、Token 用量）使用主对比色 */
+.main.has-background-image.chat-bg-bright .message-head,
+.main.has-background-image.chat-bg-dark .message-head,
+.main.has-background-image.chat-bg-bright .context-usage,
+.main.has-background-image.chat-bg-dark .context-usage,
+.main.has-background-image.chat-bg-bright .message-head .message-time,
+.main.has-background-image.chat-bg-dark .message-head .message-time {
   color: var(--chat-contrast-fg);
 }
 
@@ -1758,7 +1778,13 @@ button { cursor: pointer; }
 
 .message-head .context-usage {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.message-head .message-time {
+  font-size: 12px;
+  color: var(--fg);
   white-space: nowrap;
 }
 

@@ -5868,13 +5868,13 @@
           '<span class="avatar"><img src="' + escapeHtml(avatarUrl) + '" alt=""></span>' +
           '<strong>' + escapeHtml(messageTitle) + '</strong>' +
           contextUsageHtml +
-          '<span>' + escapeHtml(message.time || nowTime()) + '</span>';
+          '<span class="message-time">' + escapeHtml(message.time || nowTime()) + '</span>';
       } else {
         head.innerHTML =
           '<span class="avatar">' + avatarLabel + '</span>' +
           '<strong>' + escapeHtml(messageTitle) + '</strong>' +
           contextUsageHtml +
-          '<span>' + escapeHtml(message.time || nowTime()) + '</span>';
+          '<span class="message-time">' + escapeHtml(message.time || nowTime()) + '</span>';
       }
 
       const bubble = document.createElement('div');
