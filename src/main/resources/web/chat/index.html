@@ -1877,6 +1877,21 @@
       renderStreamingMarkdown(target, fullText);
     }
 
+    function renderUserMessageContent(target, text, htmlPreviewCollapsed) {
+      if (!target) {
+        return;
+      }
+      const source = String(text ?? '');
+      // Only run Markdown when the user explicitly uses code fences (``` / ~~~).
+      // Otherwise keep the exact text to avoid indented lines becoming code blocks.
+      if (/```|~~~/.test(source)) {
+        renderRichText(target, source, { isStreaming: false, role: 'user', htmlPreviewCollapsed });
+      } else {
+        target.classList.add('user-plain-content');
+        target.textContent = source.replace(/\r\n/g, '\n');
+      }
+    }
+
     function nowTime() {
       return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
     }
@@ -6036,7 +6051,12 @@
         if (String(message.content || '').trim() && message.role !== 'tool') {
           const content = document.createElement('div');
           content.className = 'message-content';
-          if (message.isStreaming) {
+          if (isUser) {
+            // User messages keep Markdown only when code fences (``` / ~~~) are
+            // used; otherwise preserve exact whitespace to avoid accidental
+            // indented code blocks.
+            renderUserMessageContent(content, message.content || '', message.htmlPreviewCollapsed);
+          } else if (message.isStreaming) {
             if (shouldRenderStreamingMarkdown()) {
               appendStreamingText(content, message.content || '');
             } else {

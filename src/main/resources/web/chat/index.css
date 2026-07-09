@@ -1775,6 +1775,12 @@ button { cursor: pointer; }
   border: none;
 }
 
+/* User messages keep the original whitespace instead of being parsed as Markdown. */
+.message.user .message-content.user-plain-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .message-images {
   display: flex;
   flex-wrap: wrap;
