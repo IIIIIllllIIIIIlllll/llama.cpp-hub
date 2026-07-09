@@ -4072,6 +4072,7 @@
 
     let chatBgCatalog = { activeId: null, opacity: 45, items: [] };
     let chatBgOpacityTimer = null;
+    const chatBgBrightnessCache = new Map();
 
     function getChatBgCatalog() {
       return chatBgCatalog;
@@ -4116,12 +4117,78 @@
       main.classList.toggle('has-background-image', !!catalog.activeId);
       main.style.setProperty('--chat-bg-image-opacity', String((catalog.opacity ?? 45) / 100));
       if (catalog.activeId) {
-        main.style.setProperty('--chat-bg-image', 'url(' + CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId) + ')');
+        const imageUrl = CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId);
+        main.style.setProperty('--chat-bg-image', 'url(' + imageUrl + ')');
+        computeImageBrightness(imageUrl)
+          .then(syncChatBackgroundBrightness)
+          .catch(() => syncChatBackgroundBrightness(null));
       } else {
         main.style.removeProperty('--chat-bg-image');
+        syncChatBackgroundBrightness(null);
       }
       syncChatBackgroundPreview();
       syncChatBgOpacityInput();
+    }
+
+    function computeImageBrightness(imageUrl) {
+      return new Promise((resolve, reject) => {
+        if (chatBgBrightnessCache.has(imageUrl)) {
+          resolve(chatBgBrightnessCache.get(imageUrl));
+          return;
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const sampleSize = 64;
+            canvas.width = sampleSize;
+            canvas.height = sampleSize;
+            ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+            const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+            let total = 0;
+            let weight = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const a = data[i + 3];
+              if (a < 10) continue;
+              const alpha = a / 255;
+              // Perceived luminance (same weight as Android/YUV luma)
+              total += (0.299 * r + 0.587 * g + 0.114 * b) * alpha;
+              weight += alpha;
+            }
+            const brightness = weight > 0 ? total / weight / 255 : 0.5;
+            chatBgBrightnessCache.set(imageUrl, brightness);
+            resolve(brightness);
+          } catch (e) {
+            reject(e);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = imageUrl;
+      });
+    }
+
+    function syncChatBackgroundBrightness(brightness) {
+      const main = document.querySelector('.main');
+      if (!main) {
+        return;
+      }
+      main.classList.remove('chat-bg-bright', 'chat-bg-dark');
+      if (typeof brightness !== 'number') {
+        main.style.removeProperty('--chat-bg-image-brightness');
+        return;
+      }
+      main.style.setProperty('--chat-bg-image-brightness', String(brightness));
+      // 只有透明度拉到 100%（面板完全透明）时才根据背景亮度切换文字颜色，
+      // 否则保留主题默认颜色，避免半透明面板+反色文字看起来别扭。
+      const catalog = getChatBgCatalog();
+      if ((catalog.opacity ?? 45) >= 100) {
+        main.classList.add(brightness > 0.5 ? 'chat-bg-bright' : 'chat-bg-dark');
+      }
     }
 
     function syncChatBackgroundPreview() {
