@@ -1286,9 +1286,7 @@ button { cursor: pointer; }
 }
 
 .hw-stat-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
   width: min(420px, 94vw);
   max-height: min(70vh, 560px);
   border: 1px solid var(--border);
@@ -4180,17 +4178,6 @@ body.sidebar-collapsed .sidebar {
 
   .model-menu {
     width: min(360px, 94vw);
-  }
-
-  .hw-stat-panel {
-    position: fixed;
-    top: 50%;
-    right: auto;
-    left: 50%;
-    bottom: auto;
-    transform: translate(-50%, -50%);
-    width: min(420px, 94vw);
-    max-height: min(70vh, 560px);
   }
 
   .composer-hint {
