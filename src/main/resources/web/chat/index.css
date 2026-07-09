@@ -58,11 +58,12 @@
   --hover: rgba(255,255,255,0.08);
   --panel: #000000;
   --danger: #ef4444;
+  color-scheme: dark;
 }
 
-[data-theme="dark"] .model-select,
-[data-theme="dark"] .drawer-input {
-  color-scheme: dark;
+[data-theme="dark"] select option {
+  background: #2a2a3e;
+  color: #e0e0e0;
 }
 
 [data-theme="dark"] *:hover { scrollbar-color: rgba(255,255,255,0.15) transparent; }
