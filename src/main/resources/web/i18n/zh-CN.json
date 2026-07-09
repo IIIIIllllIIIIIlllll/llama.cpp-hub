@@ -1783,7 +1783,7 @@
   "page.chat.main.status.loading_models": "正在加载模型列表…",
   "page.chat.main.status.precheck_failed": "校验失败：{error}",
   "page.chat.main.theme.dark": "🌙 夜间模式",
-  "page.chat.main.theme.light": "亮色模式",
+  "page.chat.main.theme.light": "☀️ 亮色模式",
   "page.chat.main.topbar.privacy_active": "隐私模式已开启",
   "page.chat.main.topbar.privacy_close": "关闭隐私模式",
   "page.chat.main.topbar.privacy_hidden_placeholder": "隐私模式已隐藏真实助手名",

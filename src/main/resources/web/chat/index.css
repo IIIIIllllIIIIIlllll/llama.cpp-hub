@@ -1493,6 +1493,12 @@ button { cursor: pointer; }
   flex: 1;
 }
 
+.message-head .context-usage {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .message.user .message-head,
 .message.assistant .message-head {
   border: none;

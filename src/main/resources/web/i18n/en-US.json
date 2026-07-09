@@ -1782,7 +1782,7 @@
   "page.chat.main.status.loading_models": "Loading model list...",
   "page.chat.main.status.precheck_failed": "Pre-check failed: {error}",
   "page.chat.main.theme.dark": "🌙 Dark mode",
-  "page.chat.main.theme.light": "Light mode",
+  "page.chat.main.theme.light": "☀️ Light mode",
   "page.chat.main.topbar.privacy_active": "Privacy mode active",
   "page.chat.main.topbar.privacy_close": "Disable privacy mode",
   "page.chat.main.topbar.privacy_hidden_placeholder": "Privacy mode hides real assistant names",
