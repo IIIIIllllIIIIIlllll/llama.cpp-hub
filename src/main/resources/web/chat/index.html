@@ -610,6 +610,22 @@
       </div>
     </div>
   </div>
+  <div id="streamErrorDialog" class="mcp-dialog-backdrop" aria-hidden="true">
+    <div class="mcp-dialog" role="dialog" aria-modal="true" aria-labelledby="streamErrorDialogTitle">
+      <div class="mcp-dialog-head">
+        <h4 id="streamErrorDialogTitle" data-i18n="page.chat.main.error.dialog_title">请求失败</h4>
+        <button id="streamErrorDialogCloseBtn" class="icon-button mcp-dialog-close" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div class="mcp-dialog-body">
+        <p id="streamErrorDialogMessage"></p>
+        <div id="streamErrorDialogDetails" class="error-details"></div>
+      </div>
+      <div class="mcp-dialog-footer">
+        <button id="streamErrorDialogOkBtn" class="primary-button" type="button" data-i18n="common.ok">知道了</button>
+      </div>
+    </div>
+  </div>
+
   <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-label="图片预览" data-i18n-attr="aria-label" data-i18n="page.chat.main.lightbox.aria">
     <button class="image-lightbox-close" id="imageLightboxClose" type="button" aria-label="关闭" data-i18n-attr="aria-label" data-i18n="page.chat.main.lightbox.close">&times;</button>
     <img class="image-lightbox-img" id="imageLightboxImg" src="" alt="预览" data-i18n-attr="alt" data-i18n="page.chat.main.lightbox.alt">
@@ -865,6 +881,11 @@
       mcpRefreshBtn: document.getElementById('mcpRefreshBtn'),
       mcpSummary: document.getElementById('mcpSummary'),
       mcpServerList: document.getElementById('mcpServerList'),
+      streamErrorDialog: document.getElementById('streamErrorDialog'),
+      streamErrorDialogMessage: document.getElementById('streamErrorDialogMessage'),
+      streamErrorDialogDetails: document.getElementById('streamErrorDialogDetails'),
+      streamErrorDialogCloseBtn: document.getElementById('streamErrorDialogCloseBtn'),
+      streamErrorDialogOkBtn: document.getElementById('streamErrorDialogOkBtn'),
       timestampToggle: document.getElementById('timestampToggle'),
       titleGenToggle: document.getElementById('titleGenToggle'),
       titleGenModelSelect: document.getElementById('titleGenModelSelect'),
@@ -5702,6 +5723,34 @@
       }
     }
 
+    function canContinueAssistantResponse(message, index) {
+      if (message.role !== 'assistant') return false;
+      if (message.finishReason && message.finishReason !== 'length') return false;
+      const conv = getCurrentConversation();
+      const convMsgs = conv && isConversationLoaded(conv) ? conv.messages : [];
+      let lastAssistantIdx = -1;
+      for (let i = convMsgs.length - 1; i >= 0; i -= 1) {
+        if (convMsgs[i] && convMsgs[i].role === 'assistant') {
+          lastAssistantIdx = i;
+          break;
+        }
+      }
+      if (lastAssistantIdx !== index) return false;
+      const hasGeneration =
+        (message.timings?.predicted_n > 0) ||
+        String(message.content || '').trim().length > 0 ||
+        String(message.reasoning || '').trim().length > 0 ||
+        hasAssistantToolCalls(message);
+      return hasGeneration;
+    }
+
+    function createContinueButton(index) {
+      return createMessageActionButton('continue', index, window.I18N.t('page.chat.main.action.continue', '继续生成'), [
+        '<line x1="5" y1="12" x2="19" y2="12"></line>',
+        '<polyline points="12 5 19 12 12 19"></polyline>'
+      ].join(''));
+    }
+
     function createMessageElement(message, index) {
       if (message.role === 'assistant') {
         syncAssistantMessageState(message);
@@ -6040,26 +6089,12 @@
           // "Continue generation" only on the last assistant message of the conversation.
           // Backend (EasyChatService) requires continueSeq to be the trailing assistant
           // fragment; rendering the button only there keeps UX aligned with that constraint.
-          // Additionally, hide the button when the response is known to be naturally
-          // finished (finish_reason="stop"/"tool_calls"): llama.cpp would just emit EOS
-          // again, and repeated attempts could eventually sample junk tokens that pollute
-          // the fragment. Truncated-by-length ("length") and user-aborted (null) responses
-          // remain continueable.
-          const conv = getCurrentConversation();
-          const convMsgs = conv && isConversationLoaded(conv) ? conv.messages : [];
-          let lastAssistantIdx = -1;
-          for (let i = convMsgs.length - 1; i >= 0; i -= 1) {
-            if (convMsgs[i] && convMsgs[i].role === 'assistant') {
-              lastAssistantIdx = i;
-              break;
-            }
-          }
-          const canContinueResponse = !message.finishReason || message.finishReason === 'length';
-          if (lastAssistantIdx === index && canContinueResponse) {
-            actions.appendChild(createMessageActionButton('continue', index, window.I18N.t('page.chat.main.action.continue', '继续生成'), [
-              '<line x1="5" y1="12" x2="19" y2="12"></line>',
-              '<polyline points="12 5 19 12 12 19"></polyline>'
-            ].join('')));
+          // Hide the button when the response is naturally finished (finish_reason="stop"/
+          // "tool_calls") or when no actual generation has started yet (e.g. user stopped
+          // during the prompt-processing phase): llama.cpp cannot continue a response that
+          // never began.
+          if (canContinueAssistantResponse(message, index)) {
+            actions.appendChild(createContinueButton(index));
           }
         } else if (message.role === 'user') {
           actions.appendChild(createMessageActionButton('regenerate', index, window.I18N.t('page.chat.main.action.regenerate', '重新生成'), [
@@ -6464,6 +6499,14 @@
         }
         if (message.role === 'assistant') {
           upsertStreamingPerformance(actions, message);
+          const existingContinue = actions.querySelector(':scope > [data-message-action="continue"]');
+          if (canContinueAssistantResponse(message, index)) {
+            if (!existingContinue) {
+              actions.appendChild(createContinueButton(index));
+            }
+          } else if (existingContinue) {
+            existingContinue.remove();
+          }
         }
       }
       return true;
@@ -7293,6 +7336,68 @@
       renderMessages();
     }
 
+    function parseStreamErrorResponse(text) {
+      let message = text || '';
+      let code = null;
+      let type = null;
+      let details = {};
+      try {
+        const json = JSON.parse(text);
+        if (json?.error && typeof json.error === 'object') {
+          message = json.error.message || json.error.description || text;
+          code = json.error.code ?? null;
+          type = json.error.type || null;
+          details = { ...json.error };
+          delete details.message;
+          delete details.code;
+          delete details.type;
+        } else if (typeof json?.message === 'string') {
+          message = json.message;
+          code = json.code ?? null;
+          type = json.type || null;
+        }
+      } catch (e) {
+        // Not JSON, keep raw text as message.
+      }
+      return { message, code, type, details, raw: text };
+    }
+
+    function showStreamErrorDialog(errorInfo) {
+      if (!els.streamErrorDialog || !els.streamErrorDialogMessage) return;
+      els.streamErrorDialogMessage.textContent = errorInfo.message || window.I18N.t('page.chat.main.error.request_failed', '请求失败');
+
+      const detailParts = [];
+      if (errorInfo.code != null) {
+        detailParts.push(window.I18N.t('page.chat.main.error.error_code', '错误码') + '：' + errorInfo.code);
+      }
+      if (errorInfo.type) {
+        detailParts.push(window.I18N.t('page.chat.main.error.error_type', '错误类型') + '：' + errorInfo.type);
+      }
+      for (const [key, value] of Object.entries(errorInfo.details)) {
+        if (value == null) continue;
+        detailParts.push(escapeHtml(String(key)) + '：' + escapeHtml(String(value)));
+      }
+
+      if (els.streamErrorDialogDetails) {
+        if (detailParts.length) {
+          els.streamErrorDialogDetails.innerHTML = detailParts.map(part => '<div>' + part + '</div>').join('');
+          els.streamErrorDialogDetails.style.display = '';
+        } else {
+          els.streamErrorDialogDetails.innerHTML = '';
+          els.streamErrorDialogDetails.style.display = 'none';
+        }
+      }
+
+      els.streamErrorDialog.classList.add('open');
+      els.streamErrorDialog.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeStreamErrorDialog() {
+      if (!els.streamErrorDialog) return;
+      els.streamErrorDialog.classList.remove('open');
+      els.streamErrorDialog.setAttribute('aria-hidden', 'true');
+    }
+
     async function requestAssistantResponse(options = {}) {
       if (state.isSending) {
         return;
@@ -7385,7 +7490,11 @@
           if (!response.ok) {
             removeTypingIndicator();
             const text = await response.text();
-            throw new Error(text || window.I18N.t('page.chat.main.error.request_failed_status', '请求失败：{status}').replace('{status}', response.status));
+            const errorInfo = parseStreamErrorResponse(text);
+            showStreamErrorDialog(errorInfo);
+            const err = new Error(errorInfo.message || window.I18N.t('page.chat.main.error.request_failed_status', '请求失败：{status}').replace('{status}', response.status));
+            err.streamErrorShown = true;
+            throw err;
           }
 
           const contentType = response.headers.get('content-type') || '';
@@ -7555,7 +7664,9 @@
             setAssistantResponseStreaming(currentAssistantIndex, false);
           }
           updateStatus('error', error.message || window.I18N.t('page.chat.main.status.request_failed', '请求失败'), window.I18N.t('page.chat.main.status.request_failed', '请求失败'));
-          showToast('error', window.I18N.t('page.chat.main.error.request_failed', '请求失败：{error}').replace('{error}', error.message || window.I18N.t('page.chat.main.misc.recording_error', '未知错误')));
+          if (!error.streamErrorShown) {
+            showToast('error', window.I18N.t('page.chat.main.error.request_failed', '请求失败：{error}').replace('{error}', error.message || window.I18N.t('page.chat.main.misc.recording_error', '未知错误')));
+          }
         }
       } finally {
         state.isSending = false;
@@ -9859,8 +9970,25 @@
           closeSettings();
         }
       });
+      if (els.streamErrorDialogCloseBtn) {
+        els.streamErrorDialogCloseBtn.addEventListener('click', closeStreamErrorDialog);
+      }
+      if (els.streamErrorDialogOkBtn) {
+        els.streamErrorDialogOkBtn.addEventListener('click', closeStreamErrorDialog);
+      }
+      if (els.streamErrorDialog) {
+        els.streamErrorDialog.addEventListener('click', event => {
+          if (event.target === els.streamErrorDialog) {
+            closeStreamErrorDialog();
+          }
+        });
+      }
       window.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+          if (els.streamErrorDialog?.classList.contains('open')) {
+            closeStreamErrorDialog();
+            return;
+          }
           const videoLightbox = document.getElementById('videoLightbox');
           if (videoLightbox?.classList.contains('open')) {
             closeVideoLightbox();

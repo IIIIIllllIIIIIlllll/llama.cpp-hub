@@ -2998,6 +2998,19 @@ pre:has(code[data-lang]) .code-copy-btn {
   overflow: auto;
 }
 
+.error-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--secondary);
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-word;
+}
+
 .mcp-template-actions {
    display: flex;
    align-items: center;
