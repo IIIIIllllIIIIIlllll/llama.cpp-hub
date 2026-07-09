@@ -485,9 +485,10 @@ button { cursor: pointer; }
 .main.has-background-image {
   position: relative;
   isolation: isolate;
+  background: transparent;
 }
 
-/* 背景图渲染层 */
+/* 背景图渲染层：始终 100% 显示，不再被主面板底色冲淡 */
 .main.has-background-image::after {
   content: "";
   position: absolute;
@@ -496,23 +497,19 @@ button { cursor: pointer; }
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: var(--chat-bg-image-opacity, 0.45);
+  opacity: 1;
   z-index: -2;
   pointer-events: none;
 }
 
-/* 背景图上方的主题自适应遮罩层，用于淡化背景 */
+/* 去掉背景图上的全局淡化遮罩，让背景图在聊天气泡之外保持清晰。
+   透明度滑条只影响聊天气泡本身，不再影响整体背景。 */
 .main.has-background-image::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--bg) 68%, transparent);
-  z-index: -1;
-  pointer-events: none;
+  content: none;
 }
 
 .main.has-background-image .topbar {
-  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 84%), transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -526,37 +523,301 @@ button { cursor: pointer; }
 }
 
 .main.has-background-image .composer-card {
-  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 84%), transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
+.main.has-background-image .status-chip,
+.main.has-background-image .meta-chip {
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 84%), transparent);
+}
+
 .main.has-background-image .empty-card {
-  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 84%), transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius);
   padding: 20px 24px;
 }
 
-/* 消息气泡半透明，使背景隐约透出但文字仍可读 */
+/* 消息气泡随背景透明度滑条变化：背景越不透明，气泡越透明。
+   把半透明背景从 .message 外层移到 .bubble 本身，避免消息区域出现大片遮挡背景图的底板。 */
 .main.has-background-image .message {
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
-  border-radius: calc(var(--radius) + 4px);
-  padding: 14px 16px;
-  margin: 6px 0;
+  background: transparent;
+  backdrop-filter: none;
+  border-radius: 0;
+  padding: 16px 0;
+  margin: 0;
 }
 
 .main.has-background-image .message + .message {
   border-top: none;
 }
 
-.main.has-background-image .reasoning-box {
-  background: color-mix(in srgb, var(--muted-bg) 86%, transparent);
+.main.has-background-image .message .bubble {
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 78%), transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 14px 16px;
 }
 
+.main.has-background-image .message.user .message-head,
+.main.has-background-image .message.assistant .message-head {
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 78%), transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 6px 10px;
+  margin-bottom: 6px;
+}
+
+/* 消息内各类“卡片/代码块”也一起变淡 */
+.main.has-background-image .reasoning-box,
+.main.has-background-image .tool-result-box,
+.main.has-background-image .html-preview-box,
+.main.has-background-image .message-file-card,
+.main.has-background-image .message-image-caption,
+.main.has-background-image .bubble pre,
+.main.has-background-image .bubble :not(pre) > code,
+.main.has-background-image .message th,
+.main.has-background-image .message-performance,
+.main.has-background-image .code-copy-btn {
+  background: color-mix(in srgb, var(--muted-bg) calc((1 - var(--chat-bg-image-opacity)) * 86%), transparent);
+}
+
+/* pre 里的 code 不要再叠加一层背景 */
 .main.has-background-image .message pre code {
-  background: color-mix(in srgb, var(--muted-bg) 86%, transparent);
+  background: transparent;
+}
+
+.main.has-background-image .message-edit-input,
+.main.has-background-image .composer-input {
+  background: color-mix(in srgb, var(--bg) calc((1 - var(--chat-bg-image-opacity)) * 84%), transparent);
+}
+
+/* 根据背景图整体亮度自动切换聊天区文字颜色：
+   偏亮的背景用深色字，偏暗的背景用浅色字（类似 Android 导航栏自适应）。 */
+.main.has-background-image.chat-bg-bright {
+  --chat-contrast-fg: #000000;
+  --chat-contrast-muted: #444;
+}
+
+.main.has-background-image.chat-bg-dark {
+  --chat-contrast-fg: #ffffff;
+  --chat-contrast-muted: #bbb;
+}
+
+/* 主要文字颜色 */
+.main.has-background-image.chat-bg-bright .topbar,
+.main.has-background-image.chat-bg-dark .topbar,
+.main.has-background-image.chat-bg-bright .message,
+.main.has-background-image.chat-bg-dark .message,
+.main.has-background-image.chat-bg-bright .composer-card,
+.main.has-background-image.chat-bg-dark .composer-card,
+.main.has-background-image.chat-bg-bright .empty-card,
+.main.has-background-image.chat-bg-dark .empty-card,
+.main.has-background-image.chat-bg-bright .message-edit,
+.main.has-background-image.chat-bg-dark .message-edit,
+.main.has-background-image.chat-bg-bright .icon-button,
+.main.has-background-image.chat-bg-dark .icon-button,
+.main.has-background-image.chat-bg-bright .ghost-button,
+.main.has-background-image.chat-bg-dark .ghost-button,
+.main.has-background-image.chat-bg-bright .image-upload-btn,
+.main.has-background-image.chat-bg-dark .image-upload-btn,
+.main.has-background-image.chat-bg-bright .model-select,
+.main.has-background-image.chat-bg-dark .model-select,
+.main.has-background-image.chat-bg-bright .composer-input,
+.main.has-background-image.chat-bg-dark .composer-input,
+.main.has-background-image.chat-bg-bright .message-edit-input,
+.main.has-background-image.chat-bg-dark .message-edit-input,
+.main.has-background-image.chat-bg-bright .status-chip,
+.main.has-background-image.chat-bg-dark .status-chip,
+.main.has-background-image.chat-bg-bright .meta-chip,
+.main.has-background-image.chat-bg-dark .meta-chip,
+.main.has-background-image.chat-bg-bright .empty-hint,
+.main.has-background-image.chat-bg-dark .empty-hint,
+.main.has-background-image.chat-bg-bright .message-file-title,
+.main.has-background-image.chat-bg-dark .message-file-title {
+  color: var(--chat-contrast-fg);
+}
+
+/* 次要/辅助文字颜色 */
+.main.has-background-image.chat-bg-bright .message-head,
+.main.has-background-image.chat-bg-dark .message-head,
+.main.has-background-image.chat-bg-bright .message-action,
+.main.has-background-image.chat-bg-dark .message-action,
+.main.has-background-image.chat-bg-bright .message-response-count,
+.main.has-background-image.chat-bg-dark .message-response-count,
+.main.has-background-image.chat-bg-bright .message-performance,
+.main.has-background-image.chat-bg-dark .message-performance,
+.main.has-background-image.chat-bg-bright .context-usage,
+.main.has-background-image.chat-bg-dark .context-usage,
+.main.has-background-image.chat-bg-bright .message-file-meta,
+.main.has-background-image.chat-bg-dark .message-file-meta,
+.main.has-background-image.chat-bg-bright .message-image-caption,
+.main.has-background-image.chat-bg-dark .message-image-caption,
+.main.has-background-image.chat-bg-bright .draft-file-meta,
+.main.has-background-image.chat-bg-dark .draft-file-meta,
+.main.has-background-image.chat-bg-bright .message-edit-hint,
+.main.has-background-image.chat-bg-dark .message-edit-hint,
+.main.has-background-image.chat-bg-bright .reasoning-box,
+.main.has-background-image.chat-bg-dark .reasoning-box,
+.main.has-background-image.chat-bg-bright .reasoning-state,
+.main.has-background-image.chat-bg-dark .reasoning-state,
+.main.has-background-image.chat-bg-bright .reasoning-caret,
+.main.has-background-image.chat-bg-dark .reasoning-caret,
+.main.has-background-image.chat-bg-bright .reasoning-body,
+.main.has-background-image.chat-bg-dark .reasoning-body,
+.main.has-background-image.chat-bg-bright .tool-call-box,
+.main.has-background-image.chat-bg-dark .tool-call-box,
+.main.has-background-image.chat-bg-bright .tool-result-box,
+.main.has-background-image.chat-bg-dark .tool-result-box,
+.main.has-background-image.chat-bg-bright .tool-call-list-title,
+.main.has-background-image.chat-bg-dark .tool-call-list-title,
+.main.has-background-image.chat-bg-bright .tool-result-label,
+.main.has-background-image.chat-bg-dark .tool-result-label,
+.main.has-background-image.chat-bg-bright .tool-call-list-state,
+.main.has-background-image.chat-bg-dark .tool-call-list-state,
+.main.has-background-image.chat-bg-bright .tool-result-state,
+.main.has-background-image.chat-bg-dark .tool-result-state,
+.main.has-background-image.chat-bg-bright .tool-call-caret,
+.main.has-background-image.chat-bg-dark .tool-call-caret,
+.main.has-background-image.chat-bg-bright .tool-result-caret,
+.main.has-background-image.chat-bg-dark .tool-result-caret,
+.main.has-background-image.chat-bg-bright .html-preview-box,
+.main.has-background-image.chat-bg-dark .html-preview-box,
+.main.has-background-image.chat-bg-bright .html-preview-meta-info,
+.main.has-background-image.chat-bg-dark .html-preview-meta-info,
+.main.has-background-image.chat-bg-bright .html-preview-caret,
+.main.has-background-image.chat-bg-dark .html-preview-caret,
+.main.has-background-image.chat-bg-bright .bubble blockquote,
+.main.has-background-image.chat-bg-dark .bubble blockquote,
+.main.has-background-image.chat-bg-bright .code-copy-btn,
+.main.has-background-image.chat-bg-dark .code-copy-btn,
+.main.has-background-image.chat-bg-bright .bubble pre code[data-lang]::before,
+.main.has-background-image.chat-bg-dark .bubble pre code[data-lang]::before,
+.main.has-background-image.chat-bg-bright .message th,
+.main.has-background-image.chat-bg-dark .message th,
+.main.has-background-image.chat-bg-bright .composer-input::placeholder,
+.main.has-background-image.chat-bg-dark .composer-input::placeholder,
+.main.has-background-image.chat-bg-bright .message-edit-input::placeholder,
+.main.has-background-image.chat-bg-dark .message-edit-input::placeholder {
+  color: var(--chat-contrast-muted);
+}
+
+/* 标题/强调文字保持主色 */
+.main.has-background-image.chat-bg-bright .message-head strong,
+.main.has-background-image.chat-bg-dark .message-head strong {
+  color: var(--chat-contrast-fg);
+}
+
+/* 消息头部信息（模型名、时间、Token 用量）使用主对比色 */
+.main.has-background-image.chat-bg-bright .message-head,
+.main.has-background-image.chat-bg-dark .message-head,
+.main.has-background-image.chat-bg-bright .context-usage,
+.main.has-background-image.chat-bg-dark .context-usage,
+.main.has-background-image.chat-bg-bright .message-head .message-time,
+.main.has-background-image.chat-bg-dark .message-head .message-time {
+  color: var(--chat-contrast-fg);
+}
+
+/* 悬停状态用对比色做 subtle 高亮 */
+.main.has-background-image.chat-bg-bright .message-action:hover:not(:disabled),
+.main.has-background-image.chat-bg-dark .message-action:hover:not(:disabled),
+.main.has-background-image.chat-bg-bright .icon-button:hover:not(:disabled),
+.main.has-background-image.chat-bg-dark .icon-button:hover:not(:disabled),
+.main.has-background-image.chat-bg-bright .ghost-button:hover:not(:disabled),
+.main.has-background-image.chat-bg-dark .ghost-button:hover:not(:disabled),
+.main.has-background-image.chat-bg-bright .image-upload-btn:hover:not(:disabled),
+.main.has-background-image.chat-bg-dark .image-upload-btn:hover:not(:disabled),
+.main.has-background-image.chat-bg-bright .html-preview-head:hover,
+.main.has-background-image.chat-bg-dark .html-preview-head:hover {
+  color: var(--chat-contrast-fg);
+  background: color-mix(in srgb, var(--chat-contrast-fg) 12%, transparent);
+}
+
+/* 保留特殊状态按钮的原有颜色 */
+.main.has-background-image.chat-bg-bright .send-toggle-button.is-stop,
+.main.has-background-image.chat-bg-dark .send-toggle-button.is-stop {
+  color: #b91c1c;
+}
+
+/* 标题类标签保持主色 */
+.main.has-background-image.chat-bg-bright .reasoning-label,
+.main.has-background-image.chat-bg-dark .reasoning-label,
+.main.has-background-image.chat-bg-bright .tool-result-label,
+.main.has-background-image.chat-bg-dark .tool-result-label,
+.main.has-background-image.chat-bg-bright .html-preview-label,
+.main.has-background-image.chat-bg-dark .html-preview-label {
+  color: var(--chat-contrast-fg);
+}
+
+/* 100% 透明度时，强制 Markdown 正文统一使用对比色（代码块语法高亮除外） */
+.main.has-background-image.chat-bg-bright .bubble p,
+.main.has-background-image.chat-bg-dark .bubble p,
+.main.has-background-image.chat-bg-bright .bubble li,
+.main.has-background-image.chat-bg-dark .bubble li,
+.main.has-background-image.chat-bg-bright .bubble h1,
+.main.has-background-image.chat-bg-dark .bubble h1,
+.main.has-background-image.chat-bg-bright .bubble h2,
+.main.has-background-image.chat-bg-dark .bubble h2,
+.main.has-background-image.chat-bg-bright .bubble h3,
+.main.has-background-image.chat-bg-dark .bubble h3,
+.main.has-background-image.chat-bg-bright .bubble h4,
+.main.has-background-image.chat-bg-dark .bubble h4,
+.main.has-background-image.chat-bg-bright .bubble h5,
+.main.has-background-image.chat-bg-dark .bubble h5,
+.main.has-background-image.chat-bg-bright .bubble h6,
+.main.has-background-image.chat-bg-dark .bubble h6,
+.main.has-background-image.chat-bg-bright .bubble a,
+.main.has-background-image.chat-bg-dark .bubble a,
+.main.has-background-image.chat-bg-bright .bubble blockquote,
+.main.has-background-image.chat-bg-dark .bubble blockquote,
+.main.has-background-image.chat-bg-bright .bubble th,
+.main.has-background-image.chat-bg-dark .bubble th,
+.main.has-background-image.chat-bg-bright .bubble td,
+.main.has-background-image.chat-bg-dark .bubble td,
+.main.has-background-image.chat-bg-bright .bubble :not(pre) > code,
+.main.has-background-image.chat-bg-dark .bubble :not(pre) > code,
+.main.has-background-image.chat-bg-bright .reasoning-body p,
+.main.has-background-image.chat-bg-dark .reasoning-body p,
+.main.has-background-image.chat-bg-bright .reasoning-body li,
+.main.has-background-image.chat-bg-dark .reasoning-body li,
+.main.has-background-image.chat-bg-bright .reasoning-body h1,
+.main.has-background-image.chat-bg-dark .reasoning-body h1,
+.main.has-background-image.chat-bg-bright .reasoning-body h2,
+.main.has-background-image.chat-bg-dark .reasoning-body h2,
+.main.has-background-image.chat-bg-bright .reasoning-body h3,
+.main.has-background-image.chat-bg-dark .reasoning-body h3,
+.main.has-background-image.chat-bg-bright .reasoning-body h4,
+.main.has-background-image.chat-bg-dark .reasoning-body h4,
+.main.has-background-image.chat-bg-bright .reasoning-body h5,
+.main.has-background-image.chat-bg-dark .reasoning-body h5,
+.main.has-background-image.chat-bg-bright .reasoning-body h6,
+.main.has-background-image.chat-bg-dark .reasoning-body h6,
+.main.has-background-image.chat-bg-bright .reasoning-body a,
+.main.has-background-image.chat-bg-dark .reasoning-body a,
+.main.has-background-image.chat-bg-bright .reasoning-body blockquote,
+.main.has-background-image.chat-bg-dark .reasoning-body blockquote {
+  color: var(--chat-contrast-fg);
+}
+
+/* 100% 透明度时，代码块也统一为对比单色，避免 highlight.js 主题色在透明背景上看不清。
+   这会临时牺牲语法高亮颜色，但换来可读性。 */
+.main.has-background-image.chat-bg-bright .bubble pre code,
+.main.has-background-image.chat-bg-dark .bubble pre code,
+.main.has-background-image.chat-bg-bright .reasoning-body pre code,
+.main.has-background-image.chat-bg-dark .reasoning-body pre code {
+  color: var(--chat-contrast-fg);
+}
+
+.main.has-background-image.chat-bg-bright .bubble pre code span,
+.main.has-background-image.chat-bg-dark .bubble pre code span,
+.main.has-background-image.chat-bg-bright .reasoning-body pre code span,
+.main.has-background-image.chat-bg-dark .reasoning-body pre code span {
+  color: inherit;
 }
 
 /* ── Avatar preview panel (right sidebar) ── */
@@ -677,6 +938,28 @@ button { cursor: pointer; }
   flex-wrap: wrap;
   min-width: 0;
   max-width: 100%;
+}
+
+/* 统一顶部栏功能按钮为透明背景，避免 ghost-button 在日间/夜间模式出现异色底 */
+.topbar-actions .ghost-button,
+.topbar-actions .ghost-button:hover:not(:disabled) {
+  background: transparent;
+}
+
+.topbar-actions .icon-button:hover:not(:disabled) {
+  background: rgba(127, 127, 127, 0.15);
+}
+
+/* 统一底部 composer 栏控件为透明背景 */
+.composer-bar .model-select,
+.composer-bar .model-select:focus,
+.composer-bar .image-upload-btn,
+.composer-bar .image-upload-btn:hover:not(:disabled) {
+  background: transparent;
+}
+
+.composer-bar .model-select:focus {
+  box-shadow: 0 0 0 2px transparent, 0 0 0 4px var(--ring);
 }
 
 .menu-wrap {
@@ -1498,6 +1781,18 @@ button { cursor: pointer; }
   flex: 1;
 }
 
+.message-head .context-usage {
+  font-size: 12px;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.message-head .message-time {
+  font-size: 12px;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
 .message.user .message-head,
 .message.assistant .message-head {
   border: none;
@@ -1772,6 +2067,12 @@ button { cursor: pointer; }
 .message.assistant .bubble {
   background: transparent;
   border: none;
+}
+
+/* User messages keep the original whitespace instead of being parsed as Markdown. */
+.message.user .message-content.user-plain-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .message-images {
@@ -2995,6 +3296,19 @@ pre:has(code[data-lang]) .code-copy-btn {
   gap: 12px;
   padding: 16px 20px;
   overflow: auto;
+}
+
+.error-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--secondary);
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-word;
 }
 
 .mcp-template-actions {

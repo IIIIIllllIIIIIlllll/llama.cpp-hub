@@ -4,6 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="page.chat.main.empty.title">Easy Chat</title>
+  <meta name="theme-color" content="#f5f5f5">
+  <script>
+    // Restore saved theme before first paint to avoid flash and keep PWA title bar in sync.
+    (function () {
+      try {
+        const saved = localStorage.getItem('llama-hub-theme');
+        if (saved === 'dark' || saved === 'light') {
+          document.documentElement.setAttribute('data-theme', saved);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) { }
+    })();
+  </script>
   <link rel="stylesheet" href="./index.css">
   <link rel="stylesheet" href="/css/github.min.css" id="hljsTheme">
   <link rel="stylesheet" href="/css/github-dark.min.css" id="hljsThemeDark" disabled>
@@ -29,7 +43,7 @@
         <input id="searchInput" type="text" placeholder="搜索会话" data-i18n-attr="placeholder" data-i18n="page.chat.main.sidebar.search_placeholder">
       </div>
 
-      <button id="themeToggleChat" class="ghost-button full" type="button" style="gap:8px;font-size:13px;" onclick="toggleTheme()" data-i18n="page.chat.main.theme.dark">🌙 夜间模式</button>
+      <button id="themeToggleChat" class="ghost-button full" type="button" style="gap:8px;font-size:13px;" onclick="toggleTheme()">🌙 夜间模式</button>
 
       <div class="sidebar-label" data-i18n="page.chat.main.sidebar.conversation_list">会话列表</div>
       <ul id="conversationList" class="conversation-list"></ul>
@@ -596,6 +610,22 @@
       </div>
     </div>
   </div>
+  <div id="streamErrorDialog" class="mcp-dialog-backdrop" aria-hidden="true">
+    <div class="mcp-dialog" role="dialog" aria-modal="true" aria-labelledby="streamErrorDialogTitle">
+      <div class="mcp-dialog-head">
+        <h4 id="streamErrorDialogTitle" data-i18n="page.chat.main.error.dialog_title">请求失败</h4>
+        <button id="streamErrorDialogCloseBtn" class="icon-button mcp-dialog-close" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div class="mcp-dialog-body">
+        <p id="streamErrorDialogMessage"></p>
+        <div id="streamErrorDialogDetails" class="error-details"></div>
+      </div>
+      <div class="mcp-dialog-footer">
+        <button id="streamErrorDialogOkBtn" class="primary-button" type="button" data-i18n="common.ok">知道了</button>
+      </div>
+    </div>
+  </div>
+
   <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-label="图片预览" data-i18n-attr="aria-label" data-i18n="page.chat.main.lightbox.aria">
     <button class="image-lightbox-close" id="imageLightboxClose" type="button" aria-label="关闭" data-i18n-attr="aria-label" data-i18n="page.chat.main.lightbox.close">&times;</button>
     <img class="image-lightbox-img" id="imageLightboxImg" src="" alt="预览" data-i18n-attr="alt" data-i18n="page.chat.main.lightbox.alt">
@@ -702,7 +732,8 @@
       chatAutoScroll: true,
       conversationMenuId: '',
       sidebarOpen: false,
-      sidebarCollapsed: false
+      sidebarCollapsed: false,
+      modelAvailableContext: null
     };
 
     let modelCapabilitiesMap = {};
@@ -850,6 +881,11 @@
       mcpRefreshBtn: document.getElementById('mcpRefreshBtn'),
       mcpSummary: document.getElementById('mcpSummary'),
       mcpServerList: document.getElementById('mcpServerList'),
+      streamErrorDialog: document.getElementById('streamErrorDialog'),
+      streamErrorDialogMessage: document.getElementById('streamErrorDialogMessage'),
+      streamErrorDialogDetails: document.getElementById('streamErrorDialogDetails'),
+      streamErrorDialogCloseBtn: document.getElementById('streamErrorDialogCloseBtn'),
+      streamErrorDialogOkBtn: document.getElementById('streamErrorDialogOkBtn'),
       timestampToggle: document.getElementById('timestampToggle'),
       titleGenToggle: document.getElementById('titleGenToggle'),
       titleGenModelSelect: document.getElementById('titleGenModelSelect'),
@@ -1839,6 +1875,21 @@
 
     function appendStreamingText(target, fullText) {
       renderStreamingMarkdown(target, fullText);
+    }
+
+    function renderUserMessageContent(target, text, htmlPreviewCollapsed) {
+      if (!target) {
+        return;
+      }
+      const source = String(text ?? '');
+      // Only run Markdown when the user explicitly uses code fences (``` / ~~~).
+      // Otherwise keep the exact text to avoid indented lines becoming code blocks.
+      if (/```|~~~/.test(source)) {
+        renderRichText(target, source, { isStreaming: false, role: 'user', htmlPreviewCollapsed });
+      } else {
+        target.classList.add('user-plain-content');
+        target.textContent = source.replace(/\r\n/g, '\n');
+      }
     }
 
     function nowTime() {
@@ -4021,6 +4072,7 @@
 
     let chatBgCatalog = { activeId: null, opacity: 45, items: [] };
     let chatBgOpacityTimer = null;
+    const chatBgBrightnessCache = new Map();
 
     function getChatBgCatalog() {
       return chatBgCatalog;
@@ -4065,12 +4117,78 @@
       main.classList.toggle('has-background-image', !!catalog.activeId);
       main.style.setProperty('--chat-bg-image-opacity', String((catalog.opacity ?? 45) / 100));
       if (catalog.activeId) {
-        main.style.setProperty('--chat-bg-image', 'url(' + CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId) + ')');
+        const imageUrl = CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId);
+        main.style.setProperty('--chat-bg-image', 'url(' + imageUrl + ')');
+        computeImageBrightness(imageUrl)
+          .then(syncChatBackgroundBrightness)
+          .catch(() => syncChatBackgroundBrightness(null));
       } else {
         main.style.removeProperty('--chat-bg-image');
+        syncChatBackgroundBrightness(null);
       }
       syncChatBackgroundPreview();
       syncChatBgOpacityInput();
+    }
+
+    function computeImageBrightness(imageUrl) {
+      return new Promise((resolve, reject) => {
+        if (chatBgBrightnessCache.has(imageUrl)) {
+          resolve(chatBgBrightnessCache.get(imageUrl));
+          return;
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const sampleSize = 64;
+            canvas.width = sampleSize;
+            canvas.height = sampleSize;
+            ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+            const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+            let total = 0;
+            let weight = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const a = data[i + 3];
+              if (a < 10) continue;
+              const alpha = a / 255;
+              // Perceived luminance (same weight as Android/YUV luma)
+              total += (0.299 * r + 0.587 * g + 0.114 * b) * alpha;
+              weight += alpha;
+            }
+            const brightness = weight > 0 ? total / weight / 255 : 0.5;
+            chatBgBrightnessCache.set(imageUrl, brightness);
+            resolve(brightness);
+          } catch (e) {
+            reject(e);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = imageUrl;
+      });
+    }
+
+    function syncChatBackgroundBrightness(brightness) {
+      const main = document.querySelector('.main');
+      if (!main) {
+        return;
+      }
+      main.classList.remove('chat-bg-bright', 'chat-bg-dark');
+      if (typeof brightness !== 'number') {
+        main.style.removeProperty('--chat-bg-image-brightness');
+        return;
+      }
+      main.style.setProperty('--chat-bg-image-brightness', String(brightness));
+      // 只有透明度拉到 100%（面板完全透明）时才根据背景亮度切换文字颜色，
+      // 否则保留主题默认颜色，避免半透明面板+反色文字看起来别扭。
+      const catalog = getChatBgCatalog();
+      if ((catalog.opacity ?? 45) >= 100) {
+        main.classList.add(brightness > 0.5 ? 'chat-bg-bright' : 'chat-bg-dark');
+      }
     }
 
     function syncChatBackgroundPreview() {
@@ -4432,6 +4550,11 @@
       return modelOptions.find(opt => opt.value === value) || null;
     }
 
+    function getModelRuntimeCtx(value) {
+      const opt = findModelOption(value);
+      return opt?.runtimeCtx || null;
+    }
+
     function getFilteredModelOptions() {
       const term = modelSearchTerm.trim().toLowerCase();
       if (!term) return modelOptions;
@@ -4628,6 +4751,7 @@
       syncSettingsInputs();
       syncModelSelectControl();
       syncMicRecorderButton();
+      syncAvailableContext();
       closeModelMenu();
       if (state.model !== previous) {
         persistState();
@@ -5681,6 +5805,34 @@
       }
     }
 
+    function canContinueAssistantResponse(message, index) {
+      if (message.role !== 'assistant') return false;
+      if (message.finishReason && message.finishReason !== 'length') return false;
+      const conv = getCurrentConversation();
+      const convMsgs = conv && isConversationLoaded(conv) ? conv.messages : [];
+      let lastAssistantIdx = -1;
+      for (let i = convMsgs.length - 1; i >= 0; i -= 1) {
+        if (convMsgs[i] && convMsgs[i].role === 'assistant') {
+          lastAssistantIdx = i;
+          break;
+        }
+      }
+      if (lastAssistantIdx !== index) return false;
+      const hasGeneration =
+        (message.timings?.predicted_n > 0) ||
+        String(message.content || '').trim().length > 0 ||
+        String(message.reasoning || '').trim().length > 0 ||
+        hasAssistantToolCalls(message);
+      return hasGeneration;
+    }
+
+    function createContinueButton(index) {
+      return createMessageActionButton('continue', index, window.I18N.t('page.chat.main.action.continue', '继续生成'), [
+        '<line x1="5" y1="12" x2="19" y2="12"></line>',
+        '<polyline points="12 5 19 12 12 19"></polyline>'
+      ].join(''));
+    }
+
     function createMessageElement(message, index) {
       if (message.role === 'assistant') {
         syncAssistantMessageState(message);
@@ -5702,18 +5854,27 @@
       const avatarUrl = assistant?.avatarUrl || null;
       const avatarLabel = isUser ? window.I18N.t('page.chat.main.message.avatar_user', '你') : (isTool ? window.I18N.t('page.chat.main.message.avatar_tool', '工') : 'AI');
 
+      const conversation = getCurrentConversation();
+      const conversationMessages = conversation?.messages || [];
+      const lastAssistantOffset = conversationMessages.slice().reverse().findIndex(m => m.role === 'assistant');
+      const lastAssistantIndex = lastAssistantOffset >= 0 ? conversationMessages.length - 1 - lastAssistantOffset : -1;
+      const isLastAssistant = !isUser && !isTool && index === lastAssistantIndex;
+      const contextUsageHtml = isLastAssistant ? '<span class="context-usage">-</span>' : '';
+
       const head = document.createElement('div');
       head.className = 'message-head';
       if (!isUser && !isTool && avatarUrl) {
         head.innerHTML =
           '<span class="avatar"><img src="' + escapeHtml(avatarUrl) + '" alt=""></span>' +
           '<strong>' + escapeHtml(messageTitle) + '</strong>' +
-          '<span>' + escapeHtml(message.time || nowTime()) + '</span>';
+          contextUsageHtml +
+          '<span class="message-time">' + escapeHtml(message.time || nowTime()) + '</span>';
       } else {
         head.innerHTML =
           '<span class="avatar">' + avatarLabel + '</span>' +
           '<strong>' + escapeHtml(messageTitle) + '</strong>' +
-          '<span>' + escapeHtml(message.time || nowTime()) + '</span>';
+          contextUsageHtml +
+          '<span class="message-time">' + escapeHtml(message.time || nowTime()) + '</span>';
       }
 
       const bubble = document.createElement('div');
@@ -5957,7 +6118,12 @@
         if (String(message.content || '').trim() && message.role !== 'tool') {
           const content = document.createElement('div');
           content.className = 'message-content';
-          if (message.isStreaming) {
+          if (isUser) {
+            // User messages keep Markdown only when code fences (``` / ~~~) are
+            // used; otherwise preserve exact whitespace to avoid accidental
+            // indented code blocks.
+            renderUserMessageContent(content, message.content || '', message.htmlPreviewCollapsed);
+          } else if (message.isStreaming) {
             if (shouldRenderStreamingMarkdown()) {
               appendStreamingText(content, message.content || '');
             } else {
@@ -6010,26 +6176,12 @@
           // "Continue generation" only on the last assistant message of the conversation.
           // Backend (EasyChatService) requires continueSeq to be the trailing assistant
           // fragment; rendering the button only there keeps UX aligned with that constraint.
-          // Additionally, hide the button when the response is known to be naturally
-          // finished (finish_reason="stop"/"tool_calls"): llama.cpp would just emit EOS
-          // again, and repeated attempts could eventually sample junk tokens that pollute
-          // the fragment. Truncated-by-length ("length") and user-aborted (null) responses
-          // remain continueable.
-          const conv = getCurrentConversation();
-          const convMsgs = conv && isConversationLoaded(conv) ? conv.messages : [];
-          let lastAssistantIdx = -1;
-          for (let i = convMsgs.length - 1; i >= 0; i -= 1) {
-            if (convMsgs[i] && convMsgs[i].role === 'assistant') {
-              lastAssistantIdx = i;
-              break;
-            }
-          }
-          const canContinueResponse = !message.finishReason || message.finishReason === 'length';
-          if (lastAssistantIdx === index && canContinueResponse) {
-            actions.appendChild(createMessageActionButton('continue', index, window.I18N.t('page.chat.main.action.continue', '继续生成'), [
-              '<line x1="5" y1="12" x2="19" y2="12"></line>',
-              '<polyline points="12 5 19 12 12 19"></polyline>'
-            ].join('')));
+          // Hide the button when the response is naturally finished (finish_reason="stop"/
+          // "tool_calls") or when no actual generation has started yet (e.g. user stopped
+          // during the prompt-processing phase): llama.cpp cannot continue a response that
+          // never began.
+          if (canContinueAssistantResponse(message, index)) {
+            actions.appendChild(createContinueButton(index));
           }
         } else if (message.role === 'user') {
           actions.appendChild(createMessageActionButton('regenerate', index, window.I18N.t('page.chat.main.action.regenerate', '重新生成'), [
@@ -6091,6 +6243,68 @@
       const conversation = getCurrentConversation();
       els.conversationTitle.textContent = getConversationDisplayTitle(conversation);
       els.messageCountChip.textContent = formatMessageCount(getConversationMessageCount(conversation));
+      updateLastAssistantContextUsage();
+    }
+
+    function computeUsedContext() {
+      const conversation = getCurrentConversation();
+      if (!conversation || !Array.isArray(conversation.messages)) return 0;
+      const lastAssistant = conversation.messages.slice().reverse().find(m => m.role === 'assistant');
+      if (!lastAssistant) return 0;
+      const t = lastAssistant.timings;
+      if (!t || typeof t !== 'object') return 0;
+      return (t.prompt_n ?? 0) + (t.predicted_n ?? 0);
+    }
+
+    function formatNumberCompact(n) {
+      if (!Number.isFinite(n)) return '-';
+      if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return String(n);
+    }
+
+    function updateLastAssistantContextUsage() {
+      if (!els.messages) return;
+      const conversation = getCurrentConversation();
+      const messages = conversation?.messages || [];
+      const offset = messages.slice().reverse().findIndex(m => m.role === 'assistant');
+      const lastIndex = offset >= 0 ? messages.length - 1 - offset : -1;
+
+      const allUsageSpans = els.messages.querySelectorAll('article.assistant .message-head .context-usage');
+      for (const span of allUsageSpans) {
+        const article = span.closest('article[data-index]');
+        const idx = article ? Number(article.dataset.index) : -1;
+        if (idx !== lastIndex) {
+          span.remove();
+        }
+      }
+
+      if (lastIndex < 0) return;
+      const article = els.messages.querySelector('article[data-index="' + lastIndex + '"]');
+      if (!article) return;
+      const head = article.querySelector('.message-head');
+      if (!head) return;
+      let span = head.querySelector('.context-usage');
+      if (!span) {
+        span = document.createElement('span');
+        span.className = 'context-usage';
+        const timeSpan = head.querySelector('span:last-child');
+        if (timeSpan) {
+          head.insertBefore(span, timeSpan);
+        } else {
+          head.appendChild(span);
+        }
+      }
+      const used = computeUsedContext();
+      const total = state.modelAvailableContext;
+      span.textContent = total
+        ? formatNumberCompact(used) + ' / ' + formatNumberCompact(total)
+        : '-';
+    }
+
+    function syncAvailableContext() {
+      state.modelAvailableContext = getModelRuntimeCtx(state.model);
+      updateLastAssistantContextUsage();
     }
 
     function updateMessageActionStates() {
@@ -6372,6 +6586,14 @@
         }
         if (message.role === 'assistant') {
           upsertStreamingPerformance(actions, message);
+          const existingContinue = actions.querySelector(':scope > [data-message-action="continue"]');
+          if (canContinueAssistantResponse(message, index)) {
+            if (!existingContinue) {
+              actions.appendChild(createContinueButton(index));
+            }
+          } else if (existingContinue) {
+            existingContinue.remove();
+          }
         }
       }
       return true;
@@ -6486,6 +6708,7 @@
       if (isFinished) {
         activeResponse.streamingDone = true;
         activeResponse.isStreaming = false;
+        updateLastAssistantContextUsage();
       }
       syncAssistantMessageState(message);
       conversation.updatedAt = Date.now();
@@ -7188,6 +7411,7 @@
       }
       message.activeResponseIndex = nextIndex;
       syncAssistantMessageState(message);
+      updateLastAssistantContextUsage();
       const article = els.messages.querySelector('article[data-index="' + index + '"]');
       if (article) {
         const updated = updateAssistantMessageElement(article, message, index);
@@ -7197,6 +7421,68 @@
         }
       }
       renderMessages();
+    }
+
+    function parseStreamErrorResponse(text) {
+      let message = text || '';
+      let code = null;
+      let type = null;
+      let details = {};
+      try {
+        const json = JSON.parse(text);
+        if (json?.error && typeof json.error === 'object') {
+          message = json.error.message || json.error.description || text;
+          code = json.error.code ?? null;
+          type = json.error.type || null;
+          details = { ...json.error };
+          delete details.message;
+          delete details.code;
+          delete details.type;
+        } else if (typeof json?.message === 'string') {
+          message = json.message;
+          code = json.code ?? null;
+          type = json.type || null;
+        }
+      } catch (e) {
+        // Not JSON, keep raw text as message.
+      }
+      return { message, code, type, details, raw: text };
+    }
+
+    function showStreamErrorDialog(errorInfo) {
+      if (!els.streamErrorDialog || !els.streamErrorDialogMessage) return;
+      els.streamErrorDialogMessage.textContent = errorInfo.message || window.I18N.t('page.chat.main.error.request_failed', '请求失败');
+
+      const detailParts = [];
+      if (errorInfo.code != null) {
+        detailParts.push(window.I18N.t('page.chat.main.error.error_code', '错误码') + '：' + errorInfo.code);
+      }
+      if (errorInfo.type) {
+        detailParts.push(window.I18N.t('page.chat.main.error.error_type', '错误类型') + '：' + errorInfo.type);
+      }
+      for (const [key, value] of Object.entries(errorInfo.details)) {
+        if (value == null) continue;
+        detailParts.push(escapeHtml(String(key)) + '：' + escapeHtml(String(value)));
+      }
+
+      if (els.streamErrorDialogDetails) {
+        if (detailParts.length) {
+          els.streamErrorDialogDetails.innerHTML = detailParts.map(part => '<div>' + part + '</div>').join('');
+          els.streamErrorDialogDetails.style.display = '';
+        } else {
+          els.streamErrorDialogDetails.innerHTML = '';
+          els.streamErrorDialogDetails.style.display = 'none';
+        }
+      }
+
+      els.streamErrorDialog.classList.add('open');
+      els.streamErrorDialog.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeStreamErrorDialog() {
+      if (!els.streamErrorDialog) return;
+      els.streamErrorDialog.classList.remove('open');
+      els.streamErrorDialog.setAttribute('aria-hidden', 'true');
     }
 
     async function requestAssistantResponse(options = {}) {
@@ -7291,7 +7577,11 @@
           if (!response.ok) {
             removeTypingIndicator();
             const text = await response.text();
-            throw new Error(text || window.I18N.t('page.chat.main.error.request_failed_status', '请求失败：{status}').replace('{status}', response.status));
+            const errorInfo = parseStreamErrorResponse(text);
+            showStreamErrorDialog(errorInfo);
+            const err = new Error(errorInfo.message || window.I18N.t('page.chat.main.error.request_failed_status', '请求失败：{status}').replace('{status}', response.status));
+            err.streamErrorShown = true;
+            throw err;
           }
 
           const contentType = response.headers.get('content-type') || '';
@@ -7461,7 +7751,9 @@
             setAssistantResponseStreaming(currentAssistantIndex, false);
           }
           updateStatus('error', error.message || window.I18N.t('page.chat.main.status.request_failed', '请求失败'), window.I18N.t('page.chat.main.status.request_failed', '请求失败'));
-          showToast('error', window.I18N.t('page.chat.main.error.request_failed', '请求失败：{error}').replace('{error}', error.message || window.I18N.t('page.chat.main.misc.recording_error', '未知错误')));
+          if (!error.streamErrorShown) {
+            showToast('error', window.I18N.t('page.chat.main.error.request_failed', '请求失败：{error}').replace('{error}', error.message || window.I18N.t('page.chat.main.misc.recording_error', '未知错误')));
+          }
         }
       } finally {
         state.isSending = false;
@@ -9057,7 +9349,8 @@
               nodeName,
               label: nodeId ? '[' + nodeName + '] ' + id : id,
               statusLoaded,
-              isLoading: modelLoadingKeys.has(compositeKey)
+              isLoading: modelLoadingKeys.has(compositeKey),
+              runtimeCtx: Number.isFinite(Number(item?.runtimeCtx)) ? Number(item.runtimeCtx) : null
             });
             if (nodeId) {
               modelNodeIdMap[compositeKey] = nodeId;
@@ -9102,6 +9395,7 @@
         if (state.model !== previousModel) {
           persistState();
         }
+        syncAvailableContext();
         updateStatus('ready', models.length ? window.I18N.t('page.chat.main.status.refresh_done', '模型列表已刷新') : window.I18N.t('page.chat.main.status.no_models', '当前未发现可用模型'), models.length ? window.I18N.t('page.chat.main.status.refresh_done_short', '已连接') : window.I18N.t('page.chat.main.status.no_models_short', '无模型'));
       } catch (error) {
         updateStatus('error', error.message || window.I18N.t('page.chat.main.status.connection_failed_short', '连接失败'), window.I18N.t('page.chat.main.status.connection_failed_short', '连接失败'));
@@ -9763,8 +10057,25 @@
           closeSettings();
         }
       });
+      if (els.streamErrorDialogCloseBtn) {
+        els.streamErrorDialogCloseBtn.addEventListener('click', closeStreamErrorDialog);
+      }
+      if (els.streamErrorDialogOkBtn) {
+        els.streamErrorDialogOkBtn.addEventListener('click', closeStreamErrorDialog);
+      }
+      if (els.streamErrorDialog) {
+        els.streamErrorDialog.addEventListener('click', event => {
+          if (event.target === els.streamErrorDialog) {
+            closeStreamErrorDialog();
+          }
+        });
+      }
       window.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+          if (els.streamErrorDialog?.classList.contains('open')) {
+            closeStreamErrorDialog();
+            return;
+          }
           const videoLightbox = document.getElementById('videoLightbox');
           if (videoLightbox?.classList.contains('open')) {
             closeVideoLightbox();
@@ -10594,9 +10905,16 @@ function confirmAudioRecording() {
     }
 
     /* ── Theme ── */
+    function updateThemeMeta(theme) {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) return;
+      meta.setAttribute('content', theme === 'dark' ? '#000000' : '#f5f5f5');
+    }
+
     function applyTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme);
       try { localStorage.setItem('llama-hub-theme', theme); } catch (e) {}
+      updateThemeMeta(theme);
       const btn = document.getElementById('themeToggleChat');
       const hljs = document.getElementById('hljsTheme');
       const hljsDark = document.getElementById('hljsThemeDark');
