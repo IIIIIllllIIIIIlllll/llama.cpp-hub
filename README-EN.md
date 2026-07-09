@@ -375,9 +375,7 @@ All in the `config/` directory. `application.json` is auto-generated on first la
 
 ## Demo Video
 
-<video controls src="https://github.com/IIIIIllllIIIIIlllll/llama.cpp-hub/raw/assets/assets/video.mp4"></video>
-
-> The video lives on the separate `assets` branch and is not bundled with the main branch.
+<video controls width="800" src="https://github.com/IIIIIllllIIIIIlllll/llama.cpp-hub/raw/assets/assets/video.mp4"></video>
 
 ---
 

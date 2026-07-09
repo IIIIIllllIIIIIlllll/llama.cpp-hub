@@ -367,9 +367,7 @@ Qwen3.6-27B-FP8 是我的救星，帮我做了大量大量大量大量的工作�
 
 ## 演示视频
 
-<video controls src="https://github.com/IIIIIllllIIIIIlllll/llama.cpp-hub/raw/assets/assets/video.mp4"></video>
-
-> 视频单独存放在 `assets` 分支，不随主分支分发。
+<video controls width="800" src="https://github.com/IIIIIllllIIIIIlllll/llama.cpp-hub/raw/assets/assets/video.mp4"></video>
 
 ---
 
