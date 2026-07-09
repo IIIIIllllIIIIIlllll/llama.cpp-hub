@@ -373,12 +373,6 @@ All in the `config/` directory. `application.json` is auto-generated on first la
 
 ---
 
-## Demo Video
-
-<video controls width="800" src="https://github.com/IIIIIllllIIIIIlllll/llama.cpp-hub/raw/assets/assets/video.mp4"></video>
-
----
-
 ## Screenshots
 ![image](./screenshot/1.png)
 ![image](./screenshot/2.png)
