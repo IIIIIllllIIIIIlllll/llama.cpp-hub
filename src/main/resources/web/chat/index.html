@@ -10095,7 +10095,6 @@
           closeThinkingMenu();
           closeExportMenu();
           closeModelMenu();
-          closeHwStatPanel();
           closeSettings();
         }
       });
@@ -10830,9 +10829,6 @@ function confirmAudioRecording() {
         }
         if (!event.target.closest('#modelSelectWrap')) {
           closeModelMenu();
-        }
-        if (!event.target.closest('#hwStatWrap')) {
-          closeHwStatPanel();
         }
         const hint = event.target.closest('.empty-hint[data-hint]');
         if (hint) {

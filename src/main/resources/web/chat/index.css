@@ -1297,7 +1297,7 @@ button { cursor: pointer; }
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
   display: none;
   flex-direction: column;
-  z-index: 30;
+  z-index: 200;
   overflow: hidden;
 }
 
