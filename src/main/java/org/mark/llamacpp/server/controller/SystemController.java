@@ -958,13 +958,16 @@ public class SystemController implements BaseController {
 			logging.put("logRequestBody", LlamaServer.isLogRequestBodyEnabled());
 			data.put("logging", logging);
 			
-			Map<String, Object> https = new HashMap<>();
-			https.put("enabled", LlamaServer.isHttpsEnabled());
-			https.put("keystorePath", LlamaServer.getHttpsCertPath());
-			https.put("keystorePassword", LlamaServer.getHttpsPassword());
-			data.put("https", https);
-			
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
+Map<String, Object> https = new HashMap<>();
+		https.put("enabled", LlamaServer.isHttpsEnabled());
+		https.put("keystorePath", LlamaServer.getHttpsCertPath());
+		https.put("keystorePassword", LlamaServer.getHttpsPassword());
+		data.put("https", https);
+
+		String nodeRole = LlamaServer.getNodeRole();
+		data.put("nodeRole", nodeRole != null ? nodeRole : "slave");
+
+		LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 		} catch (Exception e) {
 			logger.info("获取系统设置时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_SETTINGS_GET_FAILED + ": " + e.getMessage()));
@@ -995,18 +998,20 @@ public class SystemController implements BaseController {
 			Boolean logRequestHeader = firstBoolean(obj, "LlamaServer.logRequestHeader", "logRequestHeader", "log_request_header");
 			Boolean logRequestBody = firstBoolean(obj, "LlamaServer.logRequestBody", "logRequestBody", "log_request_body");
 			
-			Integer webPort = firstPort(obj, "webPort", "web_port");
-			Boolean apiKeyEnabled = firstBoolean(obj, "apiKeyEnabled", "api_key_enabled");
-			String apiKey = JsonUtil.getJsonString(obj, "apiKey", null);
-			Boolean httpsEnabled = firstBoolean(obj, "httpsEnabled", "https_enabled");
-			String httpsCertPath = JsonUtil.getJsonString(obj, "httpsCertPath", null);
-			String httpsPassword = JsonUtil.getJsonString(obj, "httpsPassword", null);
-			String downloadDirectory = JsonUtil.getJsonString(obj, "downloadDirectory", null);
+Integer webPort = firstPort(obj, "webPort", "web_port");
+		Boolean apiKeyEnabled = firstBoolean(obj, "apiKeyEnabled", "api_key_enabled");
+		String apiKey = JsonUtil.getJsonString(obj, "apiKey", null);
+		Boolean httpsEnabled = firstBoolean(obj, "httpsEnabled", "https_enabled");
+		String httpsCertPath = JsonUtil.getJsonString(obj, "httpsCertPath", null);
+		String httpsPassword = JsonUtil.getJsonString(obj, "httpsPassword", null);
+		String downloadDirectory = JsonUtil.getJsonString(obj, "downloadDirectory", null);
+		String nodeRole = JsonUtil.getJsonString(obj, "nodeRole", null);
 
-			if (ollamaPort == null && lmstudioPort == null && logRequestUrl == null && logRequestHeader == null && logRequestBody == null
-				&& webPort == null && apiKeyEnabled == null && apiKey == null
-				&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
-				&& downloadDirectory == null) {
+		if (ollamaPort == null && lmstudioPort == null && logRequestUrl == null && logRequestHeader == null && logRequestBody == null
+			&& webPort == null && apiKeyEnabled == null && apiKey == null
+			&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
+			&& downloadDirectory == null
+			&& nodeRole == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SAVABLE_MISSING));
 				return;
 			}
@@ -1047,9 +1052,13 @@ public class SystemController implements BaseController {
 				LlamaServer.updateHttpsConfig(httpsEnabled, httpsCertPath, null, httpsPassword);
 			}
 			
-			if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
-				LlamaServer.setDownloadDirectory(downloadDirectory);
-			}
+if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
+			LlamaServer.setDownloadDirectory(downloadDirectory);
+		}
+
+		if (nodeRole != null) {
+			LlamaServer.updateNodeRole(nodeRole);
+		}
 
 			Map<String, Object> data = new HashMap<>();
 			Map<String, Object> ollama = new HashMap<>();

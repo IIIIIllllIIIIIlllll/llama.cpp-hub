@@ -400,6 +400,13 @@
             const dir = byId('downloadDirInput');
             if (dir && dl.directory) dir.value = dl.directory;
         }
+
+        // Node role
+        const roleSel = byId('nodeRoleSelect');
+        if (roleSel) {
+            const role = data.nodeRole ? String(data.nodeRole).toLowerCase() : 'slave';
+            roleSel.value = (role === 'master') ? 'master' : 'slave';
+        }
         _populating = false;
     }
 
@@ -511,6 +518,33 @@
             loadSettings();
         } catch (e) {
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        }
+    }
+
+    async function saveNodeRole() {
+        const roleSel = byId('nodeRoleSelect');
+        const btn = byId('saveNodeRoleBtn');
+        if (!roleSel) return;
+        const role = roleSel.value === 'master' ? 'master' : 'slave';
+        if (btn) btn.disabled = true;
+        try {
+            var resp = await fetch('/api/sys/setting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nodeRole: role })
+            });
+            var data = await resp.json();
+            if (!data || !data.success) {
+                toast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
+                return;
+            }
+            toast(t('toast.success', '成功'), t('common.saved', '已保存') + '，' + t('page.settings.nodes.role.hint', '需重启服务生效'), 'success');
+            loadSettings();
+            if (typeof loadNodes === 'function') { loadNodes(); }
+        } catch (e) {
+            toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -811,6 +845,38 @@
     // --- Node management ---
     let _editingNodeId = null;
     let _isMaster = false;
+    let _lastNodes = null;
+
+    function getRoleMaster() {
+        const sel = byId('nodeRoleSelect');
+        if (sel) return sel.value === 'master';
+        return _isMaster;
+    }
+
+    function renderNodeList() {
+        const listEl = byId('nodeList');
+        const emptyEl = byId('nodeEmptyState');
+        if (!listEl) return;
+        const isMaster = getRoleMaster();
+        const nodes = _lastNodes || [];
+        listEl.innerHTML = nodes.map(function (n) { return buildNodeRow(n, isMaster); }).join('');
+        if (emptyEl) emptyEl.style.display = nodes.length === 0 ? '' : 'none';
+    }
+
+    function applyNodeRoleState() {
+        const sel = byId('nodeRoleSelect');
+        const toolbarEl = byId('nodeToolbar');
+        const bannerEl = byId('nodeMasterBanner');
+        const addBtn = byId('addNodeBtn');
+        const isMaster = sel ? sel.value === 'master' : _isMaster;
+        if (toolbarEl) toolbarEl.style.display = isMaster ? '' : 'none';
+        if (bannerEl) bannerEl.style.display = isMaster ? 'none' : '';
+        if (addBtn) addBtn.disabled = !isMaster;
+        // Re-render cards so that non-master role immediately freezes existing
+        // nodes to read-only (no edit/delete/test/enable actions), without removing
+        // the configs themselves. Switching back to master restores the actions.
+        renderNodeList();
+    }
 
     function escHtml(s) {
         if (!s) return '';
@@ -830,22 +896,18 @@
 
             if (bannerEl) bannerEl.style.display = _isMaster ? 'none' : '';
             if (toolbarEl) toolbarEl.style.display = _isMaster ? '' : 'none';
+            const addBtn = byId('addNodeBtn');
+            if (addBtn) addBtn.disabled = !_isMaster;
             if (emptyEl) emptyEl.style.display = 'none';
-
-            if (!_isMaster) {
-                listEl.innerHTML = '';
-                return;
-            }
 
             const result = await getNodeList();
             if (!result || !result.success) {
-                listEl.innerHTML = '';
-                if (emptyEl) emptyEl.style.display = '';
+                _lastNodes = [];
+                renderNodeList();
                 return;
             }
-            const nodes = result.data || [];
-            listEl.innerHTML = nodes.map(function (n) { return buildNodeRow(n, _isMaster); }).join('');
-            if (emptyEl) emptyEl.style.display = nodes.length === 0 ? '' : 'none';
+            _lastNodes = result.data || [];
+            renderNodeList();
         } catch (e) {
             listEl.innerHTML = '<div style="color:red;padding:1rem;text-align:center;">加载失败</div>';
         }
@@ -886,6 +948,11 @@
     }
 
     function openNodeForm(data) {
+        const sel = byId('nodeRoleSelect');
+        if (sel && sel.value !== 'master') {
+            toast(t('toast.error', 'error'), t('api.error.node.master.only', 'Current node is not in master mode, cannot manage remote nodes'), 'error');
+            return;
+        }
         _editingNodeId = null;
         var titleEl = byId('nodeFormTitle');
         if (titleEl) titleEl.textContent = t('modal.node.add_title', '添加节点');
@@ -2051,6 +2118,12 @@
         const nodesTab = document.querySelector('.settings-tab[data-tab="nodes"]');
         if (nodesTab) nodesTab.addEventListener('click', loadNodes);
 
+        const saveNodeRoleBtn = byId('saveNodeRoleBtn');
+        if (saveNodeRoleBtn) saveNodeRoleBtn.addEventListener('click', saveNodeRole);
+
+        const nodeRoleSel = byId('nodeRoleSelect');
+        if (nodeRoleSel) nodeRoleSel.addEventListener('change', applyNodeRoleState);
+
         // Update tab
         const checkBtn = byId('checkUpdateBtn');
         if (checkBtn) checkBtn.addEventListener('click', checkUpdate);
@@ -2210,7 +2283,7 @@
     window.applyUpdate = applyUpdate;
     window.cancelUpdateDownload = cancelUpdateDownload;
     window.onAppUpdateEvent = handleAppUpdateEvent;
-    window.SettingsPage = { init, load, switchTab, switchUpdateSubTab, openNodeForm, saveNodeForm, editNode, removeNode, testNode, toggleNode, loadLlamaCppReleases, downloadLlamaCppAsset, onLlamaCppDownloadProgress };
+    window.SettingsPage = { init, load, switchTab, switchUpdateSubTab, openNodeForm, saveNodeForm, editNode, removeNode, testNode, toggleNode, saveNodeRole, loadLlamaCppReleases, downloadLlamaCppAsset, onLlamaCppDownloadProgress };
     window.loadLlamaCppList = loadLlamaCppList;
     window.addLlamaCpp = addLlamaCpp;
     window.editLlamaCpp = editLlamaCpp;

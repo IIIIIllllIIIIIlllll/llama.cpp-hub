@@ -907,6 +907,23 @@ public class LlamaServer {
 		return nodeRole != null && "master".equalsIgnoreCase(nodeRole);
 	}
 
+	public static String getNodeRole() {
+		return nodeRole;
+	}
+
+	/**
+	 * 更新本节点角色并持久化到 application.json。
+	 * "master" 为主节点（聚合远程节点）；空串/null/其它值均视为普通节点（slave）。
+	 * ⚠ 仅写入配置，运行时不会改变 NodeManager 已启动的健康检查/WebSocket 连接，需重启服务生效。
+	 */
+	public static void updateNodeRole(String role) {
+		synchronized (APPLICATION_CONFIG_LOCK) {
+			String normalized = role == null ? "" : role.trim();
+			nodeRole = normalized.isEmpty() ? "slave" : normalized;
+			saveApplicationConfig();
+		}
+	}
+
 	public static void updateOllamaCompatConfig(boolean enabled, int port) {
 		synchronized (APPLICATION_CONFIG_LOCK) {
 			ollamaCompatEnabled = enabled;

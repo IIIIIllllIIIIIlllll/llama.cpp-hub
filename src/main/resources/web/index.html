@@ -3367,11 +3367,37 @@ llama.cpp-hub</textarea>
                             <div class="settings-panel-body">
                                 <div class="settings-hint" data-i18n="page.settings.nodes.hint">管理远程 llama.cpp-hub
                                     节点，将多台机器聚合到统一入口。</div>
+
+                                <!-- 本节点角色 -->
+                                <div class="settings-toggle-list">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-sitemap"></i>
+                                            <span data-i18n="page.settings.nodes.role_label">本节点角色</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <select class="form-control" id="nodeRoleSelect"
+                                                style="width:auto; min-width:160px;">
+                                                <option value="slave"
+                                                    data-i18n="page.settings.nodes.role.slave">普通节点</option>
+                                                <option value="master"
+                                                    data-i18n="page.settings.nodes.role.master">主节点</option>
+                                            </select>
+                                            <button class="btn btn-primary btn-sm" id="saveNodeRoleBtn"
+                                                style="margin-left:0.5rem;">
+                                                <span data-i18n="common.save">common.save</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <small class="form-text"
+                                    style="display:block; margin:0.5rem 0 0.75rem;"
+                                    data-i18n="page.settings.nodes.role.hint">主节点聚合远程节点到统一入口，需重启服务生效。</small>
+
                                 <div id="nodeMasterBanner" class="alert alert-warning node-master-banner"
                                     style="display:none; margin-bottom:0.75rem; padding:0.5rem 0.75rem; font-size:0.8rem; border-radius:0.5rem; background:#fef3c7; border:1px solid #fbbf24; color:#92400e;">
                                     <i class="fas fa-exclamation-triangle"></i>
-                                    <span data-i18n="page.settings.nodes.not_master">当前节点未启用 master 模式，无法管理远程节点。请在
-                                        application.json 中设置 "nodeRole": "master"。</span>
+                                    <span data-i18n="page.settings.nodes.not_master">当前节点未启用 master 模式，请将上方「本节点角色」切换为「主节点」并保存。</span>
                                 </div>
                                 <div id="nodeToolbar"
                                     style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
