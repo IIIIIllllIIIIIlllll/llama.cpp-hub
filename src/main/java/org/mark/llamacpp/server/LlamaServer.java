@@ -1068,7 +1068,7 @@ public class LlamaServer {
 				storeType = "JKS";
 			}
 			KeyStore keyStore = KeyStore.getInstance(storeType);
-			try (java.io.FileInputStream fis = new java.io.FileInputStream(keystoreFile)) {
+			try (FileInputStream fis = new FileInputStream(keystoreFile)) {
 				keyStore.load(fis, httpsPassword != null ? httpsPassword.toCharArray() : new char[0]);
 			}
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -1092,6 +1092,7 @@ public class LlamaServer {
 			bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
 					.option(ChannelOption.SO_BACKLOG, 1024)
 					.childOption(ChannelOption.SO_KEEPALIVE, true)
+					.childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024, 48 * 1024))
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
