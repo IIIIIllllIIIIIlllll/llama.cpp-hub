@@ -36,6 +36,7 @@ import javax.swing.JDialog;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 public class WindowsTray {
 
@@ -52,6 +53,14 @@ public class WindowsTray {
     private volatile JDialog popupHost;
     private volatile JPopupMenu popupMenu;
     private volatile Runnable defaultAction;
+
+    static {
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            // fallback to default
+        }
+    }
 
     private WindowsTray() {
     }
