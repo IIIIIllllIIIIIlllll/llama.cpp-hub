@@ -192,7 +192,7 @@ public class BenchmarkService {
 			return data;
 		} catch (Exception e) {
 			logger.info("执行模型基准测试V2时发生错误", e);
-			throw new RuntimeException("执行模型基准测试失败: " + e.getMessage(), e);
+			throw new RuntimeException("api.error.model.benchmark.failed: " + e.getMessage(), e);
 		} finally {
 			if (ctx != null) {
 				this.connections.remove(ctx, connection);

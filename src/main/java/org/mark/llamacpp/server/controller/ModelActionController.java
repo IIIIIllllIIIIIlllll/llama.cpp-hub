@@ -105,6 +105,9 @@ public class ModelActionController implements BaseController {
 	private static final String I18N_FILE_NAME_INVALID = "api.error.file.name.invalid";
 	private static final String I18N_RECORD_NOT_FOUND = "api.error.record.notfound";
 	private static final String I18N_MODEL_PORT_NOT_FOUND = "api.error.model.port.not.found";
+	private static final String I18N_MODEL_STOP_SUCCESS = "api.error.model.stop.success";
+	private static final String I18N_MODEL_NAME_UNKNOWN = "api.model.name.unknown";
+	private static final String I18N_MODEL_NAME_UNNAMED = "api.model.name.unnamed";
 
 	/**
 	 * 	
@@ -325,13 +328,13 @@ public class ModelActionController implements BaseController {
 			GGUFMetaData primaryModel = model.getPrimaryModel();
 			GGUFMetaData mmproj = model.getMmproj();
 
-			String modelName = "未知模型";
+			String modelName = I18N_MODEL_NAME_UNKNOWN;
 			String modelId = "unknown-model-" + System.currentTimeMillis();
 
 			if (primaryModel != null) {
 				modelName = model.getName();
 				if (modelName == null || modelName.trim().isEmpty()) {
-					modelName = "未命名模型";
+					modelName = I18N_MODEL_NAME_UNNAMED;
 				}
 				modelId = model.getModelId();
 			}
@@ -353,7 +356,7 @@ public class ModelActionController implements BaseController {
 				modelInfo.put("isLoading", true);
 			}
 
-			String architecture = "未知";
+			String architecture = "common.unknown";
 			String quantization = "";
 			if (primaryModel != null) {
 				String value = primaryModel.getStringValue("general.architecture");
@@ -369,7 +372,7 @@ public class ModelActionController implements BaseController {
 			modelInfo.put("quantization", quantization);
 			modelInfo.put("hasMtp", primaryModel != null && primaryModel.getMtpInfo().hasMtp());
 			modelInfo.put("nodeId", "local");
-			modelInfo.put("nodeName", "本机");
+			modelInfo.put("nodeName", "page.model.filter.local");
 
 			modelList.add(modelInfo);
 		}
@@ -413,7 +416,7 @@ public class ModelActionController implements BaseController {
 				if (manager.isLoading(cloneId)) {
 					modelInfo.put("isLoading", true);
 				}
-				String architecture = "未知";
+				String architecture = "common.unknown";
 				GGUFMetaData primaryModel = sourceModel.getPrimaryModel();
 				if (primaryModel != null) {
 					String value = primaryModel.getStringValue("general.architecture");
@@ -426,7 +429,7 @@ public class ModelActionController implements BaseController {
 						primaryModel != null ? primaryModel.getQuantizationType() : "");
 				modelInfo.put("hasMtp", primaryModel != null && primaryModel.getMtpInfo().hasMtp());
 				modelInfo.put("nodeId", "local");
-				modelInfo.put("nodeName", "本机");
+				modelInfo.put("nodeName", "page.model.filter.local");
 				modelInfo.put("isClone", true);
 				modelInfo.put("sourceModelId", sourceModelId);
 
@@ -547,12 +550,12 @@ public class ModelActionController implements BaseController {
 			boolean success = manager.stopModel(modelId);
 			if (success) {
 				Map<String, Object> data = new HashMap<>();
-				data.put("message", "模型停止成功");
+				data.put("message", I18N_MODEL_STOP_SUCCESS);
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-				LlamaServer.sendModelStopEvent(modelId, sourceModelId, true, "模型停止成功");
+				LlamaServer.sendModelStopEvent(modelId, sourceModelId, true, I18N_MODEL_STOP_SUCCESS);
 			} else {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_STOP_FAILED_OR_NOT_LOADED));
-				LlamaServer.sendModelStopEvent(modelId, sourceModelId, false, "模型停止失败或模型未加载");
+				LlamaServer.sendModelStopEvent(modelId, sourceModelId, false, I18N_MODEL_STOP_FAILED_OR_NOT_LOADED);
 			}
 			} else {
 				logger.info("[模型操作] 本地未找到模型，搜索远程节点: modelId={}", modelId);
@@ -706,14 +709,14 @@ public class ModelActionController implements BaseController {
 			modelData.put("name",
 					modelInfo != null ? (modelInfo.getPrimaryModel() != null
 							? modelInfo.getPrimaryModel().getStringValue("general.name")
-							: "未知模型") : "未知模型");
+							: I18N_MODEL_NAME_UNKNOWN) : I18N_MODEL_NAME_UNKNOWN);
 			modelData.put("status", process.isRunning() ? "running" : "stopped");
 			modelData.put("port", manager.getModelPort(modelId));
 			modelData.put("pid", process.getPid());
 			modelData.put("size", modelInfo != null ? modelInfo.getSize() : 0);
 			modelData.put("path", modelInfo != null ? modelInfo.getPath() : "");
 			modelData.put("nodeId", "local");
-			modelData.put("nodeName", "本机");
+			modelData.put("nodeName", "page.model.filter.local");
 			modelData.put("busy", ModelRequestTracker.getInstance().isModelBusy(modelId));
 
 			loadedModels.add(modelData);
@@ -1334,7 +1337,7 @@ public class ModelActionController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			String msg = e.getMessage();
-			if (msg != null && msg.startsWith("执行模型基准测试失败")) {
+			if (msg != null && msg.startsWith("api.error.model.benchmark.failed")) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(msg));
 			} else {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_BENCHMARK_FAILED + ": " + e.getMessage()));
