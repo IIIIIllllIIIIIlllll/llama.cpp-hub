@@ -6289,8 +6289,9 @@
       const reversed = conversation.messages.slice().reverse();
       const lastAssistant = reversed.find(m => m.role === 'assistant');
       if (!lastAssistant) return 0;
-      const target = lastAssistant.isStreaming
-        ? reversed.find(m => m.role === 'assistant' && !m.isStreaming)
+      const hasUsableTimings = (m) => m && m.timings && typeof m.timings === 'object';
+      const target = (lastAssistant.isStreaming || !hasUsableTimings(lastAssistant))
+        ? reversed.find(m => m.role === 'assistant' && hasUsableTimings(m) && !m.isStreaming)
         : lastAssistant;
       if (!target) return 0;
       const t = target.timings;
@@ -6797,6 +6798,7 @@
       activeResponse.isStreaming = nextStreaming;
       syncAssistantMessageState(message);
       conversation.updatedAt = Date.now();
+      updateLastAssistantContextUsage();
       const article = els.messages.querySelector('article[data-index="' + index + '"]');
       if (article) {
         const updated = updateAssistantMessageElement(article, message, index);
