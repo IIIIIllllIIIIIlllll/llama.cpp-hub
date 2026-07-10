@@ -109,6 +109,12 @@
         } catch (e) {
             window.dispatchEvent(new Event('i18n:ready'));
         }
+        if (typeof applyTheme === 'function') {
+            const saved = (function(){ try { return localStorage.getItem('llama-hub-theme'); } catch(e){} })();
+            if (saved) applyTheme(saved);
+            else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme('dark');
+            else applyTheme('light');
+        }
     }
 
     async function initI18n() {

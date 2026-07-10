@@ -5,6 +5,24 @@ const wsDecoder = new TextDecoder('utf-8');
 let reconnectTimer = null;
 let populateLogFilterGen = 0;
 
+function interpolate(str, params) {
+    if (!params || typeof params !== 'object') return str;
+    return str.replace(/{(\w+)}/g, (m, k) => (params[k] !== undefined ? params[k] : m));
+}
+
+function wsT(key, fallback, params) {
+    let result;
+    if (window.I18N && typeof window.I18N.t === 'function') {
+        result = window.I18N.t(key, fallback);
+    } else {
+        result = fallback == null ? key : fallback;
+    }
+    if (params && typeof params === 'object') {
+        result = interpolate(result, params);
+    }
+    return result;
+}
+
 window.remoteNodes = [];
 
 async function fetchRemoteNodes() {
@@ -152,8 +170,10 @@ function handleModelStatusUpdate(data) {
 function handleModelLoadEvent(data) {
     if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId, data.nodeId);
     const nodeLabel = data.nodeId ? `[${data.nodeId}]` : '';
-    const action = data.success ? '成功' : '失败';
-    showToast('模型加载', `模型 ${nodeLabel}${data.modelId} 加载${action}`, data.success ? 'success' : 'error');
+    const msgKey = data.success ? 'api.model.load.message.success' : 'api.model.load.message.failure';
+    const msgFallback = `模型 ${nodeLabel}${data.modelId} ${data.success ? '加载成功' : '加载失败'}`;
+    const msg = wsT(msgKey, msgFallback, { nodeLabel, modelId: data.modelId });
+    showToast(wsT('api.model.load.title', '模型加载'), msg, data.success ? 'success' : 'error');
 
     if (window.pendingModelLoad && window.pendingModelLoad.modelId === data.modelId) {
         window.pendingModelLoad = null;
@@ -170,7 +190,10 @@ function handleModelLoadEvent(data) {
 
 function handleModelStopEvent(data) {
     const nodeLabel = data.nodeId ? `[${data.nodeId}]` : '';
-    showToast('模型停止', `模型 ${nodeLabel}${data.modelId} 停止${data.success ? '成功' : '失败'}`, data.success ? 'success' : 'error');
+    const msgKey = data.success ? 'api.model.stop.message.success' : 'api.model.stop.message.failure';
+    const msgFallback = `模型 ${nodeLabel}${data.modelId} ${data.success ? '停止成功' : '停止失败'}`;
+    const msg = wsT(msgKey, msgFallback, { nodeLabel, modelId: data.modelId });
+    showToast(wsT('api.model.stop.title', '模型停止'), msg, data.success ? 'success' : 'error');
     if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId, data.nodeId);
     applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
     if (typeof updateModelSlotsDom === 'function') {

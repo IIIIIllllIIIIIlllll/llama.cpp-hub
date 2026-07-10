@@ -5425,6 +5425,10 @@
       conversationLoadInProgress = !!loading;
       if (loading) {
         updateStatus('', statusText || window.I18N.t('page.chat.main.status.loading_conversation', '正在加载会话内容，请稍候…'), window.I18N.t('page.chat.main.status.loading_conversation_short', '加载中'));
+      } else if (!stateLoadedFromServer) {
+        updateStatus('error', statusText || window.I18N.t('page.chat.main.status.connection_failed', '无法连接服务器，已禁止本地操作'), window.I18N.t('page.chat.main.status.connection_failed_short', '连接失败'));
+      } else {
+        updateStatus('ready', window.I18N.t('page.chat.main.status.refresh_done', '模型列表已刷新'), window.I18N.t('page.chat.main.status.refresh_done_short', '已连接'));
       }
       updateInteractionLockState();
     }
@@ -5839,6 +5843,7 @@
 
     function canContinueAssistantResponse(message, index) {
       if (message.role !== 'assistant') return false;
+      if (message.isStreaming) return false;
       if (message.finishReason && message.finishReason !== 'length') return false;
       const conv = getCurrentConversation();
       const convMsgs = conv && isConversationLoaded(conv) ? conv.messages : [];
@@ -6281,9 +6286,14 @@
     function computeUsedContext() {
       const conversation = getCurrentConversation();
       if (!conversation || !Array.isArray(conversation.messages)) return 0;
-      const lastAssistant = conversation.messages.slice().reverse().find(m => m.role === 'assistant');
+      const reversed = conversation.messages.slice().reverse();
+      const lastAssistant = reversed.find(m => m.role === 'assistant');
       if (!lastAssistant) return 0;
-      const t = lastAssistant.timings;
+      const target = lastAssistant.isStreaming
+        ? reversed.find(m => m.role === 'assistant' && !m.isStreaming)
+        : lastAssistant;
+      if (!target) return 0;
+      const t = target.timings;
       if (!t || typeof t !== 'object') return 0;
       return (t.prompt_n ?? 0) + (t.predicted_n ?? 0);
     }
