@@ -18,12 +18,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.zip.GZIPOutputStream;
 
 import org.mark.llamacpp.gguf.GGUFModel;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.channel.EasyChatStreamingHandler;
+import org.mark.llamacpp.server.io.NettyChunkedOutputStream;
 import org.mark.llamacpp.server.io.NettyWriteHelper;
 import org.mark.llamacpp.server.struct.ActiveRequest;
 import org.mark.llamacpp.server.struct.ApiResponse;
@@ -682,7 +684,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	 * payload data is ever read into JVM memory. File transfers happen in
 	 * kernel space (sendfile) and never block the EventLoop thread.
 	 */
-	public void handleStreamChatHistory(ChannelHandlerContext ctx, String conversationId) {
+	public void handleStreamChatHistory(ChannelHandlerContext ctx, String conversationId, boolean useGzip) {
 		EasyChatGlobalLock.Lease globalLease = acquireGlobalLease(ctx, "chat.history");
 		if (globalLease == null) {
 			return;
@@ -743,138 +745,282 @@ import io.netty.handler.codec.http.LastHttpContent;
 			+ ",\"recordCount\":" + recordCount + ",\"variantCount\":" + variantCount
 			+ ",\"nextSeq\":" + nextSeq + ",\"data\":[";
 
-		// Start chunked response
+		// Start chunked response — shared headers
 		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
 		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
 		response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-		ctx.writeAndFlush(response);
-		ctx.writeAndFlush(Unpooled.wrappedBuffer(prefix.getBytes(StandardCharsets.UTF_8)));
+		response.headers().set(HttpHeaderNames.VARY, HttpHeaderNames.ACCEPT_ENCODING.toString());
+		response.headers().set(HttpHeaderNames.CACHE_CONTROL, "no-store");
 
-		// Phase 3: per-message locked read + zero-copy write via DefaultFileRegion
-		byte[] comma = ",".getBytes(StandardCharsets.UTF_8);
-		byte[] variantPrefix = "{\"content\":".getBytes(StandardCharsets.UTF_8);
-		byte[] variantSuffix = "}".getBytes(StandardCharsets.UTF_8);
-		byte[] msgSuffix = "]}" .getBytes(StandardCharsets.UTF_8);
-		byte[] dataSuffix = "]}".getBytes(StandardCharsets.UTF_8);
-		try {
-			long endExclusive;
-			Map<Long, Map<Integer, String>> modelIndex;
-			synchronized (convLock) {
-				endExclusive = storage.readNextSeq(convDir);
-				modelIndex = storage.readModelIndex(convDir);
-			}
-			Map<String, String> modelNameCache = new HashMap<>();
-			boolean first = true;
-			for (long seq = 0; seq < endExclusive; seq++) {
-				EasyChatStorage.FragmentHeader header;
-				String role;
-				int activeVariant;
-				int msgVariantCount = 0;
+		byte[] prefixBytes = prefix.getBytes(StandardCharsets.UTF_8);
 
+		if (useGzip) {
+			response.headers().set(HttpHeaderNames.CONTENT_ENCODING, HttpHeaderValues.GZIP);
+			ctx.writeAndFlush(response);
+
+			// Phase 3 + 4: write entire history JSON through a single gzip stream
+			byte[] gzipComma = ",".getBytes(StandardCharsets.UTF_8);
+			byte[] gzipVariantPrefix = "{\"content\":".getBytes(StandardCharsets.UTF_8);
+			byte[] gzipVariantSuffix = "}".getBytes(StandardCharsets.UTF_8);
+			byte[] gzipMsgSuffix = "]}".getBytes(StandardCharsets.UTF_8);
+			byte[] gzipDataSuffix = "]}".getBytes(StandardCharsets.UTF_8);
+			NettyChunkedOutputStream nettyOut = null;
+			GZIPOutputStream gzipStream = null;
+			try {
+				nettyOut = new NettyChunkedOutputStream(ctx, 32 * 1024, logger, "[EasyChat]");
+				gzipStream = new GZIPOutputStream(nettyOut, 32 * 1024);
+				gzipStream.write(prefixBytes);
+
+				long endExclusive;
+				Map<Long, Map<Integer, String>> modelIndex;
 				synchronized (convLock) {
-					header = storage.readFragmentHeader(convDir, seq);
-					if (header == null || storage.isDeleted(header)) {
-						continue;
-					}
+					endExclusive = storage.readNextSeq(convDir);
+					modelIndex = storage.readModelIndex(convDir);
+				}
+				Map<String, String> modelNameCache = new HashMap<>();
+				boolean first = true;
+				for (long seq = 0; seq < endExclusive; seq++) {
+					EasyChatStorage.FragmentHeader header;
+					String role;
+					int activeVariant;
+					int msgVariantCount = 0;
 
-					// Determine role from seq parity: even=user, odd=assistant
-					role = (header.seq % 2 == 0) ? "user" : "assistant";
-
-					activeVariant = storage.resolveVariantIndex(header, header.activeVariantIndex);
-					if (activeVariant < 0) {
-						activeVariant = 0;
-					}
-
-					msgVariantCount = header.variantCount;
-
-					// Write entire message under lock to prevent TOCTOU with getVariantSlice
-					if (!first) {
-						ctx.writeAndFlush(Unpooled.wrappedBuffer(comma));
-					}
-					first = false;
-
-					// {"seq":N,"role":"R","model":"M","modelName":"N","variantModels\":[...],"variantModelNames\":[...],"activeVariant":N,"variants":[
-					Map<Integer, String> seqModels = (header.seq % 2 == 1) ? modelIndex.get(seq) : null;
-					String model = (seqModels != null) ? seqModels.get(activeVariant) : null;
-					String modelField = (model != null)
-						? ",\"model\":\"" + escapeJsonString(model) + "\""
-						: "";
-					String modelNameField = "";
-					if (model != null) {
-						String modelName = modelNameCache.computeIfAbsent(model, this::resolveModelName);
-						if (modelName != null && !modelName.equals(model)) {
-							modelNameField = ",\"modelName\":\"" + escapeJsonString(modelName) + "\"";
+					synchronized (convLock) {
+						header = storage.readFragmentHeader(convDir, seq);
+						if (header == null || storage.isDeleted(header)) {
+							continue;
 						}
-					}
-					String variantModelsField = "";
-					String variantModelNamesField = "";
-					if (header.seq % 2 == 1 && seqModels != null && !seqModels.isEmpty()) {
-						StringBuilder variantModels = new StringBuilder();
-						StringBuilder variantModelNames = new StringBuilder();
+
+						role = (header.seq % 2 == 0) ? "user" : "assistant";
+
+						activeVariant = storage.resolveVariantIndex(header, header.activeVariantIndex);
+						if (activeVariant < 0) {
+							activeVariant = 0;
+						}
+
+						msgVariantCount = header.variantCount;
+
+						if (!first) {
+							gzipStream.write(gzipComma);
+						}
+						first = false;
+
+						Map<Integer, String> seqModels = (header.seq % 2 == 1) ? modelIndex.get(seq) : null;
+						String model = (seqModels != null) ? seqModels.get(activeVariant) : null;
+						String modelField = (model != null)
+							? ",\"model\":\"" + escapeJsonString(model) + "\""
+							: "";
+						String modelNameField = "";
+						if (model != null) {
+							String modelName = modelNameCache.computeIfAbsent(model, this::resolveModelName);
+							if (modelName != null && !modelName.equals(model)) {
+								modelNameField = ",\"modelName\":\"" + escapeJsonString(modelName) + "\"";
+							}
+						}
+						String variantModelsField = "";
+						String variantModelNamesField = "";
+						if (header.seq % 2 == 1 && seqModels != null && !seqModels.isEmpty()) {
+							StringBuilder variantModels = new StringBuilder();
+							StringBuilder variantModelNames = new StringBuilder();
+							for (int v = 0; v < msgVariantCount; v++) {
+								if (v > 0) {
+									variantModels.append(',');
+									variantModelNames.append(',');
+								}
+								String vmodel = seqModels.getOrDefault(v, "");
+								variantModels.append("\"").append(escapeJsonString(vmodel)).append("\"");
+								String vmodelName = vmodel.isBlank() ? "" : modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
+								variantModelNames.append("\"").append(escapeJsonString(vmodelName)).append("\"");
+							}
+							variantModelsField = ",\"variantModels\":[" + variantModels + "]";
+							variantModelNamesField = ",\"variantModelNames\":[" + variantModelNames + "]";
+						}
+						String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + escapeJsonString(role) + "\""
+							+ modelField
+							+ modelNameField
+							+ variantModelsField
+							+ variantModelNamesField
+							+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
+						gzipStream.write(msgPrefix.getBytes(StandardCharsets.UTF_8));
+
 						for (int v = 0; v < msgVariantCount; v++) {
 							if (v > 0) {
-								variantModels.append(',');
-								variantModelNames.append(',');
+								gzipStream.write(gzipComma);
 							}
-							String vmodel = seqModels.getOrDefault(v, "");
-							variantModels.append("\"").append(escapeJsonString(vmodel)).append("\"");
-							String vmodelName = vmodel.isBlank() ? "" : modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
-							variantModelNames.append("\"").append(escapeJsonString(vmodelName)).append("\"");
+							gzipStream.write(gzipVariantPrefix);
+							EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(convDir, seq, v);
+							if (slice != null && slice.length > 0) {
+								try {
+									storage.streamSlice(slice, gzipStream);
+								} catch (IOException e) {
+									logger.warn("[EasyChat] 读取payload失败 seq={} v={}", seq, v, e);
+									gzipStream.write("null".getBytes(StandardCharsets.UTF_8));
+								}
+							} else {
+								gzipStream.write("null".getBytes(StandardCharsets.UTF_8));
+							}
+							gzipStream.write(gzipVariantSuffix);
 						}
-						variantModelsField = ",\"variantModels\":[" + variantModels + "]";
-						variantModelNamesField = ",\"variantModelNames\":[" + variantModelNames + "]";
-					}
-					String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + escapeJsonString(role) + "\""
-						+ modelField
-						+ modelNameField
-						+ variantModelsField
-						+ variantModelNamesField
-						+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
-					ctx.writeAndFlush(Unpooled.wrappedBuffer(msgPrefix.getBytes(StandardCharsets.UTF_8)));
 
-					// All variants — ChunkedFile (works with HTTPS, unlike DefaultFileRegion)
-					for (int v = 0; v < msgVariantCount; v++) {
-						if (v > 0) {
+						gzipStream.write(gzipMsgSuffix);
+					}
+				}
+				gzipStream.write(gzipDataSuffix);
+				gzipStream.finish();
+				nettyOut.close();
+
+				logger.info("[EasyChat] 流式传输历史(gzip)完成 conversation={} records={} extraVariants={} bytes={}",
+					conversationId, recordCount, variantCount, totalSize);
+				final EasyChatGlobalLock.Lease finalGlobalLease = globalLease;
+				ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
+					finalGlobalLease.close();
+					ctx.close();
+				});
+				globalLease = null;
+			} catch (Exception e) {
+				logger.info("[EasyChat] 流式传输历史(gzip)失败 conversation={}", conversationId, e);
+				ctx.close();
+			} finally {
+				if (gzipStream != null) {
+					try { gzipStream.close(); } catch (Exception ignore) {}
+				}
+				if (nettyOut != null) {
+					try { nettyOut.close(); } catch (Exception ignore) {}
+				}
+				if (globalLease != null) {
+					globalLease.close();
+				}
+			}
+		} else {
+			ctx.writeAndFlush(response);
+			ctx.writeAndFlush(Unpooled.wrappedBuffer(prefixBytes));
+
+			// Phase 3: per-message locked read + zero-copy write via DefaultFileRegion
+			byte[] comma = ",".getBytes(StandardCharsets.UTF_8);
+			byte[] variantPrefix = "{\"content\":".getBytes(StandardCharsets.UTF_8);
+			byte[] variantSuffix = "}".getBytes(StandardCharsets.UTF_8);
+			byte[] msgSuffix = "]}" .getBytes(StandardCharsets.UTF_8);
+			byte[] dataSuffix = "]}".getBytes(StandardCharsets.UTF_8);
+			try {
+				long endExclusive;
+				Map<Long, Map<Integer, String>> modelIndex;
+				synchronized (convLock) {
+					endExclusive = storage.readNextSeq(convDir);
+					modelIndex = storage.readModelIndex(convDir);
+				}
+				Map<String, String> modelNameCache = new HashMap<>();
+				boolean first = true;
+				for (long seq = 0; seq < endExclusive; seq++) {
+					EasyChatStorage.FragmentHeader header;
+					String role;
+					int activeVariant;
+					int msgVariantCount = 0;
+
+					synchronized (convLock) {
+						header = storage.readFragmentHeader(convDir, seq);
+						if (header == null || storage.isDeleted(header)) {
+							continue;
+						}
+
+						// Determine role from seq parity: even=user, odd=assistant
+						role = (header.seq % 2 == 0) ? "user" : "assistant";
+
+						activeVariant = storage.resolveVariantIndex(header, header.activeVariantIndex);
+						if (activeVariant < 0) {
+							activeVariant = 0;
+						}
+
+						msgVariantCount = header.variantCount;
+
+						// Write entire message under lock to prevent TOCTOU with getVariantSlice
+						if (!first) {
 							ctx.writeAndFlush(Unpooled.wrappedBuffer(comma));
 						}
-						ctx.writeAndFlush(Unpooled.wrappedBuffer(variantPrefix));
-						EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(convDir, seq, v);
-						if (slice != null && slice.length > 0) {
-							try {
-								ChunkedFile chunkedFile = new ChunkedFile(
-									new java.io.RandomAccessFile(slice.file.toFile(), "r"),
-									slice.offset, slice.length, 8192);
-								ctx.writeAndFlush(chunkedFile);
-							} catch (IOException e) {
-								logger.warn("[EasyChat] ChunkedFile创建失败 seq={} v={}", seq, v, e);
+						first = false;
+
+						// {"seq":N,"role":"R","model":"M","modelName":"N","variantModels\":[...],"variantModelNames\":[...],"activeVariant":N,"variants":[
+						Map<Integer, String> seqModels = (header.seq % 2 == 1) ? modelIndex.get(seq) : null;
+						String model = (seqModels != null) ? seqModels.get(activeVariant) : null;
+						String modelField = (model != null)
+							? ",\"model\":\"" + escapeJsonString(model) + "\""
+							: "";
+						String modelNameField = "";
+						if (model != null) {
+							String modelName = modelNameCache.computeIfAbsent(model, this::resolveModelName);
+							if (modelName != null && !modelName.equals(model)) {
+								modelNameField = ",\"modelName\":\"" + escapeJsonString(modelName) + "\"";
+							}
+						}
+						String variantModelsField = "";
+						String variantModelNamesField = "";
+						if (header.seq % 2 == 1 && seqModels != null && !seqModels.isEmpty()) {
+							StringBuilder variantModels = new StringBuilder();
+							StringBuilder variantModelNames = new StringBuilder();
+							for (int v = 0; v < msgVariantCount; v++) {
+								if (v > 0) {
+									variantModels.append(',');
+									variantModelNames.append(',');
+								}
+								String vmodel = seqModels.getOrDefault(v, "");
+								variantModels.append("\"").append(escapeJsonString(vmodel)).append("\"");
+								String vmodelName = vmodel.isBlank() ? "" : modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
+								variantModelNames.append("\"").append(escapeJsonString(vmodelName)).append("\"");
+							}
+							variantModelsField = ",\"variantModels\":[" + variantModels + "]";
+							variantModelNamesField = ",\"variantModelNames\":[" + variantModelNames + "]";
+						}
+						String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + escapeJsonString(role) + "\""
+							+ modelField
+							+ modelNameField
+							+ variantModelsField
+							+ variantModelNamesField
+							+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
+						ctx.writeAndFlush(Unpooled.wrappedBuffer(msgPrefix.getBytes(StandardCharsets.UTF_8)));
+
+						// All variants — ChunkedFile (works with HTTPS, unlike DefaultFileRegion)
+						for (int v = 0; v < msgVariantCount; v++) {
+							if (v > 0) {
+								ctx.writeAndFlush(Unpooled.wrappedBuffer(comma));
+							}
+							ctx.writeAndFlush(Unpooled.wrappedBuffer(variantPrefix));
+							EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(convDir, seq, v);
+							if (slice != null && slice.length > 0) {
+								try {
+									ChunkedFile chunkedFile = new ChunkedFile(
+										new java.io.RandomAccessFile(slice.file.toFile(), "r"),
+										slice.offset, slice.length, 8192);
+									ctx.writeAndFlush(chunkedFile);
+								} catch (IOException e) {
+									logger.warn("[EasyChat] ChunkedFile创建失败 seq={} v={}", seq, v, e);
+									ctx.writeAndFlush(Unpooled.wrappedBuffer("null".getBytes(StandardCharsets.UTF_8)));
+								}
+							} else {
 								ctx.writeAndFlush(Unpooled.wrappedBuffer("null".getBytes(StandardCharsets.UTF_8)));
 							}
-						} else {
-							ctx.writeAndFlush(Unpooled.wrappedBuffer("null".getBytes(StandardCharsets.UTF_8)));
+							ctx.writeAndFlush(Unpooled.wrappedBuffer(variantSuffix));
 						}
-						ctx.writeAndFlush(Unpooled.wrappedBuffer(variantSuffix));
-					}
 
-					ctx.writeAndFlush(Unpooled.wrappedBuffer(msgSuffix));
+						ctx.writeAndFlush(Unpooled.wrappedBuffer(msgSuffix));
+					}
+					// Lock released — DefaultFileRegion already submitted to EventLoop
 				}
-				// Lock released — DefaultFileRegion already submitted to EventLoop
-			}
-			ctx.writeAndFlush(Unpooled.wrappedBuffer(dataSuffix));
-			logger.info("[EasyChat] 流式传输历史完成 conversation={} records={} extraVariants={} bytes={}",
-				conversationId, recordCount, variantCount, totalSize);
-			final EasyChatGlobalLock.Lease finalGlobalLease = globalLease;
-			ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
-				finalGlobalLease.close();
+				ctx.writeAndFlush(Unpooled.wrappedBuffer(dataSuffix));
+				logger.info("[EasyChat] 流式传输历史完成 conversation={} records={} extraVariants={} bytes={}",
+					conversationId, recordCount, variantCount, totalSize);
+				final EasyChatGlobalLock.Lease finalGlobalLease = globalLease;
+				ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
+					finalGlobalLease.close();
+					ctx.close();
+				});
+				globalLease = null;
+			} catch (Exception e) {
+				logger.info("[EasyChat] 流式传输历史失败 conversation={}", conversationId, e);
 				ctx.close();
-			});
-			globalLease = null;
-		} catch (Exception e) {
-			logger.info("[EasyChat] 流式传输历史失败 conversation={}", conversationId, e);
-			ctx.close();
-		} finally {
-			if (globalLease != null) {
-				globalLease.close();
+			} finally {
+				if (globalLease != null) {
+					globalLease.close();
+				}
 			}
 		}
 	}

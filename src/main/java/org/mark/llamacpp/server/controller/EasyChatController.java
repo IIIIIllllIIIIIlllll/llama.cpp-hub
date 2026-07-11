@@ -204,7 +204,66 @@ public class EasyChatController implements BaseController {
 	private void handleStreamChatHistory(ChannelHandlerContext ctx, FullHttpRequest request) {
 		Map<String, String> params = ParamTool.getQueryParam(request.uri());
 		String conversationId = params.getOrDefault("conversationId", "").trim();
-		EasyChatService.getInstance().handleStreamChatHistory(ctx, conversationId);
+		boolean useGzip = shouldUseGzip(request.headers().get(HttpHeaderNames.ACCEPT_ENCODING));
+		EasyChatService.getInstance().handleStreamChatHistory(ctx, conversationId, useGzip);
+	}
+
+	/**
+	 * Parse the {@code Accept-Encoding} header and decide whether gzip compression
+	 * is allowed for the history response.
+	 *
+	 * <p>Rules:
+	 * <ul>
+	 *   <li>absent header → {@code false}</li>
+	 *   <li>{@code gzip} or {@code x-gzip} with q &gt; 0 → {@code true}</li>
+	 *   <li>{@code gzip;q=0} → {@code false}</li>
+	 *   <li>{@code identity} only → {@code false}</li>
+	 *   <li>{@code *} with q &gt; 0 → {@code true}</li>
+	 * </ul>
+	 */
+	static boolean shouldUseGzip(String acceptEncoding) {
+		if (acceptEncoding == null || acceptEncoding.isBlank()) {
+			return false;
+		}
+		String[] tokens = acceptEncoding.split(",");
+		boolean wildcardAllowed = false;
+		boolean gzipExplicitlyDenied = false;
+		boolean gzipAllowed = false;
+		for (String token : tokens) {
+			String trimmed = token.trim();
+			if (trimmed.isEmpty()) {
+				continue;
+			}
+			String[] parts = trimmed.split(";");
+			String encoding = parts[0].trim().toLowerCase();
+			double q = 1.0;
+			for (int i = 1; i < parts.length; i++) {
+				String param = parts[i].trim();
+				if (param.startsWith("q=") || param.startsWith("Q=")) {
+					try {
+						q = Double.parseDouble(param.substring(2));
+					} catch (NumberFormatException e) {
+						q = 1.0;
+					}
+					break;
+				}
+			}
+			if (encoding.equals("gzip") || encoding.equals("x-gzip")) {
+				if (q > 0) {
+					gzipAllowed = true;
+				} else {
+					gzipExplicitlyDenied = true;
+				}
+			} else if (encoding.equals("*")) {
+				if (q > 0) {
+					wildcardAllowed = true;
+				}
+			}
+		}
+		if (gzipExplicitlyDenied) {
+			return false;
+		}
+		return gzipAllowed || wildcardAllowed;
 	}
 
 	private void handleMessageUpdateRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
