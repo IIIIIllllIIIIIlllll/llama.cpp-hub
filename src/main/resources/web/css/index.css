@@ -998,6 +998,188 @@
             color: #8fa7c0;
             margin-bottom: 0.5rem;
         }
+
+        /* Right param area: wraps toggle bar + form/cmd/benchmark panels */
+        #loadModelModal .right-param-area {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* Mode toggle bar */
+        #loadModelModal .param-mode-toggle-bar {
+            display: flex;
+            gap: 3px;
+            flex-shrink: 0;
+            padding: 0 0 8px;
+        }
+
+        #loadModelModal .param-mode-btn {
+            flex: 1;
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        #loadModelModal .param-mode-btn:hover {
+            border-color: rgba(99, 102, 241, 0.35);
+            color: var(--text-primary);
+            background: rgba(99, 102, 241, 0.06);
+        }
+
+        #loadModelModal .param-mode-btn.active {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--primary-color);
+        }
+
+        /* Param mode panels (form / cmd) – only one .active at a time */
+        #loadModelModal .param-mode-panel {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        #loadModelModal .param-mode-panel.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Command-line mode textarea */
+        #loadModelModal .cmd-mode-toolbar {
+            flex-shrink: 0;
+            padding-bottom: 6px;
+        }
+
+        #loadModelModal .cmd-mode-textarea {
+            flex: 1;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            resize: none;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-primary);
+            outline: none;
+            line-height: 1.5;
+            tab-size: 2;
+        }
+
+        #loadModelModal .cmd-mode-textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+        }
+
+        #loadModelModal .cmd-mode-textarea::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.6;
+        }
+
+        /* Command-line mode help button & panel */
+        #loadModelModal .cmd-mode-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        #loadModelModal .cmd-mode-toolbar .form-text {
+            margin: 0;
+            flex: 1;
+        }
+
+        #loadModelModal .cmd-mode-help-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.15s ease;
+        }
+
+        #loadModelModal .cmd-mode-help-btn:hover {
+            background: rgba(99, 102, 241, 0.12);
+        }
+
+        #loadModelModal .cmd-mode-help-panel {
+            flex-shrink: 0;
+            margin-bottom: 8px;
+            padding: 10px 12px;
+            background: var(--bg-secondary, #f8f9fa);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        #loadModelModal .cmd-mode-help-panel h6 {
+            margin: 0 0 8px 0;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        #loadModelModal .cmd-mode-help-panel ul {
+            margin: 0 0 10px 0;
+            padding-left: 16px;
+        }
+
+        #loadModelModal .cmd-mode-help-panel li {
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        #loadModelModal .cmd-mode-help-panel code {
+            font-family: Consolas, 'Courier New', monospace;
+            background: rgba(99, 102, 241, 0.1);
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: var(--primary-color);
+        }
+
+        #loadModelModal .cmd-mode-help-example pre {
+            margin: 6px 0 0 0;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        #loadModelModal .cmd-mode-help-example code {
+            background: transparent;
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] #loadModelModal .cmd-mode-help-panel {
+            background: var(--bg-secondary, #1e293b);
+        }
+
+        [data-theme="dark"] #loadModelModal .cmd-mode-help-example pre {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Hide toggle bar in benchmark mode */
+        #loadModelModal .param-mode-toggle-bar.benchmark {
+            display: none;
+        }
+
         #modelBenchmarkModal .modal-body { overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; }
         #modelBenchmarkModal #modelBenchmarkForm { display: flex; flex-direction: column; flex: 1; min-height: 0; }
         #modelBenchmarkModal .load-model-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: stretch; flex: 1; min-height: 0; }

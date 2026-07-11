@@ -1408,10 +1408,11 @@ public class LlamaServerManager {
 			List<String> device = (List<String>) config.get("device");
 			Object mgObj = config.get("mg");
 			Integer mg = (mgObj instanceof Number) ? ((Number) mgObj).intValue() : null;
+			String mode = ParamTool.asString(config.getOrDefault("mode", config.getOrDefault("paramMode", "form")));
 
 			String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
 
-			return this.buildCommandStr(model, 0, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null);
+			return this.buildCommandStr(model, 0, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null, mode, new java.util.LinkedHashMap<>());
 		} catch (Exception e) {
 			logger.warn("[模型状态] 重建启动命令失败: modelId={}, error={}", modelId, e.getMessage());
 			return "";
@@ -1868,7 +1869,7 @@ public class LlamaServerManager {
 	 * @param sourceModelId 克隆体的源模型 modelId，主体传 null
 	 * @return
 	 */
-	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId) {
+	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId, String mode) {
 		Map<String, Object> launchConfig = new HashMap<>();
 		launchConfig.put("llamaBinPathSelect", llamaBinPath);
 		launchConfig.put("device", device);
@@ -1876,6 +1877,7 @@ public class LlamaServerManager {
 		launchConfig.put("cmd", cmd);
 		launchConfig.put("extraParams", extraParams);
 		launchConfig.put("enableVision", enbaleVision);
+		launchConfig.put("mode", mode);
 		// sourceModelId 已在 launch_config 条目顶层保存，不需要重复写入 configs.default
 		
 		if (chatTemplateFilePath != null && !chatTemplateFilePath.trim().isEmpty()) {
@@ -1917,10 +1919,11 @@ public class LlamaServerManager {
 		final Integer mgSafe = mg;
 		final String chatTemplateFileSafe = chatTemplateFilePath == null ? "" : chatTemplateFilePath;
 		final String sourceModelIdSafe = sourceModelId;
+		final String modeSafe = mode == null || mode.trim().isEmpty() ? "form" : mode.trim();
 
 		try {
 			Future<?> future = this.executorService.submit(() -> {
-				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, chatTemplateFileSafe, sourceModelIdSafe);
+				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, chatTemplateFileSafe, sourceModelIdSafe, modeSafe);
 			});
 			synchronized (this.processLock) {
 				this.loadingTasks.put(modelId, future);
@@ -1950,9 +1953,10 @@ public class LlamaServerManager {
 	 * @param extraParams
 	 * @param chatTemplateFilePath
 	 * @param sourceModelId 克隆体的源模型 modelId，主体传 null
+	 * @param mode 参数模式：form 或 cmd
 	 */
 	private void loadModelInBackgroundFromCmd(String modelId, GGUFModel targetModel, String llamaBinPath, List<String> device,
-			Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId) {
+			Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId, String mode) {
 		String canonicalId = modelId;
 		String sanitizedId = sanitizeModelId(canonicalId);
 		try (var loadCtx = CloseableThreadContext.put("modelId", sanitizedId)) {
@@ -1961,7 +1965,12 @@ public class LlamaServerManager {
 				return;
 			}
 			int port = this.getNextAvailablePort();
-			String allArgs = (cmd == null ? "" : cmd.trim()) + (extraParams == null ? "" : " " + extraParams.trim());
+			String allArgs;
+			if ("cmd".equalsIgnoreCase(mode)) {
+				allArgs = cmd == null ? "" : cmd.trim();
+			} else {
+				allArgs = (cmd == null ? "" : cmd.trim()) + (extraParams == null ? "" : " " + extraParams.trim());
+			}
 			Integer clientPort = cmdHasFlag(allArgs, "--port") ? extractPortFromCmd(allArgs) : null;
 			int actualPort = clientPort != null && clientPort > 0 && clientPort < 65535 ? clientPort : port;
 			String aliasModelId = null;
@@ -1969,9 +1978,13 @@ public class LlamaServerManager {
 				String cloneAlias = configManager.loadAliasMap().get(modelId);
 				aliasModelId = (cloneAlias != null && !cloneAlias.trim().isEmpty()) ? cloneAlias.trim() : modelId;
 			}
-			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, aliasModelId);
+			Map<String, String> envVars = new LinkedHashMap<>();
+			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, aliasModelId, mode, envVars);
 			String processName = "llama-server-" + canonicalId;
 			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId, sourceModelId);
+			if (!envVars.isEmpty()) {
+				process.setEnvVars(envVars);
+			}
 
 			logger.info("启动命令：{}", commandStr);
 
@@ -2190,7 +2203,7 @@ public class LlamaServerManager {
 	}
 
 	/**
-	 * 	
+	 *
 	 * @param targetModel
 	 * @param port
 	 * @param llamaBinPath
@@ -2199,9 +2212,23 @@ public class LlamaServerManager {
 	 * @param cmd
 	 * @param extraParams
 	 * @param chatTemplateFilePath
+	 * @param aliasModelId
+	 * @param mode 参数模式：form 或 cmd
+	 * @param envVarsOut 命令行模式下提取出的环境变量会写入此 Map
 	 * @return
 	 */
-	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String aliasModelId) {
+	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String aliasModelId, String mode, Map<String, String> envVarsOut) {
+		boolean isCmdMode = "cmd".equalsIgnoreCase(mode);
+		if (isCmdMode) {
+			return buildCommandStrFromCmd(targetModel, port, llamaBinPath, cmd, aliasModelId, envVarsOut);
+		}
+		return buildCommandStrFromForm(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, aliasModelId);
+	}
+
+	/**
+	 * 表单模式：保持原有拼接逻辑不变。
+	 */
+	private String buildCommandStrFromForm(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String aliasModelId) {
 		StringBuilder sb = new StringBuilder();
 		String allArgs = "";
 		if (cmd != null && !cmd.trim().isEmpty()) allArgs = cmd.trim();
@@ -2221,14 +2248,14 @@ public class LlamaServerManager {
 			sb.append(" --port ");
 			sb.append(port);
 		}
-		
+
 		//	确认启用视觉
 		if(enableVision) {
 			if (targetModel.getMmproj() != null && !cmdHasFlag(allArgs, "--mmproj") && !cmdHasFlag(allArgs, "--no-mmproj")) {
 				sb.append(" --mmproj ");
 				String mmprojFile = Paths.get(targetModel.getPath(), targetModel.getMmproj().getFileName()).toString();
 				sb.append(ParamTool.quoteIfNeeded(mmprojFile));
-			}	
+			}
 		}
 
 		if (device != null && !device.isEmpty()) {
@@ -2241,7 +2268,7 @@ public class LlamaServerManager {
 			}
 			if(mg != null && mg >= 0) {
 				sb.append(" --main-gpu ");
-				sb.append(String.valueOf(mg));	
+				sb.append(String.valueOf(mg));
 			}
 		}
 
@@ -2286,14 +2313,116 @@ public class LlamaServerManager {
 			}
 		}
 		sb.append(" --alias ").append(ParamTool.quoteIfNeeded(alias));
-		
+
 		sb.append(" --timeout 36000");
 		// 允许任意IP地址访问
 		sb.append(" --host 0.0.0.0");
 		// 输出详细日志 一些分支不兼容这玩意，先注释掉吧，后续改为可选参数。
 		//sb.append(" -lv 4");
-		
+
 		return sb.toString().trim();
+	}
+
+	/**
+	 * 命令行模式：用户输入为权威来源，后端只负责补全必要参数、提取环境变量。
+	 * 用户输入中的可执行文件路径和 -m/--model 会被忽略，强制使用当前选择模型。
+	 */
+	private String buildCommandStrFromCmd(GGUFModel targetModel, int port, String llamaBinPath, String cmd, String aliasModelId, Map<String, String> envVarsOut) {
+		String trimmedCmd = cmd == null ? "" : cmd.trim();
+
+		// 1. 拆分 token，提取前导环境变量
+		List<String> tokens = LlamaCppProcess.splitCommandLineArgs(trimmedCmd);
+		List<String> userArgs = new ArrayList<>();
+		for (String token : tokens) {
+			int eq = token.indexOf('=');
+			if (eq > 0 && userArgs.isEmpty() && isValidEnvVarKey(token.substring(0, eq))) {
+				String key = token.substring(0, eq);
+				String value = token.substring(eq + 1);
+				envVarsOut.put(key, value);
+			} else {
+				userArgs.add(token);
+			}
+		}
+
+		// 2. 忽略用户输入的可执行文件路径（如果第一个 token 是路径）
+		if (!userArgs.isEmpty()) {
+			String first = userArgs.get(0);
+			if (first.contains("/") || first.contains("\\")) {
+				userArgs.remove(0);
+			}
+		}
+
+		// 3. 忽略用户输入的 -m / --model 及其值
+		for (int i = 0; i < userArgs.size(); ) {
+			String t = userArgs.get(i);
+			if ("-m".equals(t) || "--model".equals(t)) {
+				userArgs.remove(i);
+				if (i < userArgs.size()) {
+					userArgs.remove(i);
+				}
+			} else if (t.startsWith("--model=")) {
+				userArgs.remove(i);
+			} else {
+				i++;
+			}
+		}
+
+		// 4. 组装命令：binary + 强制 -m + 用户参数 + 缺失的后端必需参数
+		StringBuilder sb = new StringBuilder();
+		String exeName = isWindows() ? "llama-server.exe" : "llama-server";
+		String exe = Paths.get(llamaBinPath, exeName).toString();
+		sb.append(ParamTool.quoteIfNeeded(exe));
+
+		sb.append(" -m ");
+		String modelFile = Paths.get(targetModel.getPath(), targetModel.getPrimaryModel().getFileName()).toString();
+		sb.append(ParamTool.quoteIfNeeded(modelFile));
+
+		for (String arg : userArgs) {
+			sb.append(' ').append(ParamTool.quoteIfNeeded(arg));
+		}
+
+		if (!hasFlagToken(userArgs, "--port")) {
+			sb.append(" --port ").append(port);
+		}
+
+		String alias;
+		if (aliasModelId != null && !aliasModelId.trim().isEmpty()) {
+			alias = aliasModelId;
+		} else {
+			alias = targetModel.getAlias();
+			if (alias == null || alias.trim().isEmpty()) {
+				alias = targetModel.getModelId();
+			}
+		}
+		if (!hasFlagToken(userArgs, "--alias")) {
+			sb.append(" --alias ").append(ParamTool.quoteIfNeeded(alias));
+		}
+
+		if (!hasFlagToken(userArgs, "--host")) {
+			sb.append(" --host 0.0.0.0");
+		}
+		if (!hasFlagToken(userArgs, "--timeout")) {
+			sb.append(" --timeout 36000");
+		}
+		if (!hasFlagToken(userArgs, "--metrics")) {
+			sb.append(" --metrics");
+		}
+
+		return sb.toString().trim();
+	}
+
+	private static boolean isValidEnvVarKey(String key) {
+		return key != null && !key.isEmpty() && key.matches("[A-Za-z_][A-Za-z0-9_]*");
+	}
+
+	private static boolean hasFlagToken(List<String> tokens, String flag) {
+		if (tokens == null || tokens.isEmpty()) return false;
+		for (String token : tokens) {
+			if (token.equals(flag) || token.startsWith(flag + "=")) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -3184,7 +3313,8 @@ public class LlamaServerManager {
 
 		// 8. 提交加载任务（如果尚未在加载中）
 		if (!this.isLoading(modelId)) {
-			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId);
+			String mode = ParamTool.asString(selectedConfig.getOrDefault("mode", selectedConfig.getOrDefault("paramMode", "form")));
+			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId, mode);
 			if (!submitted) {
 				// 可能已经被其他请求提交了，检查是否已加载
 				if (this.getLoadedProcesses().containsKey(modelId)) {

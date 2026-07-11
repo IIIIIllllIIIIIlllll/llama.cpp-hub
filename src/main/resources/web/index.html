@@ -4316,15 +4316,52 @@ llama.cpp-hub</textarea>
                             </div>
                         </div>
 
-                        <!-- 右侧：全部的参数配置 -->
-                        <div id="dynamicParamsContainer">
-                            <div class="loading-spinner">
-                                <div class="spinner"></div>
+                        <!-- 右侧：参数配置区域 -->
+                        <div class="right-param-area">
+                            <div class="param-mode-toggle-bar" id="paramModeToggleBar">
+                                <button type="button" class="param-mode-btn active" data-mode="form" onclick="switchParamMode('form')">
+                                    <i class="fas fa-list"></i> 表单配置
+                                </button>
+                                <button type="button" class="param-mode-btn" data-mode="cmd" onclick="switchParamMode('cmd')">
+                                    <i class="fas fa-terminal"></i> 命令行
+                                </button>
                             </div>
-                        </div>
-                        <div id="benchmarkParamsContainer" style="display:none;">
-                            <div class="loading-spinner">
-                                <div class="spinner"></div>
+                            <div id="dynamicParamsContainer" class="param-mode-panel active">
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                </div>
+                            </div>
+                            <div id="benchmarkParamsContainer" style="display:none;">
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                </div>
+                            </div>
+                            <div id="commandLineContainer" class="param-mode-panel">
+                                <div class="cmd-mode-toolbar">
+                                    <small class="form-text"><i class="fas fa-info-circle"></i> 直接输入或粘贴命令行参数，提交时将使用该命令</small>
+                                    <button type="button" class="cmd-mode-help-btn" onclick="toggleCmdModeHelp(event)" title="输入格式说明">
+                                        <i class="fas fa-question-circle"></i>
+                                    </button>
+                                </div>
+                                <div id="cmdModeHelpPanel" class="cmd-mode-help-panel" style="display:none;">
+                                    <div class="cmd-mode-help-content">
+                                        <h6><i class="fas fa-terminal"></i> 命令行模式输入说明</h6>
+                                        <ul>
+                                            <li><strong>环境变量</strong>：写在最前面，格式为 <code>KEY=VALUE</code>，多个用空格分隔。
+                                                <br>例：<code>CUDA_SCALE_LAUNCH_QUEUES=4 TURBO_AUTO_ASYMMETRIC=0</code>
+                                            </li>
+                                            <li><strong>值含空格</strong>：用引号包裹，如 <code>MY_VAR="hello world"</code>。</li>
+                                            <li><strong>模型路径</strong>：你输入的 <code>-m</code> / <code>--model</code> 会被忽略，强制使用当前选择的模型。</li>
+                                            <li><strong>后端自动补齐</strong>：<code>--port</code>、<code>--alias</code>、<code>--host 0.0.0.0</code>、<code>--timeout 36000</code>、<code>--metrics</code>。如果已填写则不会重复。</li>
+                                            <li><strong>路径变量合并</strong>：你填写的 <code>LD_LIBRARY_PATH</code>（Linux）和 Windows 下的 <code>PATH</code> 会与你选择运行库路径合并，用户值在前。</li>
+                                        </ul>
+                                        <div class="cmd-mode-help-example">
+                                            <strong>参考示例：</strong>
+                                            <pre><code>CUDA_SCALE_LAUNCH_QUEUES=4 TURBO_AUTO_ASYMMETRIC=0 --ctx-size 8192 --no-mmap --batch-size 512</code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                                <textarea id="commandLineInput" class="cmd-mode-textarea" placeholder="CUDA_SCALE_LAUNCH_QUEUES=4 --ctx-size 4096 --mlock ..." spellcheck="false"></textarea>
                             </div>
                         </div>
                     </div>

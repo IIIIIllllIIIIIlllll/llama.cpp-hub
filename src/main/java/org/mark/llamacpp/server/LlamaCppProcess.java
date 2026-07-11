@@ -60,6 +60,7 @@ public class LlamaCppProcess {
 	private int slotNum;
 	private CompletableFuture<Void> exitFuture;
 	private final AtomicReference<ProcessExitInfo> exitInfoRef = new AtomicReference<>();
+	private Map<String, String> envVars = java.util.Collections.emptyMap();
 
 	public LlamaCppProcess(String name, String cmd, String llamaBinPath, String modelId, String sourceModelId) {
 		this.name = name;
@@ -97,6 +98,10 @@ public class LlamaCppProcess {
 		return this.slotNum;
 	}
 
+	public void setEnvVars(Map<String, String> envVars) {
+		this.envVars = envVars == null ? java.util.Collections.emptyMap() : new java.util.LinkedHashMap<>(envVars);
+	}
+
 	/**
 	 * 	写入输入内容
 	 */
@@ -124,12 +129,34 @@ public class LlamaCppProcess {
 			ProcessBuilder pb = new ProcessBuilder(args);
 
 			Map<String, String> env = pb.environment();
+
+			// 处理用户自定义环境变量（命令行模式）
+			String userPath = null;
+			String userLdPath = null;
+			if (this.envVars != null && !this.envVars.isEmpty()) {
+				userPath = this.envVars.get("PATH");
+				userLdPath = this.envVars.get("LD_LIBRARY_PATH");
+				for (Map.Entry<String, String> entry : this.envVars.entrySet()) {
+					String key = entry.getKey();
+					if ("PATH".equals(key) || "LD_LIBRARY_PATH".equals(key)) {
+						continue;
+					}
+					logger.info("注入用户环境变量: {}={}", key, entry.getValue());
+					env.put(key, entry.getValue());
+				}
+				// Linux 上 PATH 不由后端管理，直接应用用户值
+				if (userPath != null && !isWindows()) {
+					logger.info("注入用户 PATH: {}", userPath);
+					env.put("PATH", userPath);
+				}
+			}
+
 			// 处理linux，windows也需要增加
 			if (isWindows()) {
 				this.applyWindowsRuntimePath(pb, env);
 			}
-			
-			// 
+
+			//
 			String existingLdPath = env.get("LD_LIBRARY_PATH");
 
 			StringBuilder ldPathBuilder = new StringBuilder();
@@ -180,6 +207,22 @@ public class LlamaCppProcess {
 			}
 
 			env.put("LD_LIBRARY_PATH", ldPathBuilder.toString());
+
+			// 将用户 LD_LIBRARY_PATH 置于后端构造的路径之前
+			if (userLdPath != null && !userLdPath.isEmpty()) {
+				String backendLdPath = env.get("LD_LIBRARY_PATH");
+				String mergedLdPath = userLdPath + ":" + backendLdPath;
+				logger.info("合并 LD_LIBRARY_PATH: {}", mergedLdPath);
+				env.put("LD_LIBRARY_PATH", mergedLdPath);
+			}
+
+			// Windows 上将用户 PATH 置于后端运行时路径之前
+			if (userPath != null && !userPath.isEmpty() && isWindows()) {
+				String backendPath = env.get("PATH");
+				String mergedPath = userPath + ";" + backendPath;
+				logger.info("合并 PATH: {}", mergedPath);
+				env.put("PATH", mergedPath);
+			}
 
 			this.process = pb.start();
 			logger.info("llama-server 进程已启动");
@@ -613,7 +656,7 @@ public class LlamaCppProcess {
 		}
 	}
 
-	private static List<String> splitCommandLineArgs(String commandLine) {
+	static List<String> splitCommandLineArgs(String commandLine) {
 		List<String> out = new ArrayList<>();
 		if (commandLine == null) {
 			return out;

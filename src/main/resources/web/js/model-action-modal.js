@@ -598,13 +598,17 @@ function updateShareCheckbox(modal, bundle) {
 // 关键注释：将当前UI中的启动参数整理为可持久化配置对象
 function buildPersistableLaunchConfig(modal) {
     const base = buildLoadModelPayload(modal);
+    const cmdLineTextarea = findById(modal, 'commandLineInput');
     return {
         llamaBinPath: base && base.llamaBinPathSelect ? base.llamaBinPathSelect : '',
         mg: base && base.mg !== undefined ? base.mg : -1,
         cmd: base && base.cmd ? base.cmd : '',
         extraParams: base && base.extraParams ? base.extraParams : '',
         enableVision: base && base.enableVision !== undefined ? !!base.enableVision : true,
-        device: base && Array.isArray(base.device) ? base.device : ['All']
+        device: base && Array.isArray(base.device) ? base.device : ['All'],
+        mode: window.__paramMode === 'cmd' ? 'cmd' : 'form',
+        paramMode: window.__paramMode === 'cmd' ? 'cmd' : 'form',
+        cmdLine: cmdLineTextarea ? String(cmdLineTextarea.value || '').trim() : ''
     };
 }
 
@@ -647,7 +651,19 @@ function setModelConfigControlsDisabled(modal, disabled) {
 
 function applyLaunchConfigToModal(modal, config) {
     const cfg = isPlainObject(config) ? config : {};
+    const paramMode = cfg.paramMode === 'cmd' || cfg.mode === 'cmd' ? 'cmd' : 'form';
     const cmdStr = cfg.cmd === null || cfg.cmd === undefined ? '' : String(cfg.cmd);
+    let cmdLineStr = '';
+    if (cfg.cmdLine !== undefined && cfg.cmdLine !== null) {
+        cmdLineStr = String(cfg.cmdLine);
+    } else if (paramMode === 'cmd' && cfg.cmd !== undefined && cfg.cmd !== null) {
+        cmdLineStr = String(cfg.cmd);
+    }
+
+    // 先设置模式，确保后续表单/命令行内容写入到正确的面板
+    window.__paramMode = paramMode;
+    switchParamMode(paramMode);
+
     let applied = false;
     let attempts = 0;
     const maxAttempts = 60;
@@ -660,11 +676,18 @@ function applyLaunchConfigToModal(modal, config) {
         const ready = cfgList && cfgList.length && hasToggle && findById(modal, 'extraParams');
         if (ready) {
             applied = true;
-            applyCmdToDynamicFields(modal, cmdStr);
-            if (cfg.extraParams !== undefined && cfg.extraParams !== null && String(cfg.extraParams).trim()) {
-                setFieldValue(modal, ['extraParams'], String(cfg.extraParams));
-            } else if (cfg.extraParams !== undefined) {
-                setFieldValue(modal, ['extraParams'], cfg.extraParams || '');
+            if (paramMode === 'cmd') {
+                const textarea = findById(modal, 'commandLineInput');
+                if (textarea) textarea.value = cmdLineStr;
+                window.__cmdLineDraft = cmdLineStr;
+            } else {
+                window.__cmdLineDraft = undefined;
+                applyCmdToDynamicFields(modal, cmdStr);
+                if (cfg.extraParams !== undefined && cfg.extraParams !== null && String(cfg.extraParams).trim()) {
+                    setFieldValue(modal, ['extraParams'], String(cfg.extraParams));
+                } else if (cfg.extraParams !== undefined) {
+                    setFieldValue(modal, ['extraParams'], cfg.extraParams || '');
+                }
             }
             return;
         }
@@ -1259,6 +1282,52 @@ function applyModelActionSubmitButtonState(modal, mode) {
     submitBtn.textContent = t('modal.model_action.submit.load', '加载模型');
 }
 
+function toggleCmdModeHelp(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const panel = document.getElementById('cmdModeHelpPanel');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function switchParamMode(mode) {
+    if (mode !== 'form' && mode !== 'cmd') return;
+    const modal = getLoadModelModal();
+    if (!modal) return;
+    if (window.__modelActionMode === 'benchmark') return;
+
+    const formPanel = findById(modal, 'dynamicParamsContainer');
+    const cmdPanel = findById(modal, 'commandLineContainer');
+    const toggleBtns = modal.querySelectorAll('.param-mode-btn');
+
+    toggleBtns.forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    if (formPanel) formPanel.classList.toggle('active', mode === 'form');
+    if (cmdPanel) cmdPanel.classList.toggle('active', mode === 'cmd');
+
+    if (mode === 'cmd') {
+        const textarea = findById(modal, 'commandLineInput');
+        // 优先恢复用户之前编辑的 cmdLine 草稿；没有草稿再从表单生成
+        const draft = window.__cmdLineDraft !== undefined ? String(window.__cmdLineDraft) : '';
+        if (textarea) textarea.value = draft || buildLoadModelPayload(modal).cmd || '';
+    } else if (mode === 'form') {
+        const textarea = findById(modal, 'commandLineInput');
+        if (textarea) {
+            // 暂存当前命令行内容，避免切回命令行时丢失
+            window.__cmdLineDraft = String(textarea.value || '');
+            if (typeof applyCmdToDynamicFields === 'function') {
+                applyCmdToDynamicFields(modal, textarea.value || '');
+            }
+        }
+    }
+
+    window.__paramMode = mode;
+}
+
 function setModelActionMode(mode) {
     const resolved = mode === 'benchmark' ? 'benchmark' : 'load';
     window.__modelActionMode = resolved;
@@ -1271,6 +1340,9 @@ function setModelActionMode(mode) {
     const mainGpuGroup = findById(modal, 'mainGpuGroup');
     const estimateBtn = findById(modal, 'estimateVramBtn');
     const resetBtn = findById(modal, 'modelActionResetBtn');
+    const toggleBar = findById(modal, 'paramModeToggleBar');
+
+    if (toggleBar) toggleBar.classList.toggle('benchmark', resolved === 'benchmark');
 
     if (dynamicParams) dynamicParams.style.display = resolved === 'benchmark' ? 'none' : '';
     if (benchmarkParams) benchmarkParams.style.display = resolved === 'benchmark' ? '' : 'none';
@@ -1278,6 +1350,10 @@ function setModelActionMode(mode) {
     if (estimateBtn) estimateBtn.style.display = resolved === 'benchmark' ? 'none' : '';
     if (resetBtn) resetBtn.style.display = resolved === 'benchmark' ? '' : 'none';
     if (saveBtn) saveBtn.style.display = resolved === 'benchmark' ? 'none' : '';
+
+    if (resolved !== 'benchmark' && window.__paramMode !== 'form') {
+        switchParamMode('form');
+    }
 
     if (resolved === 'benchmark') {
         const hasBenchmarkFields = !!findInModal(modal, '#benchmarkParamsContainer input, #benchmarkParamsContainer select, #benchmarkParamsContainer textarea');
@@ -1407,73 +1483,83 @@ function buildLoadModelPayload(modal) {
     const availableCount = window.__availableDeviceCount;
     const isAllSelected = Number.isFinite(availableCount) && availableCount > 0 && selectedDevices.length === availableCount;
 
-    const cmdParts = [];
+    let cmd = '';
+    let extraParams = '';
 
-    const cfgList = getParamConfigListSafe().slice().sort((a, b) => (a && a.sort ? a.sort : 0) - (b && b.sort ? b.sort : 0));
-    for (let i = 0; i < cfgList.length; i++) {
-        const p = cfgList[i];
-        if (!p) continue;
-        const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName);
-        const abbr = p.abbreviation === null || p.abbreviation === undefined ? '' : String(p.abbreviation);
-        const type = p.type === null || p.type === undefined ? 'STRING' : String(p.type);
-        const typeUpper = String(type).toUpperCase();
-        const uiType = getParamUiType(p);
-        const fullNameTrimmed = fullName.trim();
-        const abbrTrimmed = abbr.trim();
+    if (window.__paramMode === 'cmd') {
+        const textarea = findById(modal, 'commandLineInput');
+        cmd = textarea ? String(textarea.value || '').trim() : '';
+        extraParams = '';
+    } else {
+        const cmdParts = [];
 
-        if (uiType === 'ordered-multiselect') {
-            if (!fullNameTrimmed) continue;
-            const fieldName = fieldNameFromParamConfig(p);
+        const cfgList = getParamConfigListSafe().slice().sort((a, b) => (a && a.sort ? a.sort : 0) - (b && b.sort ? b.sort : 0));
+        for (let i = 0; i < cfgList.length; i++) {
+            const p = cfgList[i];
+            if (!p) continue;
+            const fullName = p.fullName === null || p.fullName === undefined ? '' : String(p.fullName);
+            const abbr = p.abbreviation === null || p.abbreviation === undefined ? '' : String(p.abbreviation);
+            const type = p.type === null || p.type === undefined ? 'STRING' : String(p.type);
+            const typeUpper = String(type).toUpperCase();
+            const uiType = getParamUiType(p);
+            const fullNameTrimmed = fullName.trim();
+            const abbrTrimmed = abbr.trim();
+
+            if (uiType === 'ordered-multiselect') {
+                if (!fullNameTrimmed) continue;
+                const fieldName = fieldNameFromParamConfig(p);
+                if (!fieldName) continue;
+                if (!isLoadModelParamEnabled(modal, fieldName)) continue;
+                const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
+                if (!el || !('value' in el)) continue;
+                const selected = String(el.value || '').trim();
+                if (!selected) continue;
+                cmdParts.push(fullNameTrimmed, quoteArgIfNeeded(selected));
+                continue;
+            }
+
+            if (typeUpper === 'STRING' && !fullNameTrimmed && !abbrTrimmed) {
+                const values = getParamOptionValues(p);
+                if (!values.length) continue;
+                const defaultValue = p.defaultValue === null || p.defaultValue === undefined ? (values.length ? String(values[0]) : '') : String(p.defaultValue);
+                const fieldName = fieldNameFromParamConfig(p);
+                if (!fieldName) continue;
+                if (!isLoadModelParamEnabled(modal, fieldName)) continue;
+                const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
+                if (!el || !('value' in el)) continue;
+                const selected = String(el.value || '').trim();
+                if (!selected) continue;
+                if (values.some(v => String(v).trim() === selected)) {
+                    cmdParts.push(quoteArgIfNeeded(selected));
+                }
+                continue;
+            }
+
+            if (!fullNameTrimmed && !abbrTrimmed) continue;
+            const effectiveName = fullNameTrimmed || abbrTrimmed;
+            const fieldName = fieldNameFromFullName(effectiveName);
             if (!fieldName) continue;
             if (!isLoadModelParamEnabled(modal, fieldName)) continue;
-            const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
+
+            const el = findFieldByName(modal, fieldName);
             if (!el || !('value' in el)) continue;
-            const selected = String(el.value || '').trim();
-            if (!selected) continue;
-            cmdParts.push(fullNameTrimmed, quoteArgIfNeeded(selected));
-            continue;
-        }
+            const rawValue = String(el.value || '');
 
-        if (typeUpper === 'STRING' && !fullNameTrimmed && !abbrTrimmed) {
-            const values = getParamOptionValues(p);
-            if (!values.length) continue;
-            const defaultValue = p.defaultValue === null || p.defaultValue === undefined ? (values.length ? String(values[0]) : '') : String(p.defaultValue);
-            const fieldName = fieldNameFromParamConfig(p);
-            if (!fieldName) continue;
-            if (!isLoadModelParamEnabled(modal, fieldName)) continue;
-            const el = findFieldByName(modal, fieldName) || findById(modal, 'param_' + fieldName);
-            if (!el || !('value' in el)) continue;
-            const selected = String(el.value || '').trim();
-            if (!selected) continue;
-            if (values.some(v => String(v).trim() === selected)) {
-                cmdParts.push(quoteArgIfNeeded(selected));
+            if (typeUpper === 'LOGIC') {
+                if (isTruthyLogicValue(rawValue)) {
+                    cmdParts.push(effectiveName);
+                }
+                continue;
             }
-            continue;
+
+            const trimmed = rawValue.trim();
+            if (!trimmed) continue;
+            cmdParts.push(effectiveName, quoteArgIfNeeded(trimmed));
         }
 
-        if (!fullNameTrimmed && !abbrTrimmed) continue;
-        const effectiveName = fullNameTrimmed || abbrTrimmed;
-        const fieldName = fieldNameFromFullName(effectiveName);
-        if (!fieldName) continue;
-        if (!isLoadModelParamEnabled(modal, fieldName)) continue;
-
-        const el = findFieldByName(modal, fieldName);
-        if (!el || !('value' in el)) continue;
-        const rawValue = String(el.value || '');
-
-        if (typeUpper === 'LOGIC') {
-            if (isTruthyLogicValue(rawValue)) {
-                cmdParts.push(effectiveName);
-            }
-            continue;
-        }
-
-        const trimmed = rawValue.trim();
-        if (!trimmed) continue;
-        cmdParts.push(effectiveName, quoteArgIfNeeded(trimmed));
+        cmd = cmdParts.join(' ').trim();
+        extraParams = getFieldString(modal, ['extraParams']).trim();
     }
-
-    const extraParams = getFieldString(modal, ['extraParams']).trim();
 
     const payload = {
         modelId,
@@ -1482,7 +1568,8 @@ function buildLoadModelPayload(modal) {
         enableVision,
         device: selectedDevices,
         mg: getSelectedMainGpu(),
-        cmd: cmdParts.join(' ').trim(),
+        mode: window.__paramMode === 'cmd' ? 'cmd' : 'form',
+        cmd: cmd,
         extraParams
     };
 
