@@ -4119,10 +4119,19 @@
       main.style.setProperty('--chat-bg-image-opacity', String((catalog.opacity ?? 45) / 100));
       if (catalog.activeId) {
         const imageUrl = CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId);
-        main.style.setProperty('--chat-bg-image', 'url(' + imageUrl + ')');
-        computeImageBrightness(imageUrl)
-          .then(syncChatBackgroundBrightness)
-          .catch(() => syncChatBackgroundBrightness(null));
+        const bgValue = 'url(' + imageUrl + ')';
+        if (main.style.getPropertyValue('--chat-bg-image') !== bgValue) {
+          main.style.setProperty('--chat-bg-image', bgValue);
+        }
+        // 亮度只在透明度 100% 时用于切换文字反色；默认半透明时不加载额外图片
+        if ((catalog.opacity ?? 45) >= 100) {
+          const thumbUrl = CHAT_BG_THUMB_URL_PREFIX + encodeURIComponent(catalog.activeId);
+          computeImageBrightness(thumbUrl)
+            .then(syncChatBackgroundBrightness)
+            .catch(() => syncChatBackgroundBrightness(null));
+        } else {
+          syncChatBackgroundBrightness(null);
+        }
       } else {
         main.style.removeProperty('--chat-bg-image');
         syncChatBackgroundBrightness(null);
@@ -4138,7 +4147,6 @@
           return;
         }
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
@@ -4197,9 +4205,21 @@
       if (!els.chatBgPreview) {
         return;
       }
+      const currentId = els.chatBgPreview.getAttribute('data-bg-id') || '';
+      const targetId = catalog.activeId || '';
+      if (currentId === targetId) {
+        return;
+      }
+      els.chatBgPreview.setAttribute('data-bg-id', targetId);
       if (catalog.activeId) {
-        els.chatBgPreview.innerHTML = '<img src="' + CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId) + '" alt="">';
+        const imageUrl = CHAT_BG_IMAGE_URL_PREFIX + encodeURIComponent(catalog.activeId);
+        // 用 CSS background-image 替代 <img>，与主背景图共享同一份图片资源
+        els.chatBgPreview.innerHTML = '';
+        els.chatBgPreview.style.backgroundImage = 'url(' + imageUrl + ')';
+        els.chatBgPreview.style.backgroundSize = 'cover';
+        els.chatBgPreview.style.backgroundPosition = 'center';
       } else {
+        els.chatBgPreview.style.backgroundImage = '';
         const placeholder = window.I18N.t('page.chat.main.settings.background.bg_image_placeholder', '无背景');
         els.chatBgPreview.innerHTML = '<span class="chat-bg-placeholder">' + escapeHtml(placeholder) + '</span>';
       }
@@ -10982,7 +11002,6 @@ function confirmAudioRecording() {
     async function init() {
       initTheme();
       await loadChatBackgroundCatalog();
-      applyChatBackground();
       try {
         const resp = await fetch('/api/sys/setting', { method: 'GET' });
         const result = await resp.json();
