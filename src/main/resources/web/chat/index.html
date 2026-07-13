@@ -26,7 +26,7 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <a class="brand-left" href="../index.html" aria-label="返回首页" data-i18n-attr="aria-label" data-i18n="page.chat.main.sidebar.back_home">
+        <a id="backHomeLink" class="brand-left" href="../index.html" aria-label="返回首页" data-i18n-attr="aria-label" data-i18n="page.chat.main.sidebar.back_home">
           <div class="brand-mark">
             <img src="../llama1-icon-transparent.png" alt="llama.cpp-hub" class="brand-mark-image" data-i18n-attr="alt" data-i18n="app.title">
           </div>
@@ -8321,6 +8321,12 @@
       return window.innerWidth <= 1080;
     }
 
+    function updateBackHomeLink() {
+      const link = document.getElementById('backHomeLink');
+      if (!link) return;
+      link.href = isCompactLayout() ? '../index-mobile.html' : '../index.html';
+    }
+
     function updateSidebarToggle() {
       const compact = isCompactLayout();
       const isExpanded = compact ? state.sidebarOpen : !state.sidebarCollapsed;
@@ -8360,6 +8366,7 @@
         state.sidebarOpen = false;
       }
       applySidebarState();
+      updateBackHomeLink();
     }
 
     let currentApiKey = '';
