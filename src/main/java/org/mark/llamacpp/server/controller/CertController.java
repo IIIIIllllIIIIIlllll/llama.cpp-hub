@@ -357,7 +357,7 @@ public class CertController implements BaseController {
             data.put("expireDate", expireDate);
             data.put("keysize", keysize);
 
-            LlamaServer.updateHttpsConfig(null, keystoreFile.toString(), null, password);
+            LlamaServer.updateHttpsConfig(null, keystoreFile.toString(), password);
             logger.info("HTTPS证书生成成功: {}, CA证书: {}", keystoreFile, caCertFile);
             LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 

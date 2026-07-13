@@ -1049,7 +1049,7 @@ Integer webPort = firstPort(obj, "webPort", "web_port");
 			}
 			
 			if (httpsEnabled != null || httpsCertPath != null || httpsPassword != null) {
-				LlamaServer.updateHttpsConfig(httpsEnabled, httpsCertPath, null, httpsPassword);
+				LlamaServer.updateHttpsConfig(httpsEnabled, httpsCertPath, httpsPassword);
 			}
 			
 if (downloadDirectory != null && !downloadDirectory.isEmpty()) {

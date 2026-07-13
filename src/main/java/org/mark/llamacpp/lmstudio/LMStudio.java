@@ -128,7 +128,7 @@ public class LMStudio {
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
 						protected void initChannel(SocketChannel ch) throws Exception {
-							SslContext sslContext = org.mark.llamacpp.server.LlamaServer.getHttpsSslContext();
+							SslContext sslContext = org.mark.llamacpp.server.NettyWebServer.getHttpsSslContext();
 							if (sslContext != null) {
 								SSLEngine engine = sslContext.newEngine(ch.alloc());
 								ch.pipeline()
@@ -167,7 +167,7 @@ public class LMStudio {
 			}
 			
 			logger.info("LMStudio服务启动成功，端口: {}", bindPort);
-			SslContext sslContext = org.mark.llamacpp.server.LlamaServer.getHttpsSslContext();
+			SslContext sslContext = org.mark.llamacpp.server.NettyWebServer.getHttpsSslContext();
 			String protocol = sslContext != null ? "https" : "http";
 			logger.info("访问地址: {}://localhost:{}", protocol, bindPort);
 			

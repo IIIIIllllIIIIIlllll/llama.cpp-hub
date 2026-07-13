@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.KeyStore;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -23,13 +22,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import javax.net.ssl.KeyManagerFactory;
-
 import org.mark.llamacpp.lmstudio.LMStudio;
 import org.mark.llamacpp.ollama.Ollama;
 import org.apache.logging.log4j.LogManager;
 import org.mark.file.downloader.DownloadTaskManager;
-import org.mark.llamacpp.server.channel.HttpHttpsUnificationHandler;
 import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
 import org.mark.llamacpp.server.io.ConsoleBufferLogAppender;
 import org.mark.llamacpp.server.mcp.McpClientService;
@@ -55,18 +51,9 @@ import com.google.gson.JsonObject;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.channel.WriteBufferWaterMark;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -79,8 +66,6 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.stream.ChunkedFile;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.util.CharsetUtil;
@@ -189,7 +174,7 @@ public class LlamaServer {
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 			logger.info("收到关闭信号，正在清理所有资源...");
 			try {
-				LlamaServer.closeAllWebServerChannels();
+				NettyWebServer.stop();
 			} catch (Exception e) {
 				logger.error("关闭Web服务通道失败", e);
 			}
@@ -234,10 +219,9 @@ public class LlamaServer {
 			
 		}, "shutdown-hook"));
 
-		LlamaServer.initHttpsContext();
-
 		Thread t1 = new Thread(() -> {
-			LlamaServer.bindOpenAI(webPort);
+			NettyWebServer webServer = new NettyWebServer(webPort, httpsEnabled, httpsCertPath, httpsPassword);
+			webServer.start();
 		});
 		t1.start();
 		
@@ -379,8 +363,6 @@ public class LlamaServer {
 	 */
 	private static final int DEFAULT_WEB_PORT = 8080;
 	
-	private static final int MAX_HTTP_CONTENT_LENGTH = 16 * 1024 * 1024;
-	
 	private static final int DEFAULT_MCP_SERVER_PORT = 8075;
 
 	/**
@@ -407,11 +389,6 @@ public class LlamaServer {
 	private static final DateTimeFormatter CONSOLE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
 
-	
-	/**
-	 * 	WebSocket地址
-	 */
-	private static final String WEBSOCKET_PATH = "/ws";
 	
 	//##############################################################################################################################
 
@@ -441,39 +418,8 @@ public class LlamaServer {
 
 	private static volatile boolean httpsEnabled = false;
 	private static volatile String httpsCertPath = "ssl/keystore.p12";
-	private static volatile String httpsKeyPath = "ssl/keystore.p12";
 	private static volatile String httpsPassword = "changeit";
-	private static volatile SslContext httpsSslContext;
-
-	/**
-	 * 	Windows 重启功能：所有 Web 服务 Netty ServerChannel 集合，
-	 * 	重启时统一关闭释放端口
-	 */
-	private static final List<Channel> webServerChannels = new ArrayList<>();
-	private static final Object CHANNEL_LOCK = new Object();
 	private static final Object RESTART_LOCK = new Object();
-
-	private static void registerWebServerChannel(Channel ch) {
-		synchronized (CHANNEL_LOCK) {
-			webServerChannels.add(ch);
-		}
-	}
-
-	/**
-	 * 	Windows 重启功能：关闭所有已注册的 Web 服务端口。
-	 */
-	private static void closeAllWebServerChannels() {
-		synchronized (CHANNEL_LOCK) {
-			for (Channel ch : webServerChannels) {
-				try {
-					ch.close().await();
-				} catch (Exception e) {
-					logger.error("关闭 Web 服务通道失败", e);
-				}
-			}
-			webServerChannels.clear();
-		}
-	}
 
 	private static volatile String nodeRole = null;
 
@@ -636,12 +582,8 @@ public class LlamaServer {
 				}
 				if (https.has("keystorePath")) {
 					httpsCertPath = https.get("keystorePath").getAsString();
-					httpsKeyPath = httpsCertPath;
 				} else if (https.has("certPath")) {
 					httpsCertPath = https.get("certPath").getAsString();
-				}
-				if (https.has("keyPath")) {
-					httpsKeyPath = https.get("keyPath").getAsString();
 				}
 				if (https.has("keystorePassword")) {
 					httpsPassword = https.get("keystorePassword").getAsString();
@@ -799,24 +741,17 @@ public class LlamaServer {
 		return httpsCertPath;
 	}
 
-	public static String getHttpsKeyPath() {
-		return httpsKeyPath;
-	}
-
 	public static String getHttpsPassword() {
 		return httpsPassword;
 	}
 
-	public static void updateHttpsConfig(Boolean enabled, String certPath, String keyPath, String password) {
+	public static void updateHttpsConfig(Boolean enabled, String certPath, String password) {
 		synchronized (APPLICATION_CONFIG_LOCK) {
 			if (enabled != null) {
 				httpsEnabled = enabled;
 			}
 			if (certPath != null) {
 				httpsCertPath = certPath;
-			}
-			if (keyPath != null) {
-				httpsKeyPath = keyPath;
 			}
 			if (password != null) {
 				httpsPassword = password;
@@ -882,10 +817,6 @@ public class LlamaServer {
 
 	public static DefaultMcpServiceImpl getMcpServerService() {
 		return mcpServerService;
-	}
-
-	public static SslContext getHttpsSslContext() {
-		return httpsSslContext;
 	}
 
 	public static int getMcpServerPort() {
@@ -1023,118 +954,6 @@ public class LlamaServer {
 		return DEFAULT_MODELS_DIRECTORY;
 	}
 
-	public static void initHttpsContext() {
-		if (!httpsEnabled) {
-			logger.info("HTTPS未启用，使用HTTP协议启动");
-			return;
-		}
-		try {
-			File keystoreFile = new File(httpsCertPath);
-			// 如果配置的是目录，自动查找目录下的证书文件
-			if (keystoreFile.isDirectory()) {
-				File[] candidates = keystoreFile.listFiles((dir, name) -> {
-					String lower = name.toLowerCase();
-					return lower.endsWith(".p12") || lower.endsWith(".pfx") || lower.endsWith(".jks")
-							|| lower.endsWith(".keystore");
-				});
-				if (candidates == null || candidates.length == 0) {
-					logger.info("HTTPS证书目录中未找到证书文件: {}, 使用HTTP协议启动", httpsCertPath);
-					httpsEnabled = false;
-					return;
-				}
-				// 优先选择 .p12 文件
-				File chosen = null;
-				for (File f : candidates) {
-					if (f.getName().toLowerCase().endsWith(".p12")) {
-						chosen = f;
-						break;
-					}
-				}
-				if (chosen == null)
-					chosen = candidates[0];
-				keystoreFile = chosen;
-				httpsCertPath = keystoreFile.getAbsolutePath();
-				httpsKeyPath = httpsCertPath;
-				saveApplicationConfig();
-				logger.info("自动选择HTTPS证书文件: {}", httpsCertPath);
-			}
-			if (!keystoreFile.exists()) {
-				logger.info("HTTPS证书文件不存在: {}, 使用HTTP协议启动", httpsCertPath);
-				httpsEnabled = false;
-				return;
-			}
-			String storeType = "PKCS12";
-			String fileName = keystoreFile.getName().toLowerCase();
-			if (fileName.endsWith(".jks") || fileName.endsWith(".keystore")) {
-				storeType = "JKS";
-			}
-			KeyStore keyStore = KeyStore.getInstance(storeType);
-			try (FileInputStream fis = new FileInputStream(keystoreFile)) {
-				keyStore.load(fis, httpsPassword != null ? httpsPassword.toCharArray() : new char[0]);
-			}
-			KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-			kmf.init(keyStore, httpsPassword != null ? httpsPassword.toCharArray() : new char[0]);
-			SslContext sslContext = SslContextBuilder.forServer(kmf).build();
-			httpsSslContext = sslContext;
-			logger.info("HTTPS证书加载成功: {}", httpsCertPath);
-		} catch (Exception e) {
-			logger.info("HTTPS证书加载失败: {}, 使用HTTP协议启动", e.getMessage());
-			httpsEnabled = false;
-		}
-	}
-    
-    
-    private static void bindOpenAI(int port) {
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup(4);
-        
-        try {
-			ServerBootstrap bootstrap = new ServerBootstrap();
-			bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
-					.option(ChannelOption.SO_BACKLOG, 1024)
-					.childOption(ChannelOption.SO_KEEPALIVE, true)
-					.childOption(ChannelOption.TCP_NODELAY, true)
-					.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024, 48 * 1024))
-					.childHandler(new ChannelInitializer<SocketChannel>() {
-						@Override
-						protected void initChannel(SocketChannel ch) throws Exception {
-							ch.pipeline().addLast(new HttpHttpsUnificationHandler(
-									httpsSslContext, port, WEBSOCKET_PATH, MAX_HTTP_CONTENT_LENGTH));
-						}
-
-						@Override
-						public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-							logger.info("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
-							ctx.close();
-						}
-					});
-            
-            ChannelFuture future = bootstrap.bind(port).sync();
-            logger.info("OpenAI服务启动成功，端口: {}", port);
-            if (httpsSslContext != null) {
-                logger.info("访问地址: https://localhost:{} (HTTP 请求会自动重定向到 HTTPS)", port);
-            } else {
-                logger.info("访问地址: http://localhost:{}", port);
-            }
-            registerWebServerChannel(future.channel());
-            
-            future.channel().closeFuture().sync();
-        } catch (InterruptedException e) {
-            logger.info("服务器被中断", e);
-            Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            logger.error("OpenAI服务启动失败，端口 {} 可能已被占用，退出进程", port, e);
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-            System.exit(1);
-        } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-            
-            logger.info("[{}]服务器已关闭", port);
-        }
-    }
-    
     /**
      * 	获取缓存目录的路径。
      * @return
@@ -1936,7 +1755,7 @@ public class LlamaServer {
 			logger.info("准备重启程序...");
 			try {
 				// 1. 关闭所有 Web 服务端口
-				LlamaServer.closeAllWebServerChannels();
+				NettyWebServer.stop();
 				// 停掉动态兼容服务
 				Ollama.getInstance().stop();
 				LMStudio.getInstance().stop();
