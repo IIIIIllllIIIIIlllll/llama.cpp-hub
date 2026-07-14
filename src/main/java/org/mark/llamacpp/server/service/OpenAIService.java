@@ -742,7 +742,7 @@ public class OpenAIService {
 				HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
 				response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/event-stream; charset=UTF-8");
 				response.headers().set(HttpHeaderNames.CACHE_CONTROL, "no-cache");
-				response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+				response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
 				response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
 				response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
 				if (!NettyWriteHelper.writeAndFlushBlocking(ctx, response, logger, "[OpenAIService-remote]")) {
@@ -1592,7 +1592,7 @@ public class OpenAIService {
 		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
 		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/event-stream; charset=UTF-8");
 		response.headers().set(HttpHeaderNames.CACHE_CONTROL, "no-cache");
-		response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+		response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
 		response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
