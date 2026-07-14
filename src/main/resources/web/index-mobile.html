@@ -89,6 +89,84 @@
             max-height: none;
             border-radius: 0;
         }
+        #loadModelModal .load-model-layout {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        #loadModelModal .load-model-layout .form-label {
+            font-size: 0.85rem;
+        }
+        #loadModelModal .load-model-layout .form-control,
+        #loadModelModal .load-model-layout select {
+            font-size: 0.82rem;
+            padding: 0.4rem 0.6rem;
+        }
+        #loadModelModal .load-model-layout .form-text {
+            font-size: 0.75rem;
+        }
+        #loadModelModal .load-model-layout .form-check-label {
+            font-size: 0.85rem;
+        }
+        #loadModelModal .load-model-layout .btn {
+            font-size: 0.82rem;
+            padding: 0.35rem 0.55rem;
+        }
+        .mobile-modal-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 0.75rem;
+            flex-shrink: 0;
+        }
+        .mobile-modal-tab {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .mobile-modal-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            font-weight: 600;
+        }
+        .mobile-tab-panel {
+            display: none;
+            min-height: 0;
+        }
+        .mobile-tab-panel.active {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        #modelDetailModal {
+            font-size: 0.85rem;
+        }
+        #modelDetailModal .btn {
+            font-size: 0.78rem;
+            padding: 0.3rem 0.4rem;
+            justify-content: center;
+        }
+        #modelDetailModal .modal-body .btn {
+            flex: 1;
+        }
+        #modelDetailModal .modal-body > div:first-child {
+            gap: 4px !important;
+        }
+        #modelDetailModal .form-control,
+        #modelDetailModal select,
+        #modelDetailModal textarea {
+            font-size: 0.82rem;
+        }
         #modelBenchmarkCompareModal .modal-content {
             width: 100vw;
             height: 100vh;
@@ -207,9 +285,6 @@
                 <div style="display:flex; gap: 0.5rem;">
                     <button class="btn btn-secondary" id="mobileChatBtn" title="开始聊天" onclick="window.open('chat/index.html', '_blank')">
                         <i class="fas fa-comments"></i>
-                    </button>
-                    <button class="btn btn-secondary" id="mobileStressTestBtn" title="压力测试" onclick="window.open('chat/concurrency.html', '_blank')">
-                        <i class="fas fa-bolt"></i>
                     </button>
                     <button class="btn btn-secondary" onclick="refreshModels()" title="刷新列表">
                         <i class="fas fa-sync-alt"></i>
@@ -333,10 +408,6 @@
                         <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-sliders-h"></i> 常规设置</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="btn btn-secondary" id="mobileSettingsWebSearchBtn" style="width:100%; justify-content:space-between;">
-                        <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-globe"></i> 联网搜索</span>
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
                     <button class="btn btn-secondary" id="mobileSettingsLlamaCppBtn" style="width:100%; justify-content:space-between;">
                         <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-microchip"></i> Llama.cpp 路径</span>
                         <i class="fas fa-chevron-right"></i>
@@ -348,13 +419,6 @@
                     <button class="btn btn-secondary" id="mobileSettingsConsoleBtn" style="width:100%; justify-content:space-between;">
                         <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-terminal"></i> 系统日志</span>
                         <i class="fas fa-chevron-right"></i>
-                    </button>
-                    <button class="btn btn-secondary" id="mobileSettingsMcpBtn" style="width:100%; justify-content:space-between;">
-                        <span style="display:flex; align-items:center; gap: 0.5rem;"><i class="fas fa-toolbox"></i> MCP 管理</span>
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                    <button class="btn btn-secondary" id="mobileSettingsShutdownBtn" style="width:100%; justify-content:center; border-color: rgba(239,68,68,0.35); color: rgb(239,68,68);">
-                        <i class="fas fa-power-off"></i> 停止服务
                     </button>
                 </div>
             </div>
@@ -672,48 +736,19 @@
                 <h3 class="modal-title"><i class="fas fa-upload" id="modelActionModalIcon"></i> <span id="modelActionModalTitleText">加载模型</span></h3>
                 <button class="modal-close" onclick="closeModal('loadModelModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="loadModelForm">
+            <div class="modal-body" style="display:flex;flex-direction:column;min-height:0;">
+                <form id="loadModelForm" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div class="mobile-modal-tabs">
+                        <button type="button" class="mobile-modal-tab active" data-tab="basic" onclick="switchLoadModelTab('basic')">简要配置</button>
+                        <button type="button" class="mobile-modal-tab" data-tab="detail" onclick="switchLoadModelTab('detail')">详细配置</button>
+                    </div>
                     <div class="load-model-layout">
-                        <div id="basicParamsContainer">
-                            <div class="form-group">
-                                <label class="form-label" for="modelId">模型ID</label>
-                                <input type="text" class="form-control" id="modelId" name="modelId" readonly style="background-color: #f3f4f6; display: none;">
-                                <input type="text" class="form-control" id="modelName" name="modelName" readonly style="background-color: #f3f4f6;">
-                            </div>
+                        <div id="basicParamsContainer" class="mobile-tab-panel active" data-tab="basic">
+                            <input type="hidden" id="modelId" name="modelId">
 
                             <div class="form-group">
                                 <label class="form-label" for="llamaBinPathSelect">Llama.cpp 版本</label>
                                 <select class="form-control" id="llamaBinPathSelect" name="llamaBinPathSelect"></select>
-                            </div>
-
-                            <div class="capabilities-section" id="modelCapabilitiesGroup">
-                                <div class="capabilities-header" onclick="this.parentElement.classList.toggle('open')">
-                                    <span class="capabilities-chevron"><i class="fas fa-chevron-down"></i></span>
-                                    <span>模型能力</span>
-                                    <i class="fas fa-circle-question param-desc-trigger" style="font-size:11px; color:#8fa7c0; cursor:pointer; margin-left:4px;" title="点击查看能力说明" data-param-name="modal.model_action.capabilities_help_title" data-param-flag="" data-param-desc="modal.model_action.capabilities_help_desc"></i>
-                                </div>
-                                <div class="capabilities-body">
-                                    <small class="form-text">用于手动标注模型能力/类型，处理无法准确识别的 GGUF 模型；更改将自动保存</small>
-                                    <div style="border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 0.75rem;">
-                                        <div class="form-check" style="margin-bottom: 0.5rem;">
-                                            <input class="form-check-input" type="checkbox" id="capabilityThinking">
-                                            <label class="form-check-label" for="capabilityThinking">推理</label>
-                                        </div>
-                                        <div class="form-check" style="margin-bottom: 0.5rem;">
-                                            <input class="form-check-input" type="checkbox" id="capabilityTools">
-                                            <label class="form-check-label" for="capabilityTools">工具</label>
-                                        </div>
-                                        <div class="form-check" style="margin-bottom: 0.5rem;">
-                                            <input class="form-check-input" type="checkbox" id="capabilityRerank">
-                                            <label class="form-check-label" for="capabilityRerank">重排（还请手动开启对应开关）</label>
-                                        </div>
-                                        <div class="form-check" style="margin-bottom: 0;">
-                                            <input class="form-check-input" type="checkbox" id="capabilityEmbedding">
-                                            <label class="form-check-label" for="capabilityEmbedding">嵌入（还请手动开启对应开关）</label>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
 
                             <div class="form-group" id="autoLoadGroup">
@@ -780,14 +815,16 @@
                             </div>
                         </div>
 
-                        <div id="dynamicParamsContainer">
-                            <div class="loading-spinner">
-                                <div class="spinner"></div>
+                        <div class="mobile-tab-panel" data-tab="detail" style="flex:1;min-height:0;">
+                            <div id="dynamicParamsContainer">
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div id="benchmarkParamsContainer" style="display:none;">
-                            <div class="loading-spinner">
-                                <div class="spinner"></div>
+                            <div id="benchmarkParamsContainer" style="display:none;">
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -837,6 +874,12 @@
     <script src="js/model-path-setting-mobile.js"></script>
 
     <script>
+        function switchLoadModelTab(name) {
+            const modal = document.getElementById('loadModelModal');
+            modal.querySelectorAll('.mobile-modal-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === name); });
+            modal.querySelectorAll('.mobile-tab-panel').forEach(function(p) { p.classList.toggle('active', p.dataset.tab === name); });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initWebSocket();
             fetchRemoteNodes();
