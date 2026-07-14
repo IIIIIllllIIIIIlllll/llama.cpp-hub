@@ -38,14 +38,14 @@ public class ParamController implements BaseController {
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
 		
-		if (uri.startsWith("/api/models/param/server/list")) {
-			this.handleParamServerListRequest(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/models/param/benchmark/list")) {
-			this.handleParamBenchmarkListRequest(ctx, request);
-			return true;
-		}
+        if (uri.equals("/api/models/param/server/list")) {
+            this.handleParamServerListRequest(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/models/param/benchmark/list")) {
+            this.handleParamBenchmarkListRequest(ctx, request);
+            return true;
+        }
 		
 		return false;
 	}

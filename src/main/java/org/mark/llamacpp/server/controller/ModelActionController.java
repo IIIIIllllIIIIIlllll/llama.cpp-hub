@@ -127,32 +127,32 @@ public class ModelActionController implements BaseController {
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 强制刷新模型列表API
-		if (uri.startsWith("/api/models/refresh")) {
+		if (uri.equals("/api/models/refresh")) {
 			this.handleRefreshModelListRequest(ctx, request);
 			return true;
 		}
 		// 列出全部的模型
-		if (uri.startsWith("/api/models/list")) {
+		if (uri.equals("/api/models/list")) {
 			this.handleModelListRequest(ctx, request);
 			return true;
 		}
 		// 查询已经被加载的模型
-		if (uri.startsWith("/api/models/loaded")) {
+		if (uri.equals("/api/models/loaded")) {
 			this.handleLoadedModelsRequest(ctx, request);
 			return true;
 		}
 		// 创建克隆体模型配置
-		if (uri.startsWith("/api/models/clone/create")) {
+		if (uri.equals("/api/models/clone/create")) {
 			this.handleCloneCreateRequest(ctx, request);
 			return true;
 		}
 		// 加载指定的模型
-		if (uri.startsWith("/api/models/load")) {
+		if (uri.equals("/api/models/load")) {
 			this.handleLoadModelRequest(ctx, request);
 			return true;
 		}
 		// 停止指定的运行中的模型
-		if (uri.startsWith("/api/models/stop")) {
+		if (uri.equals("/api/models/stop")) {
 			this.handleStopModelRequest(ctx, request);
 			return true;
 		}
@@ -162,17 +162,17 @@ public class ModelActionController implements BaseController {
 			return true;
 		}
 		// 获取指定模型的测试记录
-		if (uri.startsWith("/api/models/benchmark/list")) {
+		if (uri.equals("/api/models/benchmark/list")) {
 			this.handleModelBenchmarkList(ctx, request);
 			return true;
 		}
 		// 查询指定的测试记录
-		if (uri.startsWith("/api/models/benchmark/get")) {
+		if (uri.equals("/api/models/benchmark/get")) {
 			this.handleModelBenchmarkGet(ctx, request);
 			return true;
 		}
 		// 删除指定的测试记录
-		if (uri.startsWith("/api/models/benchmark/delete")) {
+		if (uri.equals("/api/models/benchmark/delete")) {
 			this.handleModelBenchmarkDelete(ctx, request);
 			return true;
 		}
@@ -181,23 +181,23 @@ public class ModelActionController implements BaseController {
 			return true;
 		}
 
-		if (uri.startsWith("/api/v2/models/benchmark/get")) {
+		if (uri.equals("/api/v2/models/benchmark/get")) {
 			this.handleModelBenchmarkV2Get(ctx, request);
 			return true;
 		}
-		if (uri.startsWith("/api/v2/models/benchmark/delete")) {
+		if (uri.equals("/api/v2/models/benchmark/delete")) {
 			this.handleModelBenchmarkV2Delete(ctx, request);
 			return true;
 		}
 		
 		// 对应URL-GET：/metrics
 		// 客户端传入modelId作为参数
-		if (uri.startsWith("/api/models/metrics")) {
+		if (uri.equals("/api/models/metrics")) {
 			this.handleModelMetrics(ctx, request);
 			return true;
 		}
 		// 对应URL-GET：/props
-		if (uri.startsWith("/api/models/props")) {
+		if (uri.equals("/api/models/props")) {
 			this.handleModelProps(ctx, request);
 			return true;
 		}

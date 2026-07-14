@@ -121,170 +121,170 @@ public class SystemController implements BaseController {
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 停止服务API
-		if (uri.startsWith("/api/shutdown")) {
+		if (uri.equals("/api/shutdown")) {
 			this.handleShutdownRequest(ctx, request);
 			return true;
 		}
 		// 控制台
-		if (uri.startsWith("/api/sys/console")) {
+		if (uri.equals("/api/sys/console")) {
 			this.handleSysConsoleRequest(ctx, request);
 			return true;
 		}
 		// 返回有日志文件的模型列表
-		if (uri.startsWith("/api/sys/log-models")) {
+		if (uri.equals("/api/sys/log-models")) {
 			this.handleLogModelsRequest(ctx, request);
 			return true;
 		}
 		// 返回指定模型的日志文件内容
-		if (uri.startsWith("/api/sys/model-log")) {
+		if (uri.equals("/api/sys/model-log")) {
 			this.handleModelLogRequest(ctx, request);
 			return true;
 		}
 		
 		// 列出可用的设备，基于当前选择的llamacpp
-		if (uri.startsWith("/api/model/device/list")) {
+		if (uri.equals("/api/model/device/list")) {
 			this.handleDeviceListRequest(ctx, request);
 			return true;
 		}
 		
 		// 显存估算API
-		if (uri.startsWith("/api/models/vram/estimate")) {
+		if (uri.equals("/api/models/vram/estimate")) {
 			this.handleVramEstimateRequest(ctx, request);
 			return true;
 		}
 		// llama-fit-params拟合参数API
-		if (uri.startsWith("/api/models/fit-params")) {
+		if (uri.equals("/api/models/fit-params")) {
 			this.handleFitParamsRequest(ctx, request);
 			return true;
 		}
 		// 暂时用不上，注释掉，转移到独立项目去
 //		// gguf-mem显存估算API
-//		if (uri.startsWith("/api/models/gguf-mem/estimate")) {
+//		if (uri.equals("/api/models/gguf-mem/estimate")) {
 //			this.handleGgufMemEstimateRequest(ctx, request);
 //			return true;
 //		}
 		// 启用、禁用ollama兼容api
-		if (uri.startsWith("/api/sys/ollama")) {
+		if (uri.equals("/api/sys/ollama")) {
 			this.handleOllamaEnableRequest(ctx, request);
 			return true;
 		}
 		// 启用、禁用lmstudio
-		if (uri.startsWith("/api/sys/lmstudio")) {
+		if (uri.equals("/api/sys/lmstudio")) {
 			this.handleLmstudioEnableRequest(ctx, request);
 			return true;
 		}
 		// 启用、禁用内置MCP服务
-		if (uri.startsWith("/api/sys/mcp")) {
+		if (uri.equals("/api/sys/mcp")) {
 			this.handleMcpEnableRequest(ctx, request);
 			return true;
 		}
 		// 获取兼容服务状态
-		if (uri.startsWith("/api/sys/compat/status")) {
+		if (uri.equals("/api/sys/compat/status")) {
 			this.handleCompatStatusRequest(ctx, request);
 			return true;
 		}
      // 获取构建版本信息
-		if (uri.startsWith("/api/sys/version")) {
+		if (uri.equals("/api/sys/version")) {
 			this.handleVersionInfoRequest(ctx, request);
 			return true;
 		}
 		// 获取进程PID
-		if (uri.startsWith("/api/sys/pid")) {
+		if (uri.equals("/api/sys/pid")) {
 			this.handlePidRequest(ctx, request);
 			return true;
 		}
 //		// 获取GPU服务信息（初始化快照）
-//		if (uri.startsWith("/api/sys/gpu/info")) {
+//		if (uri.equals("/api/sys/gpu/info")) {
 //			this.handleGpuInfoRequest(ctx, request);
 //			return true;
 //		}
 //		// 查询GPU实时状态（弃用）
-//		if (uri.startsWith("/api/sys/gpu/status")) {
+//		if (uri.equals("/api/sys/gpu/status")) {
 //			this.handleGpuStatusRequest(ctx, request);
 //			return true;
 //		}
 		// 获取系统设置
-		if (uri.startsWith("/api/sys/setting") && request.method() == HttpMethod.GET) {
+		if (uri.equals("/api/sys/setting") && request.method() == HttpMethod.GET) {
 			this.handleSysSettingGetRequest(ctx, request);
 			return true;
 		}
 		// 保存系统设置
-		if (uri.startsWith("/api/sys/setting")) {
+		if (uri.equals("/api/sys/setting")) {
 			this.handleSysSettingRequest(ctx, request);
 			return true;
 		}
 		// 获取指定模型的采样配置
-		if (uri.startsWith("/api/sys/model/sampling/setting/get")) {
+		if (uri.equals("/api/sys/model/sampling/setting/get")) {
 			this.handleModelSamplingSettingGetRequest(ctx, request);
 			return true;
 		}
 		
-		if (uri.startsWith("/api/sys/model/sampling/setting/add")) {
+		if (uri.equals("/api/sys/model/sampling/setting/add")) {
 			this.handleModelSamplingSettingAddRequest(ctx, request);
 			return true;
 		}
 		// 获取的采样配置
-		if (uri.startsWith("/api/sys/model/sampling/setting/list")) {
+		if (uri.equals("/api/sys/model/sampling/setting/list")) {
 			this.handleModelSamplingSettingListRequest(ctx, request);
 			return true;
 		}
 		// 删除指定的采样
-		if (uri.startsWith("/api/sys/model/sampling/setting/delete")) {
+		if (uri.equals("/api/sys/model/sampling/setting/delete")) {
 			this.handleModelSamplingSettingDeleteRequest(ctx, request);
 			return true;
 		}
 		// 设置指定模型的采样配置
-		if (uri.startsWith("/api/sys/model/sampling/setting/set")) {
+		if (uri.equals("/api/sys/model/sampling/setting/set")) {
 			this.handleModelSamplingSettingRequest(ctx, request);
 			return true;
 		}
 		
 		// 文件系统：目录浏览
-		if (uri.startsWith("/api/sys/fs/list")) {
+		if (uri.equals("/api/sys/fs/list")) {
 			this.handleFsListRequest(ctx, request);
 			return true;
 		}
 
 		// 清空静态文件缓存
-		if (uri.startsWith("/api/sys/static/cache/clear")) {
+		if (uri.equals("/api/sys/static/cache/clear")) {
 			this.handleClearStaticCacheRequest(ctx, request);
 			return true;
 		}
 
 		// 检查更新
-		if (uri.startsWith("/api/sys/update/check")) {
+		if (uri.equals("/api/sys/update/check")) {
 			this.handleUpdateCheckRequest(ctx, request);
 			return true;
 		}
 		// 下载更新
-		if (uri.startsWith("/api/sys/update/download")) {
+		if (uri.equals("/api/sys/update/download")) {
 			this.handleUpdateDownloadRequest(ctx, request);
 			return true;
 		}
 		// 应用更新
-		if (uri.startsWith("/api/sys/update/apply")) {
+		if (uri.equals("/api/sys/update/apply")) {
 			this.handleUpdateApplyRequest(ctx, request);
 			return true;
 		}
 		// 更新状态查询
-		if (uri.startsWith("/api/sys/update/status")) {
+		if (uri.equals("/api/sys/update/status")) {
 			this.handleUpdateStatusRequest(ctx, request);
 			return true;
 		}
 		// 取消下载
-		if (uri.startsWith("/api/sys/update/cancel")) {
+		if (uri.equals("/api/sys/update/cancel")) {
 			this.handleUpdateCancelRequest(ctx, request);
 			return true;
 		}
 
        // 获取计算机信息（gpu-info）
-		if (uri.startsWith("/api/sys/sysinfo")) {
+		if (uri.equals("/api/sys/sysinfo")) {
 			this.handleSysInfoRequest(ctx, request);
 			return true;
 		}
 
 		// 开机自启
-		if (uri.startsWith("/api/sys/autostart")) {
+		if (uri.equals("/api/sys/autostart")) {
 			this.handleAutoStartRequest(ctx, request);
 			return true;
 		}

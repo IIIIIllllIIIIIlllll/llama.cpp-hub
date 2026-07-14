@@ -37,26 +37,26 @@ public class UsageReportController implements BaseController {
 
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (uri.startsWith("/api/report/token-summary")) {
-			this.handleTokenSummary(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/report/daily-tokens")) {
-			this.handleDailyTokens(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/report/available-years")) {
-			this.handleAvailableYears(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/report/request-logs")) {
-			this.handleRequestLogs(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/report/records")) {
-			this.handleDeleteRecords(ctx, request);
-			return true;
-		}
+        if (uri.equals("/api/report/token-summary")) {
+            this.handleTokenSummary(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/report/daily-tokens")) {
+            this.handleDailyTokens(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/report/available-years")) {
+            this.handleAvailableYears(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/report/request-logs")) {
+            this.handleRequestLogs(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/report/records")) {
+            this.handleDeleteRecords(ctx, request);
+            return true;
+        }
 		return false;
 	}
 

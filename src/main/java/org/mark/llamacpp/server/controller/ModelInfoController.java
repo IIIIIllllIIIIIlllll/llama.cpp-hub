@@ -104,100 +104,100 @@ public class ModelInfoController implements BaseController {
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		
 		// 获取模型。
-		if(uri.startsWith("/api/models/openai/list")) {
+		if(uri.equals("/api/models/openai/list")) {
 			this.handleOpenAIModelsRequest(ctx, request);
 			return true;
 		}
 		
 		// 设置模型的别名
-		if (uri.startsWith("/api/models/alias/set")) {
+		if (uri.equals("/api/models/alias/set")) {
 			this.handleSetModelAliasRequest(ctx, request);
 			return true;
 		}
 		// 获取偏好模型的API
-		if (uri.startsWith("/api/models/favourite")) {
+		if (uri.equals("/api/models/favourite")) {
 			this.handleModelFavouriteRequest(ctx, request);
 			return true;
 		}
 		// 查询指定模型启动参数的API
-		if (uri.startsWith("/api/models/config/get")) {
+		if (uri.equals("/api/models/config/get")) {
 			this.handleModelConfigRequest(ctx, request);
 			return true;
 		}
 		// 用于更新启动参数的API
-		if (uri.startsWith("/api/models/config/set")) {
+		if (uri.equals("/api/models/config/set")) {
 			this.handleModelConfigSetRequest(ctx, request);
 			return true;
 		}
 		// 用于删除指定配置项的API
-		if (uri.startsWith("/api/models/config/delete")) {
+		if (uri.equals("/api/models/config/delete")) {
 			this.handleModelConfigDeleteRequest(ctx, request);
 			return true;
 		}
 		// 设置共享配置
-		if (uri.startsWith("/api/models/config/shared/set")) {
+		if (uri.equals("/api/models/config/shared/set")) {
 			this.handleModelConfigSharedSetRequest(ctx, request);
 			return true;
 		}
 		// 获取全部共享配置
-		if (uri.startsWith("/api/models/config/shared/get")) {
+		if (uri.equals("/api/models/config/shared/get")) {
 			this.handleModelConfigSharedGetRequest(ctx, request);
 			return true;
 		}
 		// 删除共享配置
-		if (uri.startsWith("/api/models/config/shared/delete")) {
+		if (uri.equals("/api/models/config/shared/delete")) {
 			this.handleModelConfigSharedDeleteRequest(ctx, request);
 			return true;
 		}
 		// 获取指定模型详情的API
-		if (uri.startsWith("/api/models/details")) {
+		if (uri.equals("/api/models/details")) {
 			this.handleModelDetailsRequest(ctx, request);
 			return true;
 		}
 		// 模型的能力设定
-		if(uri.startsWith("/api/models/capabilities/set")) {
+		if(uri.equals("/api/models/capabilities/set")) {
 			this.handleModelCapabilitiesSetRequest(ctx, request);
 			return true;
 		}
 		// 模型的能力获取
-		if(uri.startsWith("/api/models/capabilities/get")) {
+		if(uri.equals("/api/models/capabilities/get")) {
 			this.handleModelCapabilitiesGetRequest(ctx, request);
 			return true;
 		}
 		
 		//============================聊天模板相关============================
 		// 
-		if (uri.startsWith("/api/model/template/get")) {
+		if (uri.equals("/api/model/template/get")) {
 			this.handleModelTemplateGetRequest(ctx, request);
 			return true;
 		}
 		
-		if (uri.startsWith("/api/model/template/set")) {
+		if (uri.equals("/api/model/template/set")) {
 			this.handleModelTemplateSetRequest(ctx, request);
 			return true;
 		}
 
-		if (uri.startsWith("/api/model/template/delete")) {
+		if (uri.equals("/api/model/template/delete")) {
 			this.handleModelTemplateDeleteRequest(ctx, request);
 			return true;
 		}
 
-		if (uri.startsWith("/api/model/template/default")) {
+		if (uri.equals("/api/model/template/default")) {
 			this.handleModelTemplateDefaultRequest(ctx, request);
 			return true;
 		}
 		
-		if (uri.startsWith("/api/model/chat_template_kwargs/set")) {
+		if (uri.equals("/api/model/chat_template_kwargs/set")) {
 			this.handleChatTemplateKwargsSet(ctx, request);
 			return true;
 		}
 		
-		if (uri.startsWith("/api/model/chat_template_kwargs/get")) {
+		if (uri.equals("/api/model/chat_template_kwargs/get")) {
 			this.handleChatTemplateKwargsGet(ctx, request);
 			return true;
 		}
 
-		if (uri.startsWith("/api/model/chat_template_kwargs/delete")) {
+		if (uri.equals("/api/model/chat_template_kwargs/delete")) {
 			this.handleChatTemplateKwargsDelete(ctx, request);
 			return true;
 		}
@@ -205,28 +205,28 @@ public class ModelInfoController implements BaseController {
 		
 		//============================用量信息============================
 		// 查询对应模型的最快解码/预填充速度（必须放在 /record 之前，避免被误匹配）
-		if (uri.startsWith("/api/models/record/speed")) {
+		if (uri.equals("/api/models/record/speed")) {
 			this.handleModelRecordSpeedRequest(ctx, request);
 			return true;
 		}
 		// 查询对应模型的用量记录
-		if (uri.startsWith("/api/models/record")) {
+		if (uri.equals("/api/models/record")) {
 			this.handleModelRecordRequest(ctx, request);
 			return true;
 		}
 		//============================运行时信息============================
 		// 查询对应模型的/solts的API
-		if (uri.startsWith("/api/models/slots/get")) {
+		if (uri.equals("/api/models/slots/get")) {
 			this.handleModelSlotsGet(ctx, request);
 			return true;
 		}
 		// 对应URL-POST：/slots/{solt_id}?action=save
-		if (uri.startsWith("/api/models/slots/save")) {
+		if (uri.equals("/api/models/slots/save")) {
 			this.handleModelSlotsSave(ctx, request);
 			return true;
 		}
 		// 对应URL-POST：/slots/{slot_id}?action=load
-		if (uri.startsWith("/api/models/slots/load")) {
+		if (uri.equals("/api/models/slots/load")) {
 			this.handleModelSlotsLoad(ctx, request);
 			return true;
 		}

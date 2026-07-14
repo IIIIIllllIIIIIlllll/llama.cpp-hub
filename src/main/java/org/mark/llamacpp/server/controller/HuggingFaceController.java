@@ -30,18 +30,18 @@ public class HuggingFaceController implements BaseController {
 	
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (uri.startsWith("/api/hf/search")) {
-			this.handleHFSearchRequest(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/hf/gguf")) {
-			this.handleHFGGUFRequest(ctx, request);
-			return true;
-		}
-		if (uri.startsWith("/api/hf/readme")) {
-			this.handleHFReadmeRequest(ctx, request);
-			return true;
-		}
+        if (uri.equals("/api/hf/search")) {
+            this.handleHFSearchRequest(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/hf/gguf")) {
+            this.handleHFGGUFRequest(ctx, request);
+            return true;
+        }
+        if (uri.equals("/api/hf/readme")) {
+            this.handleHFReadmeRequest(ctx, request);
+            return true;
+        }
 		
 		return false;
 	}

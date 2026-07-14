@@ -53,15 +53,15 @@ public class CertController implements BaseController {
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
             throws RequestMethodException {
-        if (uri.startsWith("/api/cert/generate")) {
+        if (uri.equals("/api/cert/generate")) {
             this.handleGenerate(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/cert/status")) {
+        if (uri.equals("/api/cert/status")) {
             this.handleStatus(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/cert/download")) {
+        if (uri.equals("/api/cert/download")) {
             this.handleDownload(ctx, request);
             return true;
         }

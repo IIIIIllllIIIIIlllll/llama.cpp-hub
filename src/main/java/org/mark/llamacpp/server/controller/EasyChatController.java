@@ -102,7 +102,7 @@ public class EasyChatController implements BaseController {
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
-		if (uri.startsWith(PATH_STREAM_CHAT)) {
+		if (uri.equals(PATH_STREAM_CHAT)) {
 			if (request.method() == HttpMethod.GET) {
 				this.handleStreamChatHistory(ctx, request);
 			} else {
@@ -110,38 +110,39 @@ public class EasyChatController implements BaseController {
 			}
 			return true;
 		}
-		if (uri.startsWith(PATH_MESSAGE_UPDATE)) {
+		if (uri.equals(PATH_MESSAGE_UPDATE)) {
 			this.withGlobalLock(ctx, "easy-chat.message.update", () -> this.handleMessageUpdateRequest(ctx, request));
 			return true;
 		}
-		if (uri.startsWith(PATH_GENERATE_TITLE)) {
+		if (uri.equals(PATH_GENERATE_TITLE)) {
 			this.handleGenerateTitleRequest(ctx, request);
 			return true;
 		}
-		if (uri.startsWith(PATH_AVATAR_UPLOAD)) {
+		if (uri.equals(PATH_AVATAR_UPLOAD)) {
 			this.handleAvatarUpload(ctx, request);
 			return true;
 		}
-		if (uri.startsWith(PATH_AVATAR_GET)) {
+		if (uri.equals(PATH_AVATAR_GET)) {
 			this.handleAvatarGet(ctx, request);
 			return true;
 		}
-		if (uri.startsWith(PATH_BACKGROUND_UPLOAD)) {
+		if (uri.equals(PATH_BACKGROUND_UPLOAD)) {
 			this.handleBackgroundUpload(ctx, request);
 			return true;
 		}
-		if (uri.startsWith(PATH_BACKGROUND_LIST)) {
+		if (uri.equals(PATH_BACKGROUND_LIST)) {
 			this.handleBackgroundList(ctx, request);
 			return true;
 		}
-		if (uri.startsWith(PATH_BACKGROUND_ACTIVE)) {
+		if (uri.equals(PATH_BACKGROUND_ACTIVE)) {
 			this.handleBackgroundActive(ctx, request);
 			return true;
 		}
-		if (uri.startsWith(PATH_BACKGROUND_OPACITY)) {
+		if (uri.equals(PATH_BACKGROUND_OPACITY)) {
 			this.handleBackgroundOpacity(ctx, request);
 			return true;
 		}
+		// 这些路径包含资源ID（如 /api/chat/background/image/{fileName}），必须用 startsWith
 		if (uri.startsWith(PATH_BACKGROUND_IMAGE)) {
 			this.handleBackgroundImageGet(ctx, request);
 			return true;

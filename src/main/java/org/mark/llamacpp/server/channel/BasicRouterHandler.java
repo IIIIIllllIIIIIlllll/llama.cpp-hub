@@ -148,6 +148,8 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			return;
 		}
 		String uri = request.uri();
+		// 剥离查询参数用于路由判断，避免 startsWith/equals 误判
+		String routingUri = uri.indexOf('?') > 0 ? uri.substring(0, uri.indexOf('?')) : uri;
 		
 		// 这里是日志专区
 		// 1.
@@ -174,26 +176,26 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 		try {
 			// 处理模型API请求
-			if (this.isApiRequest(uri)) {
-				if (uri.startsWith("/llama.cpp/props")) {
+			if (this.isApiRequest(routingUri)) {
+				if (routingUri.equals("/llama.cpp/props")) {
 					this.handleProps(ctx, request);
 					return;
 				}
-				if (uri.startsWith("/llama.cpp/tools")) {
+				if (routingUri.equals("/llama.cpp/tools")) {
 					this.handleTools(ctx, request);
 					return;
 				}
-				if (uri.startsWith("/llama.cpp/models/load")) {
+				if (routingUri.equals("/llama.cpp/models/load")) {
 					this.handleLoadModel(ctx, request);
 					return;
 				}
-				if (uri.startsWith("/llama.cpp/models/unload")) {
+				if (routingUri.equals("/llama.cpp/models/unload")) {
 					this.handleUnloadModel(ctx, request);
 					return;
 				}
 				boolean handled = false;
 				for (BaseController c : pipeline) {
-					handled = c.handleRequest(uri, ctx, request);
+					handled = c.handleRequest(routingUri, ctx, request);
 					if (handled) {
 						break;
 					}
@@ -293,7 +295,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	}
 	
 	/**
-	 * 是否为API请求。
+	 * 是否为llama.cpp 相关的API请求。
 	 * <p>整合了路由层定义的所有 OpenAI 风格端点及系统内部 API。</p>
 	 * @param uri 请求路径
 	 * @return true 如果是 API 请求，否则 false
@@ -302,48 +304,17 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		if (uri == null) {
 			return false;
 		}
-		// 1. 现有通用系统 API
-		if (uri.startsWith("/api/") || 
-				uri.startsWith("/session") || 
-				uri.startsWith("/tokenize") || 
-				uri.startsWith("/apply-template") || 
-				uri.startsWith("/infill")) {
+		// Tier 1: 精确匹配已知固定端点
+		if (LlamaApiPathRegistry.EXACT_PATHS.contains(uri)) {
 			return true;
 		}
-		// 2. OpenAI 标准协议路径 (/v1/... 覆盖所有 v1 前缀的变体)
+		// Tier 2: /api/ 前缀（所有控制器 API）
+		if (uri.startsWith("/api/")) {
+			return true;
+		}
+		// Tier 3: /v1 前缀（OpenAI 兼容协议）
 		if (uri.startsWith("/v1")) {
 			return true;
-		}
-		// 3. llama.cpp 基础端点（仅匹配 API 路径，不拦截静态资源）
-		if ("/llama.cpp/props".equals(uri) || uri.startsWith("/llama.cpp/props?")) {
-			return true;
-		}
-		if (uri.startsWith("/llama.cpp/models")) {
-			return true;
-		}
-		if (uri.startsWith("/llama.cpp/v1/chat")) {
-			return true;
-		}
-		if (uri.startsWith("/llama.cpp/v1/models")) {
-			return true;
-		}
-		if (uri.startsWith("/llama.cpp/tools")) {
-			return true;
-		}
-		if (uri.startsWith("/llama.cpp/slots")) {
-			return true;
-		}
-		// 4. 显式补充非 /v1 前缀的具体端点 (源自路由逻辑中的完整路径)
-		// 注意：这里写死具体的根路径，以确保与路由层的处理完全一致
-		if (uri.startsWith("/models") || 
-				uri.startsWith("/chat/completion") || 
-				uri.startsWith("/completions") || 
-				uri.startsWith("/embeddings") ||
-				uri.startsWith("/rerank") || 
-				uri.startsWith("/responses") ||
-				uri.startsWith("/slots")) {
-			if(!uri.endsWith(".html"))
-				return true;
 		}
 		return false;
 	}

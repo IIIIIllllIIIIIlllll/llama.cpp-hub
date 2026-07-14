@@ -45,15 +45,15 @@ public class ProxyController implements BaseController {
 
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        if (uri.startsWith("/api/proxy/get")) {
+        if (uri.equals("/api/proxy/get")) {
             handleProxyGet(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/proxy/save")) {
+        if (uri.equals("/api/proxy/save")) {
             handleProxySave(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/proxy/test")) {
+        if (uri.equals("/api/proxy/test")) {
             handleProxyTest(ctx, request);
             return true;
         }

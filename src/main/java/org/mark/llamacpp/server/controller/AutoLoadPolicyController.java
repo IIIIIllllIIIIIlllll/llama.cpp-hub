@@ -11,6 +11,8 @@ import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -41,7 +43,7 @@ public class AutoLoadPolicyController implements BaseController {
 
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (uri.startsWith("/api/auto-load/policy")) {
+		if (uri.equals("/api/auto-load/policy")) {
 			handlePolicy(ctx, request);
 			return true;
 		}
@@ -174,24 +176,11 @@ public class AutoLoadPolicyController implements BaseController {
 
 	private void handleResetPolicy(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			String uri = request.uri();
-			String modelId = null;
-			String nodeId = null;
+			Map<String, String> params = ParamTool.getQueryParam(request.uri());
+			String modelId = params.get("modelId");
+			String nodeId = params.get("nodeId");
 
-			// 尝试从 URL 路径获取 modelId
-			if (uri != null && uri.length() > "/api/auto-load/policy/".length()) {
-				String pathPart = uri.substring("/api/auto-load/policy/".length());
-				int qIdx = pathPart.indexOf('?');
-				if (qIdx >= 0) {
-					modelId = pathPart.substring(0, qIdx);
-					Map<String, String> params = ParamTool.getQueryParam(pathPart.substring(qIdx));
-					nodeId = params.get("nodeId");
-				} else {
-					modelId = pathPart;
-				}
-			}
-
-			// 如果 URL 中没有，尝试从请求体获取
+			// 如果查询参数中没有，尝试从请求体获取
 			if (modelId == null || modelId.trim().isEmpty()) {
 				String content = request.content().toString(CharsetUtil.UTF_8);
 				if (content != null && !content.trim().isEmpty()) {
@@ -307,7 +296,7 @@ public class AutoLoadPolicyController implements BaseController {
 			return;
 		}
 		try {
-			String fullPath = path + "/" + modelId;
+			String fullPath = path + "?modelId=" + URLEncoder.encode(modelId, StandardCharsets.UTF_8);
 			JsonObject body = new JsonObject();
 			if (modelId != null) {
 				body.addProperty("modelId", modelId);

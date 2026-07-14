@@ -72,22 +72,22 @@ public class ToolController implements BaseController {
 	 */
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (uri.startsWith(PATH_TOOL_EXECUTE)) {
-			this.handleToolExecute(ctx, request);
-			return true;
-		} else if (uri.startsWith(PATH_MCP_ADD)) {
-			this.handleMcpAdd(ctx, request);
-			return true;
-		} else if (uri.startsWith(PATH_MCP_TOOLS)) {
-			this.handleMcpTools(ctx, request);
-			return true;
-		} else if (uri.startsWith(PATH_MCP_REMOVE)) {
-			this.handleMcpRemove(ctx, request);
-			return true;
-		} else if (uri.startsWith(PATH_MCP_RENAME)) {
-			this.handleMcpRename(ctx, request);
-			return true;
-		}
+        if (uri.equals(PATH_TOOL_EXECUTE)) {
+            this.handleToolExecute(ctx, request);
+            return true;
+        } else if (uri.equals(PATH_MCP_ADD)) {
+            this.handleMcpAdd(ctx, request);
+            return true;
+        } else if (uri.equals(PATH_MCP_TOOLS)) {
+            this.handleMcpTools(ctx, request);
+            return true;
+        } else if (uri.equals(PATH_MCP_REMOVE)) {
+            this.handleMcpRemove(ctx, request);
+            return true;
+        } else if (uri.equals(PATH_MCP_RENAME)) {
+            this.handleMcpRename(ctx, request);
+            return true;
+        }
 
 		return false;
 	}

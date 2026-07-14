@@ -75,22 +75,22 @@ public class ChatStateController implements BaseController {
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
 			throws RequestMethodException {
-		if (uri.startsWith(PATH_STATE_REVISION)) {
-			this.withGlobalLock(ctx, "chat.state.revision", () -> this.handleRevisionRequest(ctx, request));
-			return true;
-		}
-		if (uri.startsWith(PATH_SYNC)) {
-			this.withGlobalLock(ctx, "chat.sync", () -> this.handleSyncRequest(ctx, request));
-			return true;
-		}
-		if (uri.startsWith(PATH_STATE)) {
-			this.withGlobalLock(ctx, "chat.state", () -> this.handleStateRequest(ctx, request));
-			return true;
-		}
-		if (uri.startsWith(PATH_DELETE)) {
-			this.withGlobalLock(ctx, "chat.delete", () -> this.handleDeleteRequest(ctx, request));
-			return true;
-		}
+        if (uri.equals(PATH_STATE_REVISION)) {
+            this.withGlobalLock(ctx, "chat.state.revision", () -> this.handleRevisionRequest(ctx, request));
+            return true;
+        }
+        if (uri.equals(PATH_SYNC)) {
+            this.withGlobalLock(ctx, "chat.sync", () -> this.handleSyncRequest(ctx, request));
+            return true;
+        }
+        if (uri.equals(PATH_STATE)) {
+            this.withGlobalLock(ctx, "chat.state", () -> this.handleStateRequest(ctx, request));
+            return true;
+        }
+        if (uri.equals(PATH_DELETE)) {
+            this.withGlobalLock(ctx, "chat.delete", () -> this.handleDeleteRequest(ctx, request));
+            return true;
+        }
 		return false;
 	}
 

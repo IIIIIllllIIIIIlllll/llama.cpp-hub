@@ -69,22 +69,22 @@ public class BuildController implements BaseController {
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
             throws RequestMethodException {
-        if (uri.startsWith(PATH_BUILD_SUBMIT)) {
+        if (uri.equals(PATH_BUILD_SUBMIT)) {
             handleBuildSubmit(ctx, request);
             return true;
-        } else if (uri.startsWith(PATH_BUILD_STATUS)) {
+        } else if (uri.equals(PATH_BUILD_STATUS)) {
             handleBuildStatus(ctx, request);
             return true;
-        } else if (uri.startsWith(PATH_BUILD_CANCEL)) {
+        } else if (uri.equals(PATH_BUILD_CANCEL)) {
             handleBuildCancel(ctx, request);
             return true;
-        } else if (uri.startsWith(PATH_BUILD_EXTRACT)) {
+        } else if (uri.equals(PATH_BUILD_EXTRACT)) {
             handleBuildExtract(ctx, request);
             return true;
-        } else if (uri.startsWith(PATH_BUILD_HISTORY)) {
+        } else if (uri.equals(PATH_BUILD_HISTORY)) {
             handleBuildHistory(ctx, request);
             return true;
-        } else if (uri.startsWith(PATH_BUILD_CHECK_TOOLCHAIN)) {
+        } else if (uri.equals(PATH_BUILD_CHECK_TOOLCHAIN)) {
             handleCheckToolchain(ctx, request);
             return true;
         }

@@ -108,45 +108,45 @@ public class LlamacppController implements BaseController {
 	 */
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		// 添加一个llamacpp
-		if (uri.startsWith("/api/llamacpp/add")) {
+		if (uri.equals("/api/llamacpp/add")) {
 			this.handleLlamaCppAdd(ctx, request);
 			return true;
 		}
 		// 移除
-		if (uri.startsWith("/api/llamacpp/remove")) {
+		if (uri.equals("/api/llamacpp/remove")) {
 			this.handleLlamaCppRemove(ctx, request);
 			return true;
 		}
 		// 列出全部
-		if (uri.startsWith("/api/llamacpp/list")) {
+		if (uri.equals("/api/llamacpp/list")) {
 			this.handleLlamaCppList(ctx, request);
 			return true;
 		}
 		// 执行测试
-		if (uri.startsWith("/api/llamacpp/test")) {
+		if (uri.equals("/api/llamacpp/test")) {
 			this.handleLlamaCppTest(ctx, request);
 			return true;
 		}
 		
 		// 代码补全
-		if (uri.startsWith("/infill")) {
+		if (uri.equals("/infill")) {
 			this.handleInfillRequest(ctx, request);
 			return true;
 		}
 		
 		// 获取最新 release
-		if (uri.startsWith("/api/llamacpp/release/latest")) {
+		if (uri.equals("/api/llamacpp/release/latest")) {
 			this.handleLlamaCppReleaseLatest(ctx, request);
 			return true;
 		}
 		
 		// 处理分词
-		if (uri.startsWith("/tokenize")) {
+		if (uri.equals("/tokenize")) {
 			this.handleTokenizeRequest(ctx, request);
 			return true;
 		}
 		// 处理模板
-		if (uri.startsWith("/apply-template")) {
+		if (uri.equals("/apply-template")) {
 			this.handleApplyTemplateRequest(ctx, request);
 			return true;
 		}

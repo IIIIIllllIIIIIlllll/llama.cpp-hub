@@ -96,22 +96,22 @@ public class ModelPathController implements BaseController {
 	
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (uri.startsWith("/api/model/path/add")) {
+		if (uri.equals("/api/model/path/add")) {
 			this.handleModelPathAdd(ctx, request);
 			return true;
 		}
 
-		if (uri.startsWith("/api/model/path/remove")) {
+		if (uri.equals("/api/model/path/remove")) {
 			this.handleModelPathRemove(ctx, request);
 			return true;
 		}
 
-		if (uri.startsWith("/api/model/path/update")) {
+		if (uri.equals("/api/model/path/update")) {
 			this.handleModelPathUpdate(ctx, request);
 			return true;
 		}
 
-		if (uri.startsWith("/api/model/path/list")) {
+		if (uri.equals("/api/model/path/list")) {
 			this.handleModelPathList(ctx, request);
 			return true;
 		}

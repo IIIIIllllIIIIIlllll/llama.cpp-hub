@@ -41,31 +41,31 @@ public class NodeController implements BaseController {
 
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-        if (uri.startsWith("/api/node/list")) {
+        if (uri.equals("/api/node/list")) {
             handleNodeListRequest(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/node/add")) {
+        if (uri.equals("/api/node/add")) {
             handleNodeAddRequest(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/node/remove")) {
+        if (uri.equals("/api/node/remove")) {
             handleNodeRemoveRequest(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/node/update")) {
+        if (uri.equals("/api/node/update")) {
             handleNodeUpdateRequest(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/node/test")) {
+        if (uri.equals("/api/node/test")) {
             handleNodeTestRequest(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/node/status")) {
+        if (uri.equals("/api/node/status")) {
             handleNodeStatusRequest(ctx, request);
             return true;
         }
-        if (uri.startsWith("/api/node/info")) {
+        if (uri.equals("/api/node/info")) {
             handleNodeInfoRequest(ctx, request);
             return true;
         }
