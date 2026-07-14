@@ -2585,9 +2585,9 @@
         }
 
         .update-result-card {
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--border-color);
             border-radius: 1rem;
-            background: #ffffff;
+            background: var(--card-bg);
             overflow: hidden;
             margin-bottom: 0;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -2615,7 +2615,7 @@
             align-items: center;
             justify-content: center;
             border-radius: 0.75rem;
-            background: #1f2937;
+            background: var(--primary-color);
             color: #ffffff;
             font-size: 1rem;
         }
@@ -2675,9 +2675,21 @@
             font-size: 0.7rem;
         }
 
+        [data-theme="dark"] .update-status-badge.update-available {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        [data-theme="dark"] .update-status-badge.update-up-to-date {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
         .update-result-meta {
             padding: 0.75rem 1.15rem;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid var(--border-color);
         }
 
         .update-meta-item {
@@ -2691,7 +2703,7 @@
         .update-meta-item i {
             width: 1.1rem;
             text-align: center;
-            color: #9ca3af;
+            color: var(--text-secondary);
         }
 
         .update-meta-label {
@@ -2706,7 +2718,7 @@
 
         .update-result-actions {
             padding: 0.7rem 1.15rem;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
@@ -2725,7 +2737,7 @@
 
         .update-proxy-label {
             font-size: 0.82rem;
-            color: #6b7280;
+            color: var(--text-secondary);
             white-space: nowrap;
         }
 
@@ -2736,29 +2748,29 @@
         .update-proxy-select {
             flex: 1;
             padding: 0.4rem 0.6rem;
-            border: 1px solid #d1d5db;
+            border: 1px solid var(--border-color);
             border-radius: 0.45rem;
             font-size: 0.82rem;
-            background: #fff;
-            color: #374151;
+            background: var(--input-bg);
+            color: var(--text-primary);
             cursor: pointer;
         }
 
         .update-proxy-select:hover {
-            border-color: #9ca3af;
+            border-color: var(--text-secondary);
         }
 
         .update-proxy-select:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
         }
 
         .update-progress-card {
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--border-color);
             border-radius: 0.85rem;
             padding: 1rem 1.15rem;
-            background: #f9fafb;
+            background: var(--card-bg);
             display: flex;
             flex-direction: column;
             gap: 0.6rem;
@@ -2779,20 +2791,20 @@
         .update-progress-percent {
             font-size: 0.82rem;
             font-weight: 700;
-            color: #4f46e5;
+            color: var(--accent-color);
         }
 
         .update-progress-bar-outer {
             width: 100%;
             height: 8px;
-            background: #e5e7eb;
+            background: var(--border-color);
             border-radius: 999px;
             overflow: hidden;
         }
 
         .update-progress-bar-inner {
             height: 100%;
-            background: #4f46e5;
+            background: var(--accent-color);
             border-radius: 999px;
             transition: width 0.3s ease;
         }
@@ -2831,18 +2843,18 @@
             gap: 0.4rem;
             font-size: 0.82rem;
             font-weight: 500;
-            color: #1f2937;
+            color: var(--text-primary);
             text-decoration: none;
             transition: color 0.15s ease;
         }
 
         .update-release-link:hover {
-            color: #111827;
+            color: var(--text-primary);
             text-decoration: underline;
         }
 
         .update-release-notes {
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--border-color);
             border-radius: 0.85rem;
             overflow: hidden;
             min-width: 0;
@@ -2859,12 +2871,12 @@
             font-size: 0.82rem;
             font-weight: 600;
             color: var(--text-primary);
-            background: #f9fafb;
-            border-bottom: 1px solid #e5e7eb;
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border-color);
         }
 
         .update-release-notes-header i {
-            color: #374151;
+            color: var(--text-secondary);
             font-size: 0.85rem;
         }
 
@@ -2898,7 +2910,7 @@
         }
 
         .update-release-body::-webkit-scrollbar-thumb {
-            background: #d1d5db;
+            background: var(--text-secondary);
             border-radius: 3px;
         }
 
