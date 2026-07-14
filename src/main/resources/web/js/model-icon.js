@@ -4,6 +4,7 @@ function getModelIcon(architecture) {
 		'qwen': 'icon/qwen.png',
 		'glm': 'icon/glm.png',
 		'hunyuan': 'icon/hunyuan.png',
+		'hy_v3': 'icon/hunyuan.png',
 		'mistral': 'icon/mistral3.png',
 		'gpt': 'icon/openai.png',
 		'seed': 'icon/seed_oss.png',
