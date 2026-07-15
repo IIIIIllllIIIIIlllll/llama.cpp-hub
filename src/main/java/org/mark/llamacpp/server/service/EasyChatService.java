@@ -1750,7 +1750,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	private boolean writeSseLine(ChannelHandlerContext ctx, String line) {
 		ByteBuf content = ctx.alloc().buffer();
 		content.writeBytes(line.getBytes(StandardCharsets.UTF_8));
-		content.writeBytes("\n\n".getBytes(StandardCharsets.UTF_8));
+		content.writeBytes("\n".getBytes(StandardCharsets.UTF_8));
 		return NettyWriteHelper.writeAndFlushBlocking(ctx, new DefaultHttpContent(content), logger, "[EasyChat]");
 	}
 
@@ -2347,7 +2347,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 						}
 						trace.doneReceivedAt = System.currentTimeMillis();
 						trace.endReason = "finish_reason";
-						if (!writeSseLine(ctx, "data: [DONE]")) {
+						if (!writeSseLine(ctx, "\ndata: [DONE]")) {
 							trace.endReason = "write_failed_synthetic_done";
 						}
 						return trace;
