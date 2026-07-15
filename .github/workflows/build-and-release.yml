@@ -145,6 +145,43 @@ jobs:
           rm jre-win.zip
           echo "Windows JRE 下载完成"
 
+      - name: 安装 MinGW-w64 交叉编译工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
+
+      - name: 编译启动器 (Linux)
+        run: |
+          cmake -S launcher -B launcher/build-linux -DCMAKE_BUILD_TYPE=Release \
+            -DAPP_VERSION="${APP_VERSION}"
+          cmake --build launcher/build-linux --config Release
+
+      - name: 编译启动器 (Windows)
+        run: |
+          cmake -S launcher -B launcher/build-win \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
+            -DAPP_VERSION="${APP_VERSION}"
+          cmake --build launcher/build-win --config Release
+
+      - name: 生成启动器配置
+        run: |
+          cat > launcher.conf.linux << 'EOF'
+          ##MAINCLASS=org.mark.llamacpp.server.LlamaServer
+          -Djava.class.path=./classes:./lib/gson-2.8.9.jar:./lib/netty-all-4.1.35.Final.jar:./lib/log4j-api-2.22.1.jar:./lib/log4j-core-2.22.1.jar:./lib/log4j-slf4j2-impl-2.22.1.jar:./lib/slf4j-api-2.0.9.jar
+          -Xms128m
+          -Xmx128m
+          -XX:MaxDirectMemorySize=128m
+          EOF
+          cat > launcher.conf.win << 'EOF'
+          ##MAINCLASS=org.mark.llamacpp.server.LlamaServer
+          -Djava.class.path=./classes;./lib/gson-2.8.9.jar;./lib/netty-all-4.1.35.Final.jar;./lib/log4j-api-2.22.1.jar;./lib/log4j-core-2.22.1.jar;./lib/log4j-slf4j2-impl-2.22.1.jar;./lib/slf4j-api-2.0.9.jar
+          -Xms128m
+          -Xmx128m
+          -XX:MaxDirectMemorySize=128m
+          EOF
+
       - name: 创建启动脚本 (Linux, 内置 JRE)
         run: |
           cat > build/run.sh << 'EOF'
@@ -351,11 +388,16 @@ jobs:
           rm -rf build-linux-no-llamacpp/classes/tools/easy-tools/windows
           cp -r jre-linux/jre build-linux-no-llamacpp/jre
           mkdir -p build-linux-no-llamacpp/llamacpp
+          cp launcher/build-linux/bin/llama.cpp-hub build-linux-no-llamacpp/
+          cp launcher.conf.linux build-linux-no-llamacpp/launcher.conf
+          chmod +x build-linux-no-llamacpp/llama.cpp-hub
           make_zip "build-linux-no-llamacpp" "llama.cpp-hub-${VERSION}-linux" "llama.cpp-hub-${VERSION}-linux.zip"
           cp -r build build-win-no-llamacpp
           rm -rf build-win-no-llamacpp/classes/tools/easy-tools/linux
           cp -r jre-win/jre build-win-no-llamacpp/jre
           mkdir -p build-win-no-llamacpp/llamacpp
+          cp launcher/build-win/bin/llama.cpp-hub.exe build-win-no-llamacpp/
+          cp launcher.conf.win build-win-no-llamacpp/launcher.conf
           make_zip "build-win-no-llamacpp" "llama.cpp-hub-${VERSION}-windows" "llama.cpp-hub-${VERSION}-windows.zip"
           if [ "${UBUNTU_VULKAN_AVAILABLE:-0}" = "1" ]; then
             cp -r build build-linux-vulkan
@@ -363,6 +405,9 @@ jobs:
             cp -r jre-linux/jre build-linux-vulkan/jre
             mkdir -p build-linux-vulkan/llamacpp
             cp -r "${UBUNTU_VULKAN_DIR}" build-linux-vulkan/llamacpp/
+            cp launcher/build-linux/bin/llama.cpp-hub build-linux-vulkan/
+            cp launcher.conf.linux build-linux-vulkan/launcher.conf
+            chmod +x build-linux-vulkan/llama.cpp-hub
             make_zip "build-linux-vulkan" "llama.cpp-hub-${VERSION}-${UBUNTU_VULKAN_TAG}-linux-vulkan" "llama.cpp-hub-${VERSION}-${UBUNTU_VULKAN_TAG}-linux-vulkan.zip"
           fi
           if [ "${UBUNTU_ROCM72_AVAILABLE:-0}" = "1" ]; then
@@ -371,6 +416,9 @@ jobs:
             cp -r jre-linux/jre build-linux-rocm72/jre
             mkdir -p build-linux-rocm72/llamacpp
             cp -r "${UBUNTU_ROCM72_DIR}" build-linux-rocm72/llamacpp/
+            cp launcher/build-linux/bin/llama.cpp-hub build-linux-rocm72/
+            cp launcher.conf.linux build-linux-rocm72/launcher.conf
+            chmod +x build-linux-rocm72/llama.cpp-hub
             make_zip "build-linux-rocm72" "llama.cpp-hub-${VERSION}-${UBUNTU_ROCM72_TAG}-linux-rocm-7.2" "llama.cpp-hub-${VERSION}-${UBUNTU_ROCM72_TAG}-linux-rocm-7.2.zip"
           fi
           if [ "${WIN_CUDA12_AVAILABLE:-0}" = "1" ]; then
@@ -382,6 +430,8 @@ jobs:
             if [ -n "${WIN_CUDA12_CUDART_DIR:-}" ]; then
               cp -r "${WIN_CUDA12_CUDART_DIR}" build-win-cuda12/llamacpp/
             fi
+            cp launcher/build-win/bin/llama.cpp-hub.exe build-win-cuda12/
+            cp launcher.conf.win build-win-cuda12/launcher.conf
             make_zip "build-win-cuda12" "llama.cpp-hub-${VERSION}-${WIN_CUDA12_TAG}-windows-cuda12" "llama.cpp-hub-${VERSION}-${WIN_CUDA12_TAG}-windows-cuda12.zip"
           fi
           if [ "${WIN_CUDA13_AVAILABLE:-0}" = "1" ]; then
@@ -393,6 +443,8 @@ jobs:
             if [ -n "${WIN_CUDA13_CUDART_DIR:-}" ]; then
               cp -r "${WIN_CUDA13_CUDART_DIR}" build-win-cuda13/llamacpp/
             fi
+            cp launcher/build-win/bin/llama.cpp-hub.exe build-win-cuda13/
+            cp launcher.conf.win build-win-cuda13/launcher.conf
             make_zip "build-win-cuda13" "llama.cpp-hub-${VERSION}-${WIN_CUDA13_TAG}-windows-cuda13" "llama.cpp-hub-${VERSION}-${WIN_CUDA13_TAG}-windows-cuda13.zip"
           fi
           if [ "${WIN_VULKAN_AVAILABLE:-0}" = "1" ]; then
@@ -401,6 +453,8 @@ jobs:
             cp -r jre-win/jre build-win-vulkan/jre
             mkdir -p build-win-vulkan/llamacpp
             cp -r "${WIN_VULKAN_DIR}" build-win-vulkan/llamacpp/
+            cp launcher/build-win/bin/llama.cpp-hub.exe build-win-vulkan/
+            cp launcher.conf.win build-win-vulkan/launcher.conf
             make_zip "build-win-vulkan" "llama.cpp-hub-${VERSION}-${WIN_VULKAN_TAG}-windows-vulkan" "llama.cpp-hub-${VERSION}-${WIN_VULKAN_TAG}-windows-vulkan.zip"
           fi
           if [ "${WIN_HIP_AVAILABLE:-0}" = "1" ]; then
@@ -409,6 +463,8 @@ jobs:
             cp -r jre-win/jre build-win-hip/jre
             mkdir -p build-win-hip/llamacpp
             cp -r "${WIN_HIP_DIR}" build-win-hip/llamacpp/
+            cp launcher/build-win/bin/llama.cpp-hub.exe build-win-hip/
+            cp launcher.conf.win build-win-hip/launcher.conf
             make_zip "build-win-hip" "llama.cpp-hub-${VERSION}-${WIN_HIP_TAG}-windows-hip" "llama.cpp-hub-${VERSION}-${WIN_HIP_TAG}-windows-hip.zip"
           fi
 
