@@ -39,7 +39,7 @@
 #define MAX_LINE_LEN 1024
 #define MAX_PATH_LEN 4096
 #define CONF_FILE "launcher.conf"
-#define ERROR_LOG "launcher-error.log"
+#define ERROR_LOG "launcher.log"
 
 #define MAIN_CLASS "org/mark/llamacpp/server/LlamaServer"
 
