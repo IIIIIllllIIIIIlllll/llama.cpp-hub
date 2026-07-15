@@ -37,26 +37,26 @@
 }
 
 [data-theme="dark"] {
-  --bg: #000000;
+  --bg: #1e1e1e;
   --fg: #ffffff;
   --muted: #94a3b8;
-  --muted-bg: #000000;
+  --muted-bg: #1e1e1e;
   --border: #3a3a5c;
-  --input: #000000;
+  --input: #1e1e1e;
   --primary: #818cf8;
   --primary-hover: #6366f1;
   --primary-fg: #ffffff;
-  --secondary: #000000;
+  --secondary: #1e1e1e;
   --secondary-fg: #ffffff;
   --destructive: #ef4444;
   --success: #10b981;
   --accent: #818cf8;
   --ring: #4a4a6a;
-  --sidebar-bg: #000000;
+  --sidebar-bg: #1e1e1e;
   --sidebar-border: #3a3a5c;
   --fg-muted: #6b7280;
   --hover: rgba(255,255,255,0.08);
-  --panel: #000000;
+  --panel: #1e1e1e;
   --danger: #ef4444;
   color-scheme: dark;
 }
@@ -78,7 +78,7 @@
 [data-theme="dark"] *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
 [data-theme="dark"] *:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
 [data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
-[data-theme="dark"] .topbar { background: rgba(0,0,0,0.94); border-bottom-color: var(--border); }
+[data-theme="dark"] .topbar { background: rgba(30,30,30,0.94); border-bottom-color: var(--border); }
 [data-theme="dark"] .composer-card { background: var(--secondary); border-color: var(--border); }
 [data-theme="dark"] .composer-card:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(129,140,248,0.25); }
 [data-theme="dark"] #promptInput { color: var(--fg); }

@@ -26,19 +26,19 @@
         }
 
         [data-theme="dark"] {
-            --bg-color: #000000;
-            --sidebar-bg: #000000;
-            --card-bg: #000000;
+            --bg-color: #1e1e1e;
+            --sidebar-bg: #1e1e1e;
+            --card-bg: #1e1e1e;
             --border-color: #3a3a5c;
             --text-primary: #ffffff;
             --text-secondary: #94a3b8;
             --hover-bg: rgba(255, 255, 255, 0.06);
             --active-bg: rgba(255, 255, 255, 0.10);
-            --input-bg: #000000;
-            --sidebar-footer-bg: #000000;
-            --topbar-bg: rgba(0, 0, 0, 0.9);
-            --disabled-bg: #000000;
-            --modal-content-bg: #000000;
+            --input-bg: #1e1e1e;
+            --sidebar-footer-bg: #1e1e1e;
+            --topbar-bg: rgba(30, 30, 30, 0.9);
+            --disabled-bg: #1e1e1e;
+            --modal-content-bg: #1e1e1e;
             --primary-color: #818cf8;
             --primary-hover: #6366f1;
             --accent-color: #818cf8;
