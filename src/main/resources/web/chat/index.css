@@ -4325,6 +4325,7 @@ body.sidebar-collapsed .sidebar {
   transform: translateY(8px) scale(0.98);
   transition: transform 0.2s var(--ease-spring);
   overflow: hidden;
+  min-height: 0;
 }
 
 .audio-recorder-modal.open .audio-recorder-panel {
@@ -4368,6 +4369,77 @@ body.sidebar-collapsed .sidebar {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+}
+
+#autoReplyModal .audio-recorder-panel {
+  width: min(900px, 94vw);
+  height: min(80vh, 700px);
+  min-height: 400px;
+  max-height: min(90vh, 800px);
+}
+
+#autoReplyModal .audio-recorder-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 16px 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.auto-reply-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.auto-reply-scroll-area .auto-reply-spinner {
+  margin: 8px auto 0;
+}
+
+#autoReplyModal .auto-reply-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.auto-reply-content {
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--fg);
+  width: 100%;
+  min-height: 28px;
+}
+
+#autoReplyModal .auto-reply-content {
+}
+
+.auto-reply-content:empty {
+  display: none;
+}
+
+.auto-reply-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--fg);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  align-self: center;
+}
+
+.auto-reply-spinner:empty {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Record button */

@@ -169,7 +169,7 @@
                 </div>
               </div>
               <div id="moreOptionsWrap" class="menu-wrap">
-                <button id="moreOptionsBtn" class="icon-button" type="button" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" title="更多操作">
+                <button id="moreOptionsBtn" class="icon-button" type="button" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" title="更多操作" data-i18n-attr="aria-label,title" data-i18n="page.chat.main.composer.more_actions">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:18px;height:18px;">
                     <circle cx="12" cy="5" r="1.5"/>
                     <circle cx="12" cy="12" r="1.5"/>
@@ -177,9 +177,9 @@
                   </svg>
                 </button>
                 <div id="moreOptionsMenu" class="thinking-menu" role="menu" aria-hidden="true">
-                  <button id="micRecorderBtn" class="thinking-menu-item" type="button" role="menuitem">🎤 录音</button>
-                  <button id="autoReplyBtn" class="thinking-menu-item" type="button" role="menuitem">✨ AI 帮答</button>
-                  <button id="chatSummaryBtn" class="thinking-menu-item" type="button" role="menuitem">📋 聊天总结</button>
+                  <button id="micRecorderBtn" class="thinking-menu-item" type="button" role="menuitem" data-i18n="page.chat.main.composer.record">🎤 录音</button>
+                  <button id="autoReplyBtn" class="thinking-menu-item" type="button" role="menuitem" data-i18n="page.chat.main.composer.auto_reply">✨ AI 帮答</button>
+                  <button id="chatSummaryBtn" class="thinking-menu-item" type="button" role="menuitem" data-i18n="page.chat.main.composer.summary">📋 聊天总结</button>
                 </div>
               </div>
                <button id="sendBtn" class="icon-button send-toggle-button" type="button" aria-label="发送" title="发送" data-i18n-attr="aria-label,title" data-i18n="page.chat.main.composer.send">
@@ -229,6 +229,35 @@
           <button id="audioRecorderDoneBtn" class="audio-recorder-action-btn audio-recorder-confirm" type="button" data-i18n="page.chat.main.recorder.done">完成</button>
         </div>
         <div class="audio-recorder-hint" data-i18n="page.chat.main.recorder.hint">点击"开始录音"后，点击"停止录音"结束。支持 WAV / MP3 格式</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="autoReplyModal" class="audio-recorder-modal" aria-hidden="true">
+    <div class="audio-recorder-panel">
+      <div class="audio-recorder-head">
+        <span>AI 帮答</span>
+        <button id="autoReplyModalCloseBtn" type="button" aria-label="关闭" class="audio-recorder-close">&times;</button>
+      </div>
+      <div class="audio-recorder-body">
+        <div class="auto-reply-scroll-area">
+          <div id="autoReplyReasoningBox" class="reasoning-box" style="display:none;">
+            <button id="autoReplyReasoningHead" class="reasoning-head" type="button" aria-expanded="false">
+              <span class="reasoning-meta">
+                <span class="reasoning-label">思维链</span>
+                <span class="reasoning-state">点击展开</span>
+              </span>
+              <span class="reasoning-caret" aria-hidden="true">›</span>
+            </button>
+            <div id="autoReplyReasoningBody" class="reasoning-body hidden"></div>
+          </div>
+          <div id="autoReplyContent" class="auto-reply-content"></div>
+          <div id="autoReplySpinner" class="auto-reply-spinner"></div>
+        </div>
+        <div class="auto-reply-actions">
+          <button id="autoReplyInsertBtn" class="primary-button" type="button" style="display:none;">插入到输入框</button>
+          <button id="autoReplyDismissBtn" class="ghost-button" type="button">关闭</button>
+        </div>
       </div>
     </div>
   </div>
@@ -539,10 +568,10 @@
               </div>
               <div class="settings-field">
                 <div class="settings-field-header">
-                  <label for="summaryPromptInput">聊天总结提示词</label>
+                  <label for="summaryPromptInput" data-i18n="page.chat.main.settings.templates.summary_label">聊天总结提示词</label>
                 </div>
-                <p class="settings-field-desc">自定义聊天总结的提示词，AI 将根据该提示生成对话总结。{transcript} 会被替换为对话全文</p>
-                <textarea id="summaryPromptInput" class="drawer-textarea" placeholder="输入总结提示词…"></textarea>
+                <p class="settings-field-desc" data-i18n="page.chat.main.settings.templates.summary_desc">自定义聊天总结的提示词，AI 将根据该提示生成对话总结。{transcript} 会被替换为对话全文</p>
+                <textarea id="summaryPromptInput" class="drawer-textarea" placeholder="输入总结提示词…" data-i18n-attr="placeholder" data-i18n="page.chat.main.settings.templates.summary_placeholder"></textarea>
               </div>
             </div>
           </div>
@@ -752,6 +781,7 @@
       modelAvailableContext: null
     };
 
+    let autoReplyAbortController = null;
     let modelCapabilitiesMap = {};
     let modelNodeIdMap = {};
     let modelOptions = [];
@@ -842,6 +872,15 @@
     audioRecorderStatus: document.getElementById('audioRecorderStatus'),
       audioRecorderComplete: document.getElementById('audioRecorderComplete'),
       audioRecorderDoneBtn: document.getElementById('audioRecorderDoneBtn'),
+      autoReplyModal: document.getElementById('autoReplyModal'),
+      autoReplyContent: document.getElementById('autoReplyContent'),
+      autoReplySpinner: document.getElementById('autoReplySpinner'),
+      autoReplyInsertBtn: document.getElementById('autoReplyInsertBtn'),
+      autoReplyDismissBtn: document.getElementById('autoReplyDismissBtn'),
+      autoReplyModalCloseBtn: document.getElementById('autoReplyModalCloseBtn'),
+      autoReplyReasoningBox: document.getElementById('autoReplyReasoningBox'),
+      autoReplyReasoningHead: document.getElementById('autoReplyReasoningHead'),
+      autoReplyReasoningBody: document.getElementById('autoReplyReasoningBody'),
       chatScroll: document.getElementById('chatScroll'),
       settingsDrawer: document.getElementById('settingsDrawer'),
       closeSettingsBtn: document.getElementById('closeSettingsBtn'),
@@ -9185,7 +9224,7 @@
       throw lastError || new Error(window.I18N.t('page.chat.main.status.busy', '系统忙，请稍后重试'));
     }
 
-    async function consumeEphemeralSse(response) {
+    async function consumeEphemeralSse(response, onDelta) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
@@ -9257,6 +9296,9 @@
               : '';
         answer += chunkContent;
         reasoning += chunkReasoning;
+        if (typeof onDelta === 'function') {
+          onDelta({ content: answer, reasoning });
+        }
         if (choice?.finish_reason !== undefined && choice?.finish_reason !== null && choice.finish_reason) {
           finishReason = String(choice.finish_reason);
         }
@@ -9725,42 +9767,88 @@
         showToast('error', window.I18N.t('page.chat.main.auto_reply.no_model', '请先选择模型'));
         return;
       }
-      els.autoReplyBtn.disabled = true;
-      els.autoReplyBtn.setAttribute('aria-label', window.I18N.t('page.chat.main.auto_reply.generating', '正在生成…'));
+
+      // Open modal
+      const modal = els.autoReplyModal;
+      const contentEl = els.autoReplyContent;
+      const spinner = els.autoReplySpinner;
+      const insertBtn = els.autoReplyInsertBtn;
+      contentEl.textContent = '';
+      spinner.style.display = '';
+      insertBtn.style.display = 'none';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+
       try {
-        const result = await requestEphemeralStreamChat({
-          conversationId: conversation.id,
-          assistant,
-          compositeModel: compositeKey,
-          mode: 'auto-reply',
-          prompt,
+        const headers = buildStreamChatHeaders(conversation.id, assistant, {
+          modelOverride: compositeKey,
+          disableTools: true,
+          ephemeralMode: 'auto-reply',
           samplingOverrides: {
-            max_tokens: 512,
             temperature: 0.7,
             chat_template_kwargs: {
               enable_thinking: false
             }
           }
         });
-        const raw = contentToText(result?.content || '').trim();
-        if (raw.trim()) {
-          if (userInput) {
-            els.promptInput.value = raw.trim();
-          } else {
-            els.promptInput.value = raw.trim();
-          }
-          resizePromptInput();
-          els.promptInput.focus();
-          showToast('success', window.I18N.t('page.chat.main.auto_reply.success', 'AI 已生成回复，请检查后发送'));
+        autoReplyAbortController = new AbortController();
+        const response = await fetch(STREAM_CHAT_ENDPOINT, {
+          method: 'POST',
+          headers,
+          body: buildStreamUserMessage(prompt, [], [], [], []),
+          signal: autoReplyAbortController.signal
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || window.I18N.t('page.chat.main.error.request_failed_status', '请求失败'));
+        }
+        const contentType = response.headers.get('content-type') || '';
+        let answer = '';
+        if (contentType.includes('text/event-stream')) {
+          const result = await consumeEphemeralSse(response, (delta) => {
+            if (delta.reasoning) {
+              els.autoReplyReasoningBox.style.display = '';
+              els.autoReplyReasoningBody.textContent = delta.reasoning;
+            }
+            contentEl.textContent = delta.content;
+          });
+          answer = result?.content || '';
         } else {
-          showToast('info', window.I18N.t('page.chat.main.auto_reply.empty', 'AI 未生成有效内容'));
+          const jsonResp = await response.json();
+          answer = contentToText(jsonResp?.choices?.[0]?.message?.content || jsonResp?.content || '');
+        }
+        contentEl.textContent = answer;
+        spinner.style.display = 'none';
+        if (answer.trim()) {
+          insertBtn.style.display = '';
+          insertBtn.onclick = function () {
+            els.promptInput.value = answer.trim();
+            resizePromptInput();
+            els.promptInput.focus();
+            closeAutoReplyModal();
+          };
+        } else {
+          contentEl.textContent = window.I18N.t('page.chat.main.auto_reply.empty', 'AI 未生成有效内容');
         }
       } catch (error) {
-        showToast('error', window.I18N.t('page.chat.main.auto_reply.failed', '生成失败：{error}').replace('{error}', error.message || window.I18N.t('page.chat.main.misc.recording_error', '未知错误')));
-      } finally {
-        els.autoReplyBtn.disabled = false;
-        els.autoReplyBtn.setAttribute('aria-label', window.I18N.t('page.chat.main.composer.auto_reply', 'AI 帮答'));
+        if (error?.name === 'AbortError') {
+          return;
+        }
+        spinner.style.display = 'none';
+        contentEl.textContent = window.I18N.t('page.chat.main.auto_reply.failed', '生成失败：{error}').replace('{error}', error.message || window.I18N.t('page.chat.main.misc.recording_error', '未知错误'));
       }
+      autoReplyAbortController = null;
+    }
+
+    function closeAutoReplyModal() {
+      if (autoReplyAbortController) {
+        autoReplyAbortController.abort();
+        autoReplyAbortController = null;
+      }
+      const modal = els.autoReplyModal;
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
     }
 
     async function generateChatSummary() {
@@ -10659,6 +10747,19 @@ function confirmAudioRecording() {
         }
       });
      els.audioRecorderStartBtn.addEventListener('click', handleRecorderBtn);
+
+      els.autoReplyModalCloseBtn.addEventListener('click', closeAutoReplyModal);
+      els.autoReplyDismissBtn.addEventListener('click', closeAutoReplyModal);
+      els.autoReplyModal.addEventListener('click', event => {
+        if (event.target === els.autoReplyModal) {
+          closeAutoReplyModal();
+        }
+      });
+      els.autoReplyReasoningHead.addEventListener('click', () => {
+        els.autoReplyReasoningBody.classList.toggle('hidden');
+        const expanded = !els.autoReplyReasoningBody.classList.contains('hidden');
+        els.autoReplyReasoningHead.setAttribute('aria-expanded', expanded);
+      });
 
       els.saveSettingsBtn.addEventListener('click', async () => {
         await saveSettings();
