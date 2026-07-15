@@ -11,7 +11,11 @@
 /models/
 /llama.cpp/
 /build/
+/launcher/build/
+llama-server.exe
+/launcher.conf
 /llamacpp/
+/jre/
 /ssl/
 /src/main/resources/tools/gguf-mem
 /src/main/resources/web/llama.cpp
