@@ -1041,6 +1041,11 @@ button { cursor: pointer; }
   background: var(--secondary);
 }
 
+.thinking-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .thinking-menu-item.active {
   background: var(--secondary);
   font-weight: 600;
@@ -2719,7 +2724,7 @@ pre:has(code[data-lang]) .code-copy-btn {
 
 /* ── Composer ── */
 .composer-shell {
-  border-top: 1px solid var(--border);
+  /* border-top: 1px solid var(--border); */
   background: var(--bg);
   padding: 12px 16px;
 }

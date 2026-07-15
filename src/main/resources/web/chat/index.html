@@ -168,12 +168,20 @@
                   <button class="thinking-menu-item" type="button" data-thinking-value="off" role="menuitemradio" data-i18n="page.chat.main.composer.thinking_off">关闭</button>
                 </div>
               </div>
-              <button id="micRecorderBtn" class="icon-button toolbar-icon-button" type="button" aria-label="录音" title="录音" data-i18n-attr="aria-label,title" data-i18n="page.chat.main.composer.record">
-                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-               </button>
-             <button id="autoReplyBtn" class="icon-button toolbar-icon-button" type="button" aria-label="AI 帮答" title="AI 帮答" data-i18n-attr="aria-label,title" data-i18n="page.chat.main.composer.auto_reply">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z"/><path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5L5 17z"/></svg>
+              <div id="moreOptionsWrap" class="menu-wrap">
+                <button id="moreOptionsBtn" class="icon-button" type="button" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" title="更多操作">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:18px;height:18px;">
+                    <circle cx="12" cy="5" r="1.5"/>
+                    <circle cx="12" cy="12" r="1.5"/>
+                    <circle cx="12" cy="19" r="1.5"/>
+                  </svg>
                 </button>
+                <div id="moreOptionsMenu" class="thinking-menu" role="menu" aria-hidden="true">
+                  <button id="micRecorderBtn" class="thinking-menu-item" type="button" role="menuitem">🎤 录音</button>
+                  <button id="autoReplyBtn" class="thinking-menu-item" type="button" role="menuitem">✨ AI 帮答</button>
+                  <button id="chatSummaryBtn" class="thinking-menu-item" type="button" role="menuitem">📋 聊天总结</button>
+                </div>
+              </div>
                <button id="sendBtn" class="icon-button send-toggle-button" type="button" aria-label="发送" title="发送" data-i18n-attr="aria-label,title" data-i18n="page.chat.main.composer.send">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
@@ -529,6 +537,13 @@
                 <p class="settings-field-desc" data-i18n="page.chat.main.settings.templates.auto_reply_model_desc">选择用于生成帮答内容的模型，留空则使用当前对话模型</p>
                 <select id="autoReplyModelSelect" class="drawer-input"></select>
               </div>
+              <div class="settings-field">
+                <div class="settings-field-header">
+                  <label for="summaryPromptInput">聊天总结提示词</label>
+                </div>
+                <p class="settings-field-desc">自定义聊天总结的提示词，AI 将根据该提示生成对话总结。{transcript} 会被替换为对话全文</p>
+                <textarea id="summaryPromptInput" class="drawer-textarea" placeholder="输入总结提示词…"></textarea>
+              </div>
             </div>
           </div>
 
@@ -710,9 +725,10 @@
       enableTimestamp: false,
      enableTitleGen: false,
        titleGenModel: '',
-       enableAutoReply: true,
-       autoReplyModel: '',
-       systemPrompt: '',
+        enableAutoReply: true,
+        autoReplyModel: '',
+        summaryPrompt: '请用中文总结以上对话的要点，包括：\n1. 用户提出的主要问题和需求\n2. 讨论的关键内容\n3. 已确定的结论或方案\n4. 待解决的问题\n\n请用简洁的语言分点总结。',
+        systemPrompt: '',
       mcpServerUrls: [],
       search: '',
       privacyMode: false,
@@ -835,6 +851,9 @@
       thinkingMenuWrap: document.getElementById('thinkingMenuWrap'),
       thinkingToggleBtn: document.getElementById('thinkingToggleBtn'),
       thinkingMenu: document.getElementById('thinkingMenu'),
+      moreOptionsWrap: document.getElementById('moreOptionsWrap'),
+      moreOptionsBtn: document.getElementById('moreOptionsBtn'),
+      moreOptionsMenu: document.getElementById('moreOptionsMenu'),
       temperatureInput: document.getElementById('temperatureInput'),
       maxTokensInput: document.getElementById('maxTokensInput'),
       topPInput: document.getElementById('topPInput'),
@@ -891,6 +910,8 @@
       titleGenToggle: document.getElementById('titleGenToggle'),
       titleGenModelSelect: document.getElementById('titleGenModelSelect'),
       autoReplyBtn: document.getElementById('autoReplyBtn'),
+      chatSummaryBtn: document.getElementById('chatSummaryBtn'),
+      summaryPromptInput: document.getElementById('summaryPromptInput'),
       autoReplyToggle: document.getElementById('autoReplyToggle'),
       autoReplyModelSelect: document.getElementById('autoReplyModelSelect'),
       messageRail: document.getElementById('messageRail'),
@@ -3922,6 +3943,7 @@
       if (els.titleGenToggle) els.titleGenToggle.checked = !!state.enableTitleGen;
       populateSettingsModelSelects();
       if (els.autoReplyToggle) els.autoReplyToggle.checked = !!state.enableAutoReply;
+      if (els.summaryPromptInput) els.summaryPromptInput.value = state.summaryPrompt;
       els.systemPromptInput.value = state.systemPrompt;
       resizeSystemPromptInput();
       els.searchInput.value = state.search;
@@ -4514,6 +4536,7 @@
       state.titleGenModel = els.titleGenModelSelect ? els.titleGenModelSelect.value : '';
       state.enableAutoReply = els.autoReplyToggle ? els.autoReplyToggle.checked : true;
       state.autoReplyModel = els.autoReplyModelSelect ? els.autoReplyModelSelect.value : '';
+      state.summaryPrompt = els.summaryPromptInput ? els.summaryPromptInput.value : state.summaryPrompt;
       state.systemPrompt = els.systemPromptInput.value;
       syncCurrentAssistantFromRuntimeState();
       renderThinkingMenu();
@@ -4539,6 +4562,7 @@
       if (!els.thinkingMenu || !els.thinkingToggleBtn) {
         return;
       }
+      closeMoreOptionsMenu();
       closeExportMenu();
       els.thinkingMenu.classList.add('open');
       els.thinkingMenu.setAttribute('aria-hidden', 'false');
@@ -4564,6 +4588,39 @@
         return;
       }
       closeThinkingMenu();
+    }
+
+    function openMoreOptionsMenu() {
+      if (!els.moreOptionsMenu || !els.moreOptionsBtn) {
+        return;
+      }
+      closeThinkingMenu();
+      closeModelMenu();
+      closeExportMenu();
+      els.moreOptionsMenu.classList.add('open');
+      els.moreOptionsMenu.setAttribute('aria-hidden', 'false');
+      els.moreOptionsBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeMoreOptionsMenu() {
+      if (!els.moreOptionsMenu || !els.moreOptionsBtn) {
+        return;
+      }
+      const active = document.activeElement;
+      if (active && els.moreOptionsMenu.contains(active)) {
+        els.moreOptionsBtn.focus();
+      }
+      els.moreOptionsMenu.classList.remove('open');
+      els.moreOptionsMenu.setAttribute('aria-hidden', 'true');
+      els.moreOptionsBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMoreOptionsMenu() {
+      if (!els.moreOptionsMenu?.classList.contains('open')) {
+        openMoreOptionsMenu();
+        return;
+      }
+      closeMoreOptionsMenu();
     }
 
     function findModelOption(value) {
@@ -4732,6 +4789,7 @@
 
     function openModelMenu() {
       if (!els.modelSelectMenu || !els.modelSelectBtn) return;
+      closeMoreOptionsMenu();
       closeThinkingMenu();
       closeExportMenu();
       renderModelMenu();
@@ -4972,6 +5030,7 @@
 
     async function openHwStatPanel() {
       if (!els.hwStatPanel || !els.hwStatBtn) return;
+      closeMoreOptionsMenu();
       closeThinkingMenu();
       closeExportMenu();
       closeModelMenu();
@@ -5389,6 +5448,7 @@
         titleGenModel: state.titleGenModel,
         enableAutoReply: state.enableAutoReply,
         autoReplyModel: state.autoReplyModel,
+        summaryPrompt: state.summaryPrompt,
         assistants: state.assistants,
         conversations: state.conversations.map(conversation => buildConversationSummaryPayload(conversation)),
         currentConversationId: state.currentConversationId
@@ -5555,6 +5615,7 @@
       state.titleGenModel = typeof saved?.titleGenModel === 'string' ? saved.titleGenModel : '';
       state.enableAutoReply = typeof saved?.enableAutoReply === 'boolean' ? saved.enableAutoReply : true;
       state.autoReplyModel = typeof saved?.autoReplyModel === 'string' ? saved.autoReplyModel : '';
+      state.summaryPrompt = typeof saved?.summaryPrompt === 'string' ? saved.summaryPrompt : '请用中文总结以上对话的要点，包括：\n1. 用户提出的主要问题和需求\n2. 讨论的关键内容\n3. 已确定的结论或方案\n4. 待解决的问题\n\n请用简洁的语言分点总结。';
       state.currentConversationId = typeof saved?.currentConversationId === 'string' ? saved.currentConversationId : '';
       const fallbackAssistantId = getFallbackAssistant()?.id || '';
       state.conversations = Array.isArray(saved?.conversations)
@@ -9702,6 +9763,47 @@
       }
     }
 
+    async function generateChatSummary() {
+      if (state.isSending) {
+        showToast('info', window.I18N.t('page.chat.main.summary.busy', '请等待当前对话完成'));
+        return;
+      }
+      if (!ensureStateReadyForOperation()) {
+        return;
+      }
+      try {
+        await ensureCurrentConversationLoaded({ showErrorToast: true });
+      } catch (error) {
+        return;
+      }
+      const conversation = getCurrentConversation();
+      if (!conversation || !Array.isArray(conversation.messages) || conversation.messages.length < 2) {
+        showToast('info', window.I18N.t('page.chat.main.summary.no_content', '对话内容太少，无法总结'));
+        return;
+      }
+      const transcript = buildConversationPromptTranscript(conversation.messages);
+      if (!transcript) {
+        showToast('info', window.I18N.t('page.chat.main.summary.no_content', '暂无对话内容可总结'));
+        return;
+      }
+      if (!state.model) {
+        showToast('error', window.I18N.t('page.chat.main.summary.no_model', '请先选择模型'));
+        return;
+      }
+      let prompt = state.summaryPrompt || '';
+      if (prompt.includes('{transcript}')) {
+        prompt = prompt.replaceAll('{transcript}', transcript);
+      }
+      pushMessage('user', prompt, {}, { persist: false, incremental: true, fragmentSeq: (conversation.nextFragmentSeq ?? 0) });
+      if (conversation.nextFragmentSeq != null) {
+        conversation.nextFragmentSeq += 2;
+      }
+      state.editingMessageIndex = null;
+      state.editingMessageDraft = null;
+      await persistState({ immediate: true });
+      await requestAssistantResponse({ preflightChecked: true });
+    }
+
     async function openConversation(id) {
       if (!ensureStateReadyForOperation()) {
         return;
@@ -9921,6 +10023,7 @@
     }
 
     function openExportMenu() {
+      closeMoreOptionsMenu();
       closeThinkingMenu();
       const menu = document.getElementById('exportMenu');
       const btn = document.getElementById('exportBtn');
@@ -10131,6 +10234,15 @@
       els.thinkingToggleBtn.addEventListener('click', event => {
         event.stopPropagation();
         toggleThinkingMenu();
+      });
+      els.moreOptionsBtn.addEventListener('click', event => {
+        event.stopPropagation();
+        toggleMoreOptionsMenu();
+      });
+      els.moreOptionsMenu.addEventListener('click', event => {
+        if (event.target.closest('.thinking-menu-item')) {
+          closeMoreOptionsMenu();
+        }
       });
       els.settingsDrawer.addEventListener('click', event => {
         if (event.target === els.settingsDrawer) {
@@ -10665,6 +10777,9 @@ function confirmAudioRecording() {
       els.autoReplyBtn.addEventListener('click', () => {
         void generateAutoReply();
       });
+      els.chatSummaryBtn.addEventListener('click', () => {
+        void generateChatSummary();
+      });
       if (els.hwStatBtn) {
         els.hwStatBtn.addEventListener('click', () => {
           toggleHwStatPanel();
@@ -10909,6 +11024,9 @@ function confirmAudioRecording() {
         }
         if (!event.target.closest('#modelSelectWrap')) {
           closeModelMenu();
+        }
+        if (!event.target.closest('#moreOptionsWrap')) {
+          closeMoreOptionsMenu();
         }
         const hint = event.target.closest('.empty-hint[data-hint]');
         if (hint) {
