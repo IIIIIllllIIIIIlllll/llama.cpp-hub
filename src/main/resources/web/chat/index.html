@@ -6812,6 +6812,11 @@
         return;
       }
       const nextStreaming = !!isStreaming;
+      if (nextStreaming) {
+        activeResponse.timings = null;
+        activeResponse.performanceText = '';
+        activeResponse.streamingDone = false;
+      }
       if (activeResponse.isStreaming === nextStreaming && !!message.isStreaming === nextStreaming) {
         return;
       }
@@ -6939,6 +6944,10 @@
         return;
       }
       if (activeResponse?.streamingDone) {
+        removeStreamingPerformance(actions);
+        return;
+      }
+      if (!timings.predicted_n || timings.predicted_n <= 0) {
         removeStreamingPerformance(actions);
         return;
       }
