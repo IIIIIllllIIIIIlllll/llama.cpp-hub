@@ -11,7 +11,7 @@ cmake -S launcher -B launcher\build
 cmake --build launcher\build --config Release
 ```
 
-产物：`launcher\build\bin\llama-server.exe`
+产物：`launcher\build\bin\llama.cpp-hub.exe`
 
 ## 配置
 

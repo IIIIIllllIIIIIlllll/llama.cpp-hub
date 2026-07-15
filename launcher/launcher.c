@@ -93,7 +93,7 @@ static void log_error(const char *msg) {
 static void fatal_error(const char *msg) {
     log_error(msg);
 #ifdef _WIN32
-    MessageBoxA(NULL, msg, "llama-server Launcher Error",
+    MessageBoxA(NULL, msg, "llama.cpp-hub Launcher Error",
         MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
 #endif
     exit(1);

@@ -7,28 +7,28 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(SOURCES launcher.c)
 
 if(WIN32)
-    add_executable(llama-server WIN32 ${SOURCES})
-    target_include_directories(llama-server PRIVATE
+    add_executable(llama.cpp-hub WIN32 ${SOURCES})
+    target_include_directories(llama.cpp-hub PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/win32
     )
-    target_link_libraries(llama-server PRIVATE user32)
+    target_link_libraries(llama.cpp-hub PRIVATE user32)
 else()
-    add_executable(llama-server ${SOURCES})
-    target_include_directories(llama-server PRIVATE
+    add_executable(llama.cpp-hub ${SOURCES})
+    target_include_directories(llama.cpp-hub PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/linux
     )
-    target_link_libraries(llama-server PRIVATE dl)
+    target_link_libraries(llama.cpp-hub PRIVATE dl)
 endif()
 
-set_target_properties(llama-server PROPERTIES
+set_target_properties(llama.cpp-hub PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_CURRENT_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_CURRENT_BINARY_DIR}/bin"
 )
 
-install(TARGETS llama-server
+install(TARGETS llama.cpp-hub
     RUNTIME DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/bin"
 )
