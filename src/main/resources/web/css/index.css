@@ -557,12 +557,16 @@
             width: 10px;
             height: 10px;
             border-radius: 2px;
-            background: #111111;
+            background: #10b981;
             display: inline-block;
         }
-        
+
         .model-slot-square.busy {
-            background: #8a8a8a;
+            background: #f59e0b;
+        }
+
+        .model-slot-square.overload {
+            background: #ef4444;
         }
         
         .vision-badge {
@@ -589,8 +593,6 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
-
-        .model-slots { display: none !important; }
 
         .node-badge {
             color: #a78bfa;

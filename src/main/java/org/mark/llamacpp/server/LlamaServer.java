@@ -1106,7 +1106,11 @@ public class LlamaServer {
     }
 
     public static void sendModelLoadEvent(String modelId, String sourceModelId, boolean success, String message, Integer port) {
-        WebSocketManager.getInstance().sendModelLoadEvent(modelId, sourceModelId, success, message, port);
+        WebSocketManager.getInstance().sendModelLoadEvent(modelId, sourceModelId, success, message, port, null);
+    }
+
+    public static void sendModelLoadEvent(String modelId, String sourceModelId, boolean success, String message, Integer port, Integer slotNum) {
+        WebSocketManager.getInstance().sendModelLoadEvent(modelId, sourceModelId, success, message, port, slotNum);
     }
 
     public static void sendModelLoadStartEvent(String modelId, Integer port, String message) {

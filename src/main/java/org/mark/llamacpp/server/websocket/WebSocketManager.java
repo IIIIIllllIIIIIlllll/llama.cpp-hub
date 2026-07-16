@@ -185,6 +185,10 @@ public class WebSocketManager {
     }
 
     public void sendModelLoadEvent(String modelId, String sourceModelId, boolean success, String message, Integer port) {
+        sendModelLoadEvent(modelId, sourceModelId, success, message, port, null);
+    }
+
+    public void sendModelLoadEvent(String modelId, String sourceModelId, boolean success, String message, Integer port, Integer slotNum) {
         JsonObject event = new JsonObject();
         event.addProperty("type", "modelLoad");
         event.addProperty("modelId", modelId != null ? modelId : "");
@@ -195,6 +199,9 @@ public class WebSocketManager {
         event.addProperty("message", message != null ? message : "");
         if (port != null) {
             event.addProperty("port", port);
+        }
+        if (slotNum != null) {
+            event.addProperty("slotNum", slotNum);
         }
         event.addProperty("timestamp", System.currentTimeMillis());
         broadcast(JsonUtil.toJson(event));

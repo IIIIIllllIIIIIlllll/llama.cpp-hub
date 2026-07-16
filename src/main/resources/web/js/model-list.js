@@ -87,13 +87,23 @@ function loadModels() {
  const modelsWithStatus = allModels.map(model => {
                             const key = modelCompositeKey(model.id, model.nodeId);
                             const loadedModel = loadedByKey[key];
+                            const slotNum = loadedModel ? (Number.isFinite(loadedModel.slotNum) ? loadedModel.slotNum : 0) : 0;
+                            const busy = loadedModel ? !!loadedModel.busy : false;
+                            // 初次渲染：根据 slotNum 合成全空闲（或 1 个 busy）的小方块数组，
+                            // 让 slot 区域在首次渲染即出现，无需等待首个 model_busy 事件。
+                            const initialSlots = [];
+                            for (let i = 0; i < slotNum; i++) {
+                                initialSlots.push({ id: i, is_processing: false });
+                            }
                             return {
                                 ...model,
                                 isLoading: !!model.isLoading,
                                 isLoaded: !!loadedModel,
                                 status: loadedModel ? (loadedModel.status || 'loaded') : 'stopped',
                                 port: loadedModel ? loadedModel.port : null,
-                                busy: loadedModel ? !!loadedModel.busy : false
+                                busy: busy,
+                                slotNum: slotNum,
+                                slots: initialSlots
                             };
                         });
                         fetch('/api/models/record/speed')
@@ -395,7 +405,7 @@ const speedHtml = (model.averagePromptPerSecond ? `<span class="model-meta-promp
                                   <span><i class="fas fa-hdd"></i> ${formatFileSize(model.size)}</span>
                                   ${model.port ? `<span><i class="fas fa-network-wired"></i> ${model.port}</span>` : ''}
                               </div>`;
-        const slotsAndNode = `<span class="model-slots" id="slots-${encodeURIComponent(modelCompositeKey(model.id, model.nodeId))}" style="display:none;">${renderSlotsSquaresInner(model.slots)}</span>${nodeBadge ? '<div class="model-node-badge-line">' + nodeBadge + '</div>' : ''}`;
+        const slotsAndNode = `<span class="model-slots" id="slots-${encodeURIComponent(modelCompositeKey(model.id, model.nodeId))}">${renderSlotsSquaresInner(model.slots)}</span>${nodeBadge ? '<div class="model-node-badge-line">' + nodeBadge + '</div>' : ''}`;
         const detailsBlock = isGridView
             ? `<div class="model-details">
                               <div class="model-name" title="${model.name}" ${nameClickAttr}>${displayName}</div>
@@ -457,9 +467,11 @@ function renderSlotsSquaresInner(slots) {
             if (!it || typeof it !== 'object') continue;
             const id = Number.isFinite(it.id) ? it.id : i;
             const busy = !!it.is_processing;
+            const overload = !!it.overload;
             const speculative = !!it.speculative;
             const title = `slot ${id}${speculative ? ' (speculative)' : ''}`;
-            s += `<span class="model-slot-square${busy ? ' busy' : ''}" title="${title}"></span>`;
+            const cls = overload ? ' overload' : (busy ? ' busy' : '');
+            s += `<span class="model-slot-square${cls}" title="${title}"></span>`;
         }
         return s;
     } catch (e) {
@@ -473,7 +485,7 @@ function updateModelSlotsDom(modelId, slots, nodeId) {
         const el = document.getElementById(`slots-${encodeURIComponent(key)}`);
         if (!el) return;
         const hasSlots = Array.isArray(slots) && slots.length > 0;
-        el.style.visibility = hasSlots ? 'visible' : 'hidden';
+        el.style.display = hasSlots ? '' : 'none';
         el.innerHTML = renderSlotsSquaresInner(slots);
     } catch (e) {}
 }

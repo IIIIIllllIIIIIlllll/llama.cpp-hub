@@ -718,6 +718,7 @@ public class ModelActionController implements BaseController {
 			modelData.put("nodeId", "local");
 			modelData.put("nodeName", "page.model.filter.local");
 			modelData.put("busy", ModelRequestTracker.getInstance().isModelBusy(modelId));
+			modelData.put("slotNum", process.getSlotNum());
 
 			loadedModels.add(modelData);
 		}

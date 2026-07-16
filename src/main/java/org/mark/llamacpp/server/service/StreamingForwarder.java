@@ -84,21 +84,21 @@ public class StreamingForwarder {
         if (chunk == null || chunk.length == 0) {
             return;
         }
-        if (closed.get()) {
+        if (this.closed.get()) {
             throw new IOException("stream closed");
         }
-        long seq = chunkSeq.incrementAndGet();
+        long seq = this.chunkSeq.incrementAndGet();
         try {
-            bodyBuffer.write(chunk);
-            extractFields(chunk);
+        	this.bodyBuffer.write(chunk);
+        	this.extractFields(chunk);
         } catch (IOException e) {
-            fail(e);
+        	this.fail(e);
             throw e;
         }
         Object marker = seq;
         try {
-            while (!closed.get() && !failed.get()) {
-                if (queue.offer(marker, 100, TimeUnit.MILLISECONDS)) {
+            while (!this.closed.get() && !this.failed.get()) {
+                if (this.queue.offer(marker, 100, TimeUnit.MILLISECONDS)) {
                     return;
                 }
             }
@@ -106,8 +106,8 @@ public class StreamingForwarder {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted while enqueuing", e);
         }
-        if (failed.get() && failure != null) {
-            throw failure;
+        if (this.failed.get() && this.failure != null) {
+            throw this.failure;
         }
         throw new IOException("stream closed");
     }
@@ -120,20 +120,20 @@ public class StreamingForwarder {
     }
 
     public void complete() {
-        closed.compareAndSet(false, true);
+    	this.closed.compareAndSet(false, true);
         try {
-            queue.put(EOF_MARKER);
+        	this.queue.put(EOF_MARKER);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 
     public void fail(IOException e) {
-        failed.compareAndSet(false, true);
+    	this.failed.compareAndSet(false, true);
         this.failure = e;
-        closed.set(true);
+        this.closed.set(true);
         try {
-            queue.put(EOF_MARKER);
+        	this.queue.put(EOF_MARKER);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }
@@ -145,7 +145,7 @@ public class StreamingForwarder {
     public TransformResult extract() throws IOException {
         while (true) {
             try {
-                Object marker = queue.poll(1, TimeUnit.SECONDS);
+                Object marker = this.queue.poll(1, TimeUnit.SECONDS);
                 if (marker == EOF_MARKER) {
                     break;
                 }
@@ -187,7 +187,7 @@ public class StreamingForwarder {
         
         if (LlamaServer.logRequestBodyToFile) {
             try {
-                logOutput = createLogFile();
+                logOutput = this.createLogFile();
                 targetOutput = new TeeOutputStream(output, logOutput);
                 logger.info("[Debug] 请求体日志已开启: {}", modelName);
             } catch (IOException e) {
@@ -197,18 +197,18 @@ public class StreamingForwarder {
         
         String timingInjection = "\"timings_per_token\":true,\"return_progress\":true,\"verbose\":true";
         try {
-            if (nodeId != null && !nodeId.isBlank()) {
-                long injected = bodyBuffer.streamInjected(targetOutput, timingInjection);
-                logger.info("[远程代理] nodeId={}, injected={} bytes", nodeId, injected);
+            if (this.nodeId != null && !this.nodeId.isBlank()) {
+                long injected = this.bodyBuffer.streamInjected(targetOutput, timingInjection);
+                logger.info("[远程代理] nodeId={}, injected={} bytes", this.nodeId, injected);
             } else {
-                String injection = SamplingInjectionBuilder.buildInjectionString(modelName, clientEnableThinking);
+                String injection = SamplingInjectionBuilder.buildInjectionString(this.modelName, clientEnableThinking);
                 if (!injection.isEmpty()) {
                     injection = injection + "," + timingInjection;
                 } else {
                     injection = timingInjection;
                 }
-                long injected = bodyBuffer.streamInjected(targetOutput, injection);
-                logger.info("[注入] model={}, injected={} bytes: {}", modelName, injected, injection);
+                long injected = this.bodyBuffer.streamInjected(targetOutput, injection);
+                logger.info("[注入] model={}, injected={} bytes: {}", this.modelName, injected, injection);
             }
         } finally {
             if (logOutput != null) {
@@ -226,8 +226,8 @@ public class StreamingForwarder {
         if (!Files.exists(logDir)) {
             Files.createDirectories(logDir);
         }
-        String safeModel = modelName != null && !modelName.isEmpty() 
-            ? modelName.replace("/", "_").replace("\\", "_") 
+        String safeModel = this.modelName != null && !this.modelName.isEmpty() 
+            ? this.modelName.replace("/", "_").replace("\\", "_") 
             : "unknown";
         String filename = System.currentTimeMillis() + "_" + safeModel + ".json";
         Path logFile = logDir.resolve(filename);
@@ -240,7 +240,7 @@ public class StreamingForwarder {
      * 内存 O(1)，不依赖 JSON 总大小。
      */
     void extractFields(byte[] chunk) {
-        if (state == STATE_DONE) {
+        if (this.state == STATE_DONE) {
             return;
         }
 
@@ -248,9 +248,9 @@ public class StreamingForwarder {
 
         for (int i = 0; i < chunk.length; i++) {
             byte b = chunk[i];
-            int prevState = state;
+            int prevState = this.state;
 
-            switch (state) {
+            switch (this.state) {
 
                 case STATE_DONE:
                     return;
@@ -258,48 +258,48 @@ public class StreamingForwarder {
                 /* ===== 主状态：逐字节扫描 JSON 结构 ===== */
                 default:
                 case STATE_NORMAL: {
-                    if (escapePending) {
-                        escapePending = false;
+                    if (this.escapePending) {
+                    	this.escapePending = false;
                         break;
                     }
                     if (b == '\\') {
-                        escapePending = true;
+                    	this.escapePending = true;
                         break;
                     }
                     if (b == '"') {
-                        if (!inString) {
-                            inString = true;
+                        if (!this.inString) {
+                        	this.inString = true;
                             /* 前瞻检查：是否为顶层目标字段 key，或 thinking 对象内的 type */
-                            if (depth == 1 || (inThinkingObject && depth == 2)) {
-                                TargetField matched = findMatchingTarget(chunk, i + 1, depth, inThinkingObject);
+                            if (this.depth == 1 || (this.inThinkingObject && depth == 2)) {
+                                TargetField matched = findMatchingTarget(chunk, i + 1, this.depth, this.inThinkingObject);
                                 if (matched != null) {
-                                    currentTarget = matched;
-                                    keyMatchLen = 0;
-                                    state = STATE_KEY_MATCH;
+                                	this.currentTarget = matched;
+                                    this.keyMatchLen = 0;
+                                    this.state = STATE_KEY_MATCH;
                                     //logger.debug("[状态机] pos={} 匹配到 {} key 开头", i, matched.name());
                                     break;
                                 }
                             }
                         } else {
-                            inString = false;
+                        	this.inString = false;
                         }
                         break;
                     }
-                    if (inString) {
+                    if (this.inString) {
                         break;
                     }
                     if (b == '{') {
-                        depth++;
+                    	this.depth++;
                         break;
                     }
                     if (b == '}') {
-                        if (inThinkingObject && depth == 2) {
-                            inThinkingObject = false;
+                        if (this.inThinkingObject && this.depth == 2) {
+                        	this.inThinkingObject = false;
                         }
-                        depth--;
-                        if (depth < 0) depth = 0;
-                        if (depth == 0) {
-                            state = STATE_DONE;
+                        this.depth--;
+                        if (this.depth < 0) this.depth = 0;
+                        if (this.depth == 0) {
+                        	this.state = STATE_DONE;
                             //logger.debug("[状态机] pos={} 顶层 JSON 结束", i);
                             return;
                         }
@@ -310,14 +310,14 @@ public class StreamingForwarder {
 
                 /* ===== 消耗目标 key 剩余字符（前瞻已确认匹配） ===== */
                 case STATE_KEY_MATCH: {
-                    keyMatchLen++;
-                    if (keyMatchLen == currentTarget.keyBytes().length) {
+                	this.keyMatchLen++;
+                    if (this.keyMatchLen == this.currentTarget.keyBytes().length) {
                         /* key 匹配完成，准备解析 value */
-                        afterColon = false;
-                        inValueString = false;
-                        valueBuf = null;
-                        boolMatchLen = 0;
-                        state = STATE_VALUE_PARSE;
+                    	this.afterColon = false;
+                    	this.inValueString = false;
+                    	this.valueBuf = null;
+                    	this.boolMatchLen = 0;
+                    	this.state = STATE_VALUE_PARSE;
                         //logger.debug("[状态机] pos={} {} key 匹配完成，解析 value", i, currentTarget.name());
                     }
                     break;
@@ -325,14 +325,14 @@ public class StreamingForwarder {
 
                 /* ===== 解析字段的 value ===== */
                 case STATE_VALUE_PARSE: {
-                    if (currentTarget.type() == FieldType.STRING) {
-                        handleStringValue(b, prevState);
-                    } else if (currentTarget.type() == FieldType.BOOLEAN) {
-                        handleBooleanValue(b, prevState, chunk, i);
-                    } else if (currentTarget.type() == FieldType.NUMBER) {
-                        handleNumberValue(b, prevState, chunk, i);
-                    } else if (currentTarget.type() == FieldType.OBJECT) {
-                        handleObjectValue(b);
+                    if (this.currentTarget.type() == FieldType.STRING) {
+                    	this.handleStringValue(b, prevState);
+                    } else if (this.currentTarget.type() == FieldType.BOOLEAN) {
+                    	this.handleBooleanValue(b, prevState, chunk, i);
+                    } else if (this.currentTarget.type() == FieldType.NUMBER) {
+                    	this.handleNumberValue(b, prevState, chunk, i);
+                    } else if (this.currentTarget.type() == FieldType.OBJECT) {
+                    	this.handleObjectValue(b);
                     }
                     break;
                 }
@@ -348,156 +348,156 @@ public class StreamingForwarder {
      * 解析字符串类型的 value（用于 model 字段）。
      */
     void handleStringValue(byte b, int prevState) {
-        if (escapePending) {
-            escapePending = false;
-            if (valueBuf != null) {
-                valueBuf.append((char) b);
+        if (this.escapePending) {
+        	this.escapePending = false;
+            if (this.valueBuf != null) {
+            	this.valueBuf.append((char) b);
             }
             return;
         }
         if (b == '\\') {
-            escapePending = true;
+        	this.escapePending = true;
             return;
         }
         if (b == '"') {
-            if (!afterColon) {
+            if (!this.afterColon) {
                 /* 不应到达：key 已在 KEY_MATCH 中消耗完 */
                 return;
             }
-            if (!inValueString) {
+            if (!this.inValueString) {
                 /* value 的打开引号 */
-                inValueString = true;
+            	this.inValueString = true;
                 return;
             }
             /* value 的关闭引号 —— 提取完成 */
-            String val = (valueBuf == null) ? "" : valueBuf.toString();
-            if (currentTarget == TARGET_MODEL) {
-                modelName = val;
-                bodyBuffer.setModelFound();
-            } else if (currentTarget == TARGET_THINKING_TYPE) {
+            String val = (this.valueBuf == null) ? "" : this.valueBuf.toString();
+            if (this.currentTarget == TARGET_MODEL) {
+            	this.modelName = val;
+            	this.bodyBuffer.setModelFound();
+            } else if (this.currentTarget == TARGET_THINKING_TYPE) {
                 String trimmed = val.trim();
                 if ("enabled".equalsIgnoreCase(trimmed)) {
-                    enableThinking = true;
+                	this.enableThinking = true;
                 } else if ("disabled".equalsIgnoreCase(trimmed)) {
-                    enableThinking = false;
+                	this.enableThinking = false;
                 }
             }
             //logger.info("[状态机] *** 提取到 {}={}", currentTarget.name(), val);
-            resetToNormal();
+            this.resetToNormal();
             return;
         }
         if (b == ':') {
-            afterColon = true;
+        	this.afterColon = true;
             return;
         }
         if (isWhitespace(b)) {
             return;
         }
         /* value 字符 */
-        if (valueBuf == null) {
-            valueBuf = new StringBuilder(32);
+        if (this.valueBuf == null) {
+        	this.valueBuf = new StringBuilder(32);
         }
-        valueBuf.append((char) b);
+        this.valueBuf.append((char) b);
     }
 
     /**
      * 解析布尔类型的 value（用于 enable_thinking 字段）。
      */
     void handleBooleanValue(byte b, int prevState, byte[] chunk, int pos) {
-        if (escapePending) {
-            escapePending = false;
+        if (this.escapePending) {
+        	this.escapePending = false;
             return;
         }
         if (b == '\\') {
-            escapePending = true;
+        	this.escapePending = true;
             return;
         }
         if (b == ':') {
-            afterColon = true;
+        	this.afterColon = true;
             return;
         }
         if (isWhitespace(b)) {
             return;
         }
         if (b == '"') {
-            if (!afterColon) {
+            if (!this.afterColon) {
                 return;
             }
-            if (!inValueString) {
+            if (!this.inValueString) {
                 /* 布尔值以字符串形式出现，例如 "true" / "false" */
-                inValueString = true;
-                valueBuf = null;
+            	this.inValueString = true;
+            	this.valueBuf = null;
                 return;
             }
             /* 字符串形式的布尔值关闭引号 */
-            String val = (valueBuf == null) ? "" : valueBuf.toString();
+            String val = (this.valueBuf == null) ? "" : this.valueBuf.toString();
             Boolean parsed = parseBooleanString(val);
             if (parsed != null) {
-                enableThinking = parsed;
+            	this.enableThinking = parsed;
             }
-            resetToNormal();
+            this.resetToNormal();
             return;
         }
 
         /* 字符串形式布尔值的字符累积 */
-        if (inValueString) {
-            if (valueBuf == null) {
-                valueBuf = new StringBuilder(32);
+        if (this.inValueString) {
+            if (this.valueBuf == null) {
+            	this.valueBuf = new StringBuilder(32);
             }
-            valueBuf.append((char) b);
+            this.valueBuf.append((char) b);
             return;
         }
 
         /* 累积布尔值字符 */
-        if (!afterColon) {
+        if (!this.afterColon) {
             return;
         }
 
-        if (b == 't' && boolMatchLen == 0) {
-            boolMatchLen++;
+        if (b == 't' && this.boolMatchLen == 0) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 'r' && boolMatchLen == 1) {
-            boolMatchLen++;
+        if (b == 'r' && this.boolMatchLen == 1) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 'u' && boolMatchLen == 2) {
-            boolMatchLen++;
+        if (b == 'u' && this.boolMatchLen == 2) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 'e' && boolMatchLen == 3) {
-            boolMatchLen++;
-            enableThinking = true;
+        if (b == 'e' && this.boolMatchLen == 3) {
+        	this.boolMatchLen++;
+        	this.enableThinking = true;
             //logger.info("[状态机] *** 提取到 enable_thinking=true");
-            resetToNormal();
+        	this.resetToNormal();
             return;
         }
-        if (b == 'f' && boolMatchLen == 0) {
-            boolMatchLen++;
+        if (b == 'f' && this.boolMatchLen == 0) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 'a' && boolMatchLen == 1) {
-            boolMatchLen++;
+        if (b == 'a' && this.boolMatchLen == 1) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 'l' && boolMatchLen == 2) {
-            boolMatchLen++;
+        if (b == 'l' && this.boolMatchLen == 2) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 's' && boolMatchLen == 3) {
-            boolMatchLen++;
+        if (b == 's' && this.boolMatchLen == 3) {
+        	this.boolMatchLen++;
             return;
         }
-        if (b == 'e' && boolMatchLen == 4) {
-            boolMatchLen++;
-            enableThinking = false;
+        if (b == 'e' && this.boolMatchLen == 4) {
+        	this.boolMatchLen++;
+        	this.enableThinking = false;
             //logger.info("[状态机] *** 提取到 enable_thinking=false");
-            resetToNormal();
+        	this.resetToNormal();
             return;
         }
 
         /* 不匹配任何布尔字面量，重置 */
-        resetToNormal();
+        this.resetToNormal();
     }
 
     /**
@@ -510,50 +510,50 @@ public class StreamingForwarder {
             return;
         }
         if (b == ':') {
-            afterColon = true;
+        	this.afterColon = true;
             return;
         }
         if (isWhitespace(b)) {
-            if (!afterColon) {
+            if (!this.afterColon) {
                 return;
             }
-            if (valueBuf != null) {
-                finishNumberValue();
+            if (this.valueBuf != null) {
+            	this.finishNumberValue();
             }
             return;
         }
         if (b == ',' || b == '}') {
-            if (valueBuf != null) {
-                finishNumberValue();
+            if (this.valueBuf != null) {
+            	this.finishNumberValue();
             }
             if (b == '}') {
-                if (inThinkingObject && depth == 2) {
-                    inThinkingObject = false;
+                if (this.inThinkingObject && this.depth == 2) {
+                	this.inThinkingObject = false;
                 }
-                depth--;
-                if (depth < 0) depth = 0;
-                if (depth == 0) {
-                    state = STATE_DONE;
+                this.depth--;
+                if (this.depth < 0) this.depth = 0;
+                if (this.depth == 0) {
+                	this.state = STATE_DONE;
                 } else {
-                    resetToNormal();
+                	this.resetToNormal();
                 }
             } else {
-                resetToNormal();
+            	this.resetToNormal();
             }
             return;
         }
         if (b >= '0' && b <= '9') {
-            if (!afterColon) {
+            if (!this.afterColon) {
                 return;
             }
-            if (valueBuf == null) {
-                valueBuf = new StringBuilder(16);
+            if (this.valueBuf == null) {
+            	this.valueBuf = new StringBuilder(16);
             }
-            valueBuf.append((char) b);
+            this.valueBuf.append((char) b);
             return;
         }
         /* 非预期字符，重置 */
-        resetToNormal();
+        this.resetToNormal();
     }
 
     /**
@@ -561,14 +561,14 @@ public class StreamingForwarder {
      */
     void finishNumberValue() {
         try {
-            int value = Integer.parseInt(valueBuf.toString());
+            int value = Integer.parseInt(this.valueBuf.toString());
             if (value > 0) {
-                enableThinking = true;
+            	this.enableThinking = true;
             }
         } catch (NumberFormatException e) {
             // ignore
         }
-        resetToNormal();
+        this.resetToNormal();
     }
 
     /**
@@ -581,20 +581,20 @@ public class StreamingForwarder {
             return;
         }
         if (b == ':') {
-            afterColon = true;
+        	this.afterColon = true;
             return;
         }
         if (isWhitespace(b)) {
             return;
         }
-        if (b == '{' && afterColon) {
-            depth++;
-            inThinkingObject = true;
-            resetToNormal();
+        if (b == '{' && this.afterColon) {
+        	this.depth++;
+        	this.inThinkingObject = true;
+        	this.resetToNormal();
             return;
         }
         /* 非预期字符，重置 */
-        resetToNormal();
+        this.resetToNormal();
     }
 
     /**
@@ -618,15 +618,15 @@ public class StreamingForwarder {
      * 重置状态机到 NORMAL，准备扫描下一个目标字段。
      */
     void resetToNormal() {
-        state = STATE_NORMAL;
-        currentTarget = null;
-        keyMatchLen = 0;
-        valueBuf = null;
-        afterColon = false;
-        inValueString = false;
-        boolMatchLen = 0;
-        escapePending = false;
-        inString = false;
+    	this.state = STATE_NORMAL;
+    	this.currentTarget = null;
+    	this.keyMatchLen = 0;
+    	this.valueBuf = null;
+    	this.afterColon = false;
+    	this.inValueString = false;
+    	this.boolMatchLen = 0;
+    	this.escapePending = false;
+    	this.inString = false;
     }
 
     /**
@@ -694,15 +694,15 @@ public class StreamingForwarder {
      * 关闭并清理 bodyBuffer 资源。
      */
     public void close() throws IOException {
-        bodyBuffer.close();
+    	this.bodyBuffer.close();
     }
 
     String getModelName() {
-        return modelName;
+        return this.modelName;
     }
 
     Boolean getEnableThinking() {
-        return enableThinking;
+        return this.enableThinking;
     }
 
     static String previewChunk(byte[] chunk) {

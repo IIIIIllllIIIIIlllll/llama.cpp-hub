@@ -179,12 +179,20 @@ function handleModelLoadEvent(data) {
         window.pendingModelLoad = null;
     }
     if (data.success) {
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: true, status: 'running', port: data.port ?? null, slots: [] }, data.nodeId);
+        const slotNum = Number.isFinite(data.slotNum) ? data.slotNum : 0;
+        const initialSlots = [];
+        for (let i = 0; i < slotNum; i++) {
+            initialSlots.push({ id: i, is_processing: false });
+        }
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: true, status: 'running', port: data.port ?? null, slotNum: slotNum, slots: initialSlots }, data.nodeId);
+        if (typeof updateModelSlotsDom === 'function' && slotNum > 0) {
+            updateModelSlotsDom(data.modelId, initialSlots, data.nodeId);
+        }
     } else {
-        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
-    }
-    if (typeof updateModelSlotsDom === 'function') {
-        updateModelSlotsDom(data.modelId, [], data.nodeId);
+        applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slotNum: 0, slots: [] }, data.nodeId);
+        if (typeof updateModelSlotsDom === 'function') {
+            updateModelSlotsDom(data.modelId, [], data.nodeId);
+        }
     }
 }
 
@@ -195,7 +203,7 @@ function handleModelStopEvent(data) {
     const msg = wsT(msgKey, msgFallback, { nodeLabel, modelId: data.modelId });
     showToast(wsT('api.model.stop.title', '模型停止'), msg, data.success ? 'success' : 'error');
     if (typeof removeModelLoadingState === 'function') removeModelLoadingState(data.modelId, data.nodeId);
-    applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slots: [] }, data.nodeId);
+    applyModelPatch(data.modelId, { isLoading: false, isLoaded: false, status: 'stopped', port: null, slotNum: 0, slots: [] }, data.nodeId);
     if (typeof updateModelSlotsDom === 'function') {
         updateModelSlotsDom(data.modelId, [], data.nodeId);
     }
@@ -220,7 +228,21 @@ function handleModelSlotsUpdate(data) {
 
 function handleModelBusyEvent(data) {
     if (!data || !data.modelId) return;
-    applyModelPatch(data.modelId, { busy: !!data.busy }, data.nodeId);
+    const slotNum = Number.isFinite(data.slotNum) ? data.slotNum : 0;
+    const active = Number.isFinite(data.activeCount) ? data.activeCount : 0;
+    const busyCount = Math.min(active, slotNum);
+    // 超载：请求数超过可用 slot，llama.cpp 会自动排队，无负面影响，但视觉上全红提示。
+    const overload = slotNum > 0 && active > slotNum;
+    // 把 (activeCount, slotNum) 合成为伪 slots 数组，直接喂给现有的小方块渲染器。
+    // 远程 / 未加载模型的 slotNum 为 0，slots 即为空数组，前端据此不渲染任何方块。
+    const slots = [];
+    for (let i = 0; i < slotNum; i++) {
+        slots.push({ id: i, is_processing: i < busyCount, overload: overload });
+    }
+    if (typeof updateModelSlotsDom === 'function') {
+        updateModelSlotsDom(data.modelId, slots, data.nodeId);
+    }
+    applyModelPatch(data.modelId, { busy: !!data.busy, slotNum: slotNum, slots: slots }, data.nodeId);
 }
 
 async function populateLogFilter(activeNodeId) {

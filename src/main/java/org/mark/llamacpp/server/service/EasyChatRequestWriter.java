@@ -28,21 +28,21 @@ final class EasyChatRequestWriter {
 	}
 
 	void writeRequestBody(OutputStream output, RequestSpec spec) throws IOException {
-		writeAscii(output, REQUEST_PREFIX);
-		writeString(output, spec.modelId);
-		writeAscii(output, "\",\"stream\":".getBytes(StandardCharsets.UTF_8));
-		writeString(output, Boolean.toString(spec.stream));
+		this.writeAscii(output, REQUEST_PREFIX);
+		this.writeString(output, spec.modelId);
+		this.writeAscii(output, "\",\"stream\":".getBytes(StandardCharsets.UTF_8));
+		this.writeString(output, Boolean.toString(spec.stream));
 		if (spec.stream) {
-			writeAscii(output, ",\"timings_per_token\":true,\"return_progress\":true,\"verbose\":true".getBytes(StandardCharsets.UTF_8));
+			this.writeAscii(output, ",\"timings_per_token\":true,\"return_progress\":true,\"verbose\":true".getBytes(StandardCharsets.UTF_8));
 		}
-		writeAscii(output, ",\"messages\":[".getBytes(StandardCharsets.UTF_8));
+		this.writeAscii(output, ",\"messages\":[".getBytes(StandardCharsets.UTF_8));
 
 		boolean wroteAnyMessage = false;
 		if (spec.systemPrompt != null && !spec.systemPrompt.isBlank()) {
 			JsonObject systemMessage = new JsonObject();
 			systemMessage.addProperty("role", "system");
 			systemMessage.addProperty("content", spec.systemPrompt);
-			writeString(output, JsonUtil.toJson(systemMessage));
+			this.writeString(output, JsonUtil.toJson(systemMessage));
 			wroteAnyMessage = true;
 		}
 
@@ -57,15 +57,15 @@ final class EasyChatRequestWriter {
 				historyEndExclusive = Math.min(historyEndExclusive, spec.continueSeq.longValue() + 1);
 			}
 			for (long seq = 0; seq < historyEndExclusive; seq++) {
-				EasyChatStorage.FragmentHeader header = storage.readFragmentHeader(spec.conversationDir, seq);
+				EasyChatStorage.FragmentHeader header = this.storage.readFragmentHeader(spec.conversationDir, seq);
 				if (header == null) {
 					continue;
 				}
-				if (storage.isDeleted(header)) {
+				if (this.storage.isDeleted(header)) {
 					continue;
 				}
 				Integer preferredVariant = spec.variants == null ? null : spec.variants.get(seq);
-				int resolvedVariant = storage.resolveVariantIndex(header, preferredVariant);
+				int resolvedVariant = this.storage.resolveVariantIndex(header, preferredVariant);
 				if (resolvedVariant < 0) {
 					continue;
 				}
@@ -73,14 +73,14 @@ final class EasyChatRequestWriter {
 				// unsupported top-level fields (timings / finish_reason), so we no
 				// longer parse the message into a JsonObject tree just to strip
 				// those keys — that path OOMs on multi-MB attachments.
-				EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(spec.conversationDir, seq, resolvedVariant);
+				EasyChatStorage.FragmentSlice slice = this.storage.getVariantSlice(spec.conversationDir, seq, resolvedVariant);
 				if (slice == null || slice.length <= 0) {
 					continue;
 				}
 				if (wroteAnyMessage) {
-					writeAscii(output, COMMA);
+					this.writeAscii(output, COMMA);
 				}
-				storage.streamSlice(slice, output);
+				this.storage.streamSlice(slice, output);
 				wroteAnyMessage = true;
 			}
 		}
@@ -96,7 +96,7 @@ final class EasyChatRequestWriter {
 			}
 			if (hasBytes || hasFile) {
 				if (wroteAnyMessage) {
-					writeAscii(output, COMMA);
+					this.writeAscii(output, COMMA);
 				}
 				if (hasBytes) {
 					output.write(spec.transientUserMessageBytes);
@@ -109,9 +109,9 @@ final class EasyChatRequestWriter {
 			}
 		}
 
-		writeAscii(output, ARRAY_END);
-		writeExtraFields(output, spec);
-		writeAscii(output, OBJECT_END);
+		this.writeAscii(output, ARRAY_END);
+		this.writeExtraFields(output, spec);
+		this.writeAscii(output, OBJECT_END);
 		output.flush();
 	}
 
@@ -119,7 +119,7 @@ final class EasyChatRequestWriter {
 		if (spec.toolsBytes != null && spec.toolsBytes.length > 0) {
 			JsonObject toolsObj = JsonUtil.tryParseObject(new String(spec.toolsBytes, StandardCharsets.UTF_8));
 			if (toolsObj != null) {
-				writeObjectFields(output, toolsObj);
+				this.writeObjectFields(output, toolsObj);
 			}
 		}
 
@@ -137,22 +137,22 @@ final class EasyChatRequestWriter {
 			requestOptions.addProperty("continue_final_message", true);
 			requestOptions.addProperty("add_generation_prompt", false);
 		}
-		Boolean clientEnableThinking = readClientEnableThinking(requestOptions);
+		Boolean clientEnableThinking = this.readClientEnableThinking(requestOptions);
 		ParamTool.handleOpenAIChatThinking(requestOptions);
 		String resolvedModelId = SamplingInjectionBuilder.resolveModelName(spec.modelId);
 		requestOptions.addProperty("model", resolvedModelId == null || resolvedModelId.isBlank() ? spec.modelId : resolvedModelId);
-		applyMergedChatTemplateKwargs(requestOptions, resolvedModelId, clientEnableThinking);
+		this.applyMergedChatTemplateKwargs(requestOptions, resolvedModelId, clientEnableThinking);
 		if (!spec.skipSamplingInjection) {
 			ModelSamplingService.getInstance().handleOpenAI(requestOptions);
 		}
-		writeObjectFields(output, requestOptions, "model", "messages", "stream");
+		this.writeObjectFields(output, requestOptions, "model", "messages", "stream");
 	}
 
 	private void applyMergedChatTemplateKwargs(JsonObject requestOptions, String modelId, Boolean clientEnableThinking) {
 		if (requestOptions == null || modelId == null || modelId.isBlank()) {
 			return;
 		}
-		JsonObject finalKwargs = readJsonObjectCopy(requestOptions.get("chat_template_kwargs"));
+		JsonObject finalKwargs = this.readJsonObjectCopy(requestOptions.get("chat_template_kwargs"));
 		if (finalKwargs == null) {
 			finalKwargs = new JsonObject();
 		}
@@ -246,11 +246,11 @@ final class EasyChatRequestWriter {
 			if (shouldIgnore(key, ignoredKeys)) {
 				continue;
 			}
-			writeAscii(output, COMMA);
-			writeAscii(output, "\"".getBytes(StandardCharsets.UTF_8));
-			writeString(output, key);
-			writeAscii(output, QUOTE_COLON);
-			writeString(output, JsonUtil.toJson(obj.get(key)));
+			this.writeAscii(output, COMMA);
+			this.writeAscii(output, "\"".getBytes(StandardCharsets.UTF_8));
+			this.writeString(output, key);
+			this.writeAscii(output, QUOTE_COLON);
+			this.writeString(output, JsonUtil.toJson(obj.get(key)));
 		}
 	}
 

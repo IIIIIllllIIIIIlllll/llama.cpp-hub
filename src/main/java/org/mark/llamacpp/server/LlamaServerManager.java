@@ -2073,16 +2073,16 @@ public class LlamaServerManager {
 					return;
 				}
 
-				if (loadSuccess.get()) {
-					synchronized (this.processLock) {
-						this.loadedProcesses.put(modelId, process);
-						this.modelPorts.put(modelId, actualPort);
-					}
-					this.modelLastUsedTime.put(modelId, System.currentTimeMillis());
-					LlamaServer.sendModelLoadEvent(modelId, sourceModelId, true, "模型加载成功", actualPort);
-//					// 这里请求一次
-//					try {
-//						JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
+if (loadSuccess.get()) {
+				synchronized (this.processLock) {
+					this.loadedProcesses.put(modelId, process);
+					this.modelPorts.put(modelId, actualPort);
+				}
+				this.modelLastUsedTime.put(modelId, System.currentTimeMillis());
+				// 先取 /slots 设置 slotNum/ctxSize，再广播加载完成事件，让前端拿到正确的 slotNum 即时渲染小方块。
+//				// 这里请求一�?
+//				try {
+//					JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
 //						int ctxSize = 0;
 //						if (slotsResponse != null && slotsResponse.has("slots") && slotsResponse.get("slots").isJsonArray()) {
 //							JsonArray slots = slotsResponse.getAsJsonArray("slots");
@@ -2093,42 +2093,45 @@ public class LlamaServerManager {
 //								}
 //							}
 //						}
-//						// 继续添加新东西
+//						// 继续添加新东?
 //						// TODO
-//						
-//						
-//						
+//
+//
+//
 //						process.setCtxSize(ctxSize);
 //					}catch (Exception e) {
 //						e.printStackTrace();
 //						process.setCtxSize(0);
 //					}
-					// 这里再请求一次
-					try {
-						JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
-						int ctxSize = 0;
-						int slotNum = 1;
-						if (slotsResponse != null && slotsResponse.has("slots") && slotsResponse.get("slots").isJsonArray()) {
-							JsonArray slots = slotsResponse.getAsJsonArray("slots");
-							if (slots.size() > 0 && slots.get(0).isJsonObject()) {
-								JsonObject slot0 = slots.get(0).getAsJsonObject();
-								if (slot0.has("n_ctx") && !slot0.get("n_ctx").isJsonNull()) {
-									ctxSize = (int) Math.round(slot0.get("n_ctx").getAsDouble());
-								}
+				// 这里再请求一�?
+				int loadedSlotNum = 0;
+				try {
+					JsonObject slotsResponse = this.handleModelSlotsGet(modelId);
+					int ctxSize = 0;
+					int slotNum = 1;
+					if (slotsResponse != null && slotsResponse.has("slots") && slotsResponse.get("slots").isJsonArray()) {
+						JsonArray slots = slotsResponse.getAsJsonArray("slots");
+						if (slots.size() > 0 && slots.get(0).isJsonObject()) {
+							JsonObject slot0 = slots.get(0).getAsJsonObject();
+							if (slot0.has("n_ctx") && !slot0.get("n_ctx").isJsonNull()) {
+								ctxSize = (int) Math.round(slot0.get("n_ctx").getAsDouble());
 							}
-							slotNum = slots.size();
 						}
-						process.setCtxSize(ctxSize);
-						process.setSlotNum(slotNum);
-					}catch (Exception e) {
-						e.printStackTrace();
-						process.setCtxSize(0);
+						slotNum = slots.size();
 					}
-					try {
-						this.handleModelInfo(modelId);
-					} catch (Exception e) {
-						logger.info("获取/v1/models信息失败: " + modelId, e);
-					}
+					process.setCtxSize(ctxSize);
+					process.setSlotNum(slotNum);
+					loadedSlotNum = slotNum;
+				}catch (Exception e) {
+					e.printStackTrace();
+					process.setCtxSize(0);
+				}
+				LlamaServer.sendModelLoadEvent(modelId, sourceModelId, true, "模型加载成功", actualPort, loadedSlotNum);
+				try {
+					this.handleModelInfo(modelId);
+				} catch (Exception e) {
+					logger.info("获取/v1/models信息失败: " + modelId, e);
+				}
 				} else {
 					process.stop();
 					if (this.isLoadCanceled(modelId)) {

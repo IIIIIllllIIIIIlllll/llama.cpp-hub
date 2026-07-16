@@ -58,7 +58,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 
-	public class EasyChatService {
+public class EasyChatService {
 
 	private static final Logger logger = LoggerFactory.getLogger(EasyChatService.class);
 
@@ -85,7 +85,6 @@ import io.netty.handler.codec.http.LastHttpContent;
 	private static final String I18N_CHAT_HISTORY_FAILED = "api.error.chat.history.failed";
 
 	private static final int STREAM_TIMEOUT_MS = 36000 * 1000;
-	
 
 	private static EasyChatService instance;
 
@@ -107,19 +106,20 @@ import io.netty.handler.codec.http.LastHttpContent;
 	private EasyChatService() {
 	}
 
-   /**
-     * Decode a URL-encoded header value. Returns the original string if decoding fails.
-     */
-    private static String decodeHeader(String value) {
-        if (value == null || value.isBlank()) {
-            return value;
-        }
-        try {
-            return URLDecoder.decode(value, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return value;
-        }
-    }
+	/**
+	 * Decode a URL-encoded header value. Returns the original string if decoding
+	 * fails.
+	 */
+	private static String decodeHeader(String value) {
+		if (value == null || value.isBlank()) {
+			return value;
+		}
+		try {
+			return URLDecoder.decode(value, StandardCharsets.UTF_8);
+		} catch (Exception e) {
+			return value;
+		}
+	}
 
 	private static String readTerminalFinishReason(JsonObject json) {
 		if (json == null || !json.has("choices") || !json.get("choices").isJsonArray()) {
@@ -141,13 +141,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 	}
 
-    /* ---- Public API ---- */
+	/* ---- Public API ---- */
 
 	/**
-	 * Handle stream-chat request.
-	 * Reads metadata from HTTP headers, body bytes written directly to fragment (no JSON parse),
-	 * validates, acquires lock, allocates sequences, writes user fragment,
-	 * then dispatches async processing.
+	 * Handle stream-chat request. Reads metadata from HTTP headers, body bytes
+	 * written directly to fragment (no JSON parse), validates, acquires lock,
+	 * allocates sequences, writes user fragment, then dispatches async processing.
 	 */
 	public void handleStreamChat(ChannelHandlerContext ctx, FullHttpRequest request) {
 		if (request.method() != HttpMethod.POST) {
@@ -159,11 +158,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 		Path streamingBodyFile = ctx.channel().attr(EasyChatStreamingHandler.STREAMING_BODY_FILE).getAndSet(null);
 		EasyChatGlobalLock.Lease globalLease = null;
 		try {
-			globalLease = acquireGlobalLease(ctx, "chat.stream");
+			globalLease = this.acquireGlobalLease(ctx, "chat.stream");
 			if (globalLease == null) {
 				return;
 			}
-			channelLeaseMap.put(ctx, globalLease);
+			this.channelLeaseMap.put(ctx, globalLease);
 
 			// Client already disconnected: abort immediately.
 			if (!ctx.channel().isActive()) {
@@ -171,23 +170,23 @@ import io.netty.handler.codec.http.LastHttpContent;
 				return;
 			}
 
-        // Read metadata from headers
-            String hdrConvId = decodeHeader(request.headers().get("X-Conversation-Id"));
-            String conversationId = (hdrConvId != null) ? hdrConvId : "";
+			// Read metadata from headers
+			String hdrConvId = decodeHeader(request.headers().get("X-Conversation-Id"));
+			String conversationId = (hdrConvId != null) ? hdrConvId : "";
 			if (conversationId.isBlank()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_CONVERSATION_ID_REQUIRED));
 				return;
 			}
 
-       String hdrModelId = decodeHeader(request.headers().get("X-Model-Id"));
-            String modelId = (hdrModelId != null) ? hdrModelId : "";
+			String hdrModelId = decodeHeader(request.headers().get("X-Model-Id"));
+			String modelId = (hdrModelId != null) ? hdrModelId : "";
 			if (modelId.isBlank()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODEL_ID_REQUIRED));
 				return;
 			}
 
-      String hdrAsstName = decodeHeader(request.headers().get("X-Assistant-Name"));
-            String assistantName = (hdrAsstName != null) ? hdrAsstName : "";
+			String hdrAsstName = decodeHeader(request.headers().get("X-Assistant-Name"));
+			String assistantName = (hdrAsstName != null) ? hdrAsstName : "";
 
 			// streamingBodyFile was read at method entry
 
@@ -203,8 +202,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 
 			// Parse optional small headers (safe, tiny)
-       JsonArray toolsArr = null;
-            String toolsHeader = decodeHeader(request.headers().get("X-Tools"));
+			JsonArray toolsArr = null;
+			String toolsHeader = decodeHeader(request.headers().get("X-Tools"));
 			if (toolsHeader != null && !toolsHeader.isBlank()) {
 				try {
 					JsonElement el = JsonUtil.fromJson(toolsHeader, JsonElement.class);
@@ -225,10 +224,10 @@ import io.netty.handler.codec.http.LastHttpContent;
 			boolean isEphemeral = ephemeralMode != null && !ephemeralMode.isBlank();
 			String streamHeader = decodeHeader(request.headers().get("X-Stream"));
 			boolean requestStream = streamHeader == null || streamHeader.isBlank()
-				|| Boolean.parseBoolean(streamHeader.trim());
+					|| Boolean.parseBoolean(streamHeader.trim());
 
-       JsonObject samplingParams = null;
-            String spHeader = decodeHeader(request.headers().get("X-Sampling-Params"));
+			JsonObject samplingParams = null;
+			String spHeader = decodeHeader(request.headers().get("X-Sampling-Params"));
 			if (spHeader != null && !spHeader.isBlank()) {
 				try {
 					JsonElement el = JsonUtil.fromJson(spHeader, JsonElement.class);
@@ -245,7 +244,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			if (nodeId != null) {
 				nodeId = nodeId.trim();
 			}
-			ModelTarget modelTarget = resolveModelTarget(modelId, nodeId);
+		ModelTarget modelTarget = this.resolveModelTarget(modelId, nodeId);
 			if (modelTarget.error != null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(modelTarget.error));
 				return;
@@ -255,7 +254,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 			boolean isRemoteNode = modelTarget.isRemoteNode;
 
 			// Resolve system prompt from synced assistant config.
-			String systemPrompt = resolveAssistantSystemPrompt(assistantName);
+			String systemPrompt = this.resolveAssistantSystemPrompt(assistantName);
 
 			// Parse regenerate headers
 			Long regenerateSeq = null;
@@ -300,7 +299,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 			boolean isRegenerate = regenerateSeq != null;
 			boolean isContinue = continueSeq != null;
 			if (isRegenerate || isContinue) {
-				// For regenerate/continue: no body needed, backend reads messages from fragments
+				// For regenerate/continue: no body needed, backend reads messages from
+				// fragments
 				// bodyBytes can be empty
 			} else if (bodyBytes != null && bodyBytes.length == 0) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
@@ -314,9 +314,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 
 			// Per-conversation lock
-			Object convLock = conversationLocks.computeIfAbsent(conversationId, k -> new Object());
+			Object convLock = this.conversationLocks.computeIfAbsent(conversationId, k -> new Object());
 
-			Path convDir = isEphemeral ? null : storage.getConversationDir(conversationId);
+			Path convDir = isEphemeral ? null : this.storage.getConversationDir(conversationId);
 
 			// Validate continue target before acquiring seq lock.
 			int continueVariantIndex = 0;
@@ -329,72 +329,86 @@ import io.netty.handler.codec.http.LastHttpContent;
 					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_SEQ_INVALID));
 					return;
 				}
-				EasyChatStorage.FragmentHeader header = storage.readFragmentHeader(convDir, continueSeq);
-				if (header == null || storage.isDeleted(header)) {
+				EasyChatStorage.FragmentHeader header = this.storage.readFragmentHeader(convDir, continueSeq);
+				if (header == null || this.storage.isDeleted(header)) {
 					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_TARGET_NOTFOUND));
 					return;
 				}
-			continueVariantIndex = storage.resolveVariantIndex(header, variants != null ? variants.get(continueSeq) : null);
-			if (continueVariantIndex < 0) {
-				continueVariantIndex = header.activeVariantIndex;
-			}
-			if (continueVariantIndex < 0) {
-				continueVariantIndex = 0;
-			}
-			try {
-				if (fragmentHasNonEmptyToolCalls(convDir, continueSeq, continueVariantIndex)) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_TOOLCALLS_UNSUPPORTED));
-					return;
+				continueVariantIndex = this.storage.resolveVariantIndex(header,
+						variants != null ? variants.get(continueSeq) : null);
+				if (continueVariantIndex < 0) {
+					continueVariantIndex = header.activeVariantIndex;
 				}
-			} catch (Exception e) {
-				logger.warn("[EasyChat] 读取继续生成目标payload失败 seq={}", continueSeq, e);
-			}
-		}
-
-		if (isRegenerate && !isEphemeral && convDir != null) {
-			try {
-				boolean targetHasToolCalls = false;
-				EasyChatStorage.FragmentHeader regFragHeader = storage.readFragmentHeader(convDir, regenerateSeq);
-				if (regFragHeader != null && !storage.isDeleted(regFragHeader)) {
-					int regVariant = storage.resolveVariantIndex(regFragHeader,
-						variants != null ? variants.get(regenerateSeq) : null);
-					if (regVariant < 0) { regVariant = regFragHeader.activeVariantIndex; }
-					if (regVariant < 0) { regVariant = 0; }
-					targetHasToolCalls = fragmentHasNonEmptyToolCalls(convDir, regenerateSeq, regVariant);
+				if (continueVariantIndex < 0) {
+					continueVariantIndex = 0;
 				}
-				if (!targetHasToolCalls) {
-					for (long seq = regenerateSeq - 1; seq >= 0; seq--) {
-						EasyChatStorage.FragmentHeader h = storage.readFragmentHeader(convDir, seq);
-						if (h == null || storage.isDeleted(h)) { continue; }
-						int v = storage.resolveVariantIndex(h, variants != null ? variants.get(seq) : null);
-						if (v < 0) { v = h.activeVariantIndex; }
-						if (v < 0) { v = 0; }
-						String role = fragmentTopLevelRole(convDir, seq, v);
-						if (role == null) { break; }
-						if ("tool".equals(role)) {
-							LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_REGENERATE_TOOLCONTEXT_UNSUPPORTED));
-							return;
-						}
-						break;
+				try {
+					if (this.fragmentHasNonEmptyToolCalls(convDir, continueSeq, continueVariantIndex)) {
+						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_CONTINUE_TOOLCALLS_UNSUPPORTED));
+						return;
 					}
+				} catch (Exception e) {
+					logger.warn("[EasyChat] 读取继续生成目标payload失败 seq={}", continueSeq, e);
 				}
-			} catch (Exception e) {
-				logger.warn("[EasyChat] regenerate预检失败 seq={}", regenerateSeq, e);
 			}
-		}
 
-		long userSeq;
-		long aiSeq;
-		byte[] toolsBytes;
+			if (isRegenerate && !isEphemeral && convDir != null) {
+				try {
+					boolean targetHasToolCalls = false;
+					EasyChatStorage.FragmentHeader regFragHeader = this.storage.readFragmentHeader(convDir, regenerateSeq);
+					if (regFragHeader != null && !this.storage.isDeleted(regFragHeader)) {
+						int regVariant = this.storage.resolveVariantIndex(regFragHeader,
+								variants != null ? variants.get(regenerateSeq) : null);
+						if (regVariant < 0) {
+							regVariant = regFragHeader.activeVariantIndex;
+						}
+						if (regVariant < 0) {
+							regVariant = 0;
+						}
+						targetHasToolCalls = this.fragmentHasNonEmptyToolCalls(convDir, regenerateSeq, regVariant);
+					}
+					if (!targetHasToolCalls) {
+						for (long seq = regenerateSeq - 1; seq >= 0; seq--) {
+							EasyChatStorage.FragmentHeader h = this.storage.readFragmentHeader(convDir, seq);
+							if (h == null || this.storage.isDeleted(h)) {
+								continue;
+							}
+							int v = this.storage.resolveVariantIndex(h, variants != null ? variants.get(seq) : null);
+							if (v < 0) {
+								v = h.activeVariantIndex;
+							}
+							if (v < 0) {
+								v = 0;
+							}
+							String role = fragmentTopLevelRole(convDir, seq, v);
+							if (role == null) {
+								break;
+							}
+							if ("tool".equals(role)) {
+								LlamaServer.sendJsonResponse(ctx,
+										ApiResponse.error(I18N_CHAT_REGENERATE_TOOLCONTEXT_UNSUPPORTED));
+								return;
+							}
+							break;
+						}
+					}
+				} catch (Exception e) {
+					logger.warn("[EasyChat] regenerate预检失败 seq={}", regenerateSeq, e);
+				}
+			}
 
-		synchronized (convLock) {
+			long userSeq;
+			long aiSeq;
+			byte[] toolsBytes;
+
+			synchronized (convLock) {
 				if (isEphemeral) {
 					userSeq = -1;
 					aiSeq = -1;
 				} else {
-					Path indexPath = storage.indexFile(convDir);
-					storage.ensureIndex(convDir, assistantName);
-					long idxSeq = storage.readIndexSeq(indexPath);
+					Path indexPath = this.storage.indexFile(convDir);
+					this.storage.ensureIndex(convDir, assistantName);
+					long idxSeq = this.storage.readIndexSeq(indexPath);
 
 					if (isRegenerate && isContinue) {
 						LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_PARAM_CONFLICT));
@@ -411,13 +425,13 @@ import io.netty.handler.codec.http.LastHttpContent;
 					} else {
 						userSeq = idxSeq;
 						aiSeq = idxSeq + 1;
-						storage.writeIndexSeq(indexPath, idxSeq + 2);
+						this.storage.writeIndexSeq(indexPath, idxSeq + 2);
 
 						// Write user fragment (raw body bytes, no JSON parsing)
 						if (streamingBodyFile != null && Files.exists(streamingBodyFile)) {
-							storage.writeFragment(convDir, userSeq, System.currentTimeMillis(), streamingBodyFile);
+							this.storage.writeFragment(convDir, userSeq, System.currentTimeMillis(), streamingBodyFile);
 						} else {
-							storage.writeFragment(convDir, userSeq, System.currentTimeMillis(), bodyBytes);
+							this.storage.writeFragment(convDir, userSeq, System.currentTimeMillis(), bodyBytes);
 						}
 					}
 				}
@@ -429,16 +443,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 					toolsObj.addProperty("tool_choice", toolChoice);
 					toolsBytes = JsonUtil.toJson(toolsObj).getBytes(StandardCharsets.UTF_8);
 					if (!isEphemeral) {
-						storage.writeTools(convDir, toolsBytes);
+						this.storage.writeTools(convDir, toolsBytes);
 					}
 				} else {
-					toolsBytes = isEphemeral ? null : storage.readTools(convDir);
+					toolsBytes = isEphemeral ? null : this.storage.readTools(convDir);
 				}
 
 				// Persist X-Variants to fragment headers
 				if (!isEphemeral && variants != null) {
 					for (Map.Entry<Long, Integer> entry : variants.entrySet()) {
-						storage.writeActiveVariantIndex(convDir, entry.getKey(), entry.getValue());
+						this.storage.writeActiveVariantIndex(convDir, entry.getKey(), entry.getValue());
 					}
 				}
 			}
@@ -459,7 +473,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 			final Long finalContinueSeq = continueSeq;
 			final int finalContinueVariantIndex = continueVariantIndex;
 			final byte[] finalBodyBytes = bodyBytes;
-			// For persisted chats, the current message has already been written to fragments
+			// For persisted chats, the current message has already been written to
+			// fragments
 			// and will be replayed from history. Only ephemeral requests should append the
 			// transient body directly to the model request.
 			byte[] transientBodyBytes = null;
@@ -479,38 +494,40 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 			// Non-ephemeral streaming bodies have already been written as
 			// fragments; clean their temp file up here.
-			cleanupStreamingBodyFile(streamingBodyFile);
+			this.cleanupStreamingBodyFile(streamingBodyFile);
 			streamingBodyFile = null;
 			final byte[] finalTransientBodyBytes = transientBodyBytes;
 			final Path finalTransientBodyFile = transientBodyFile;
 			final boolean finalRequestStream = requestStream;
 
-			// If the client left while we were preparing the request, do not start the worker.
+			// If the client left while we were preparing the request, do not start the
+			// worker.
 			if (!ctx.channel().isActive()) {
 				logger.info("[EasyChat] channel在提交任务前已关闭，取消生成");
 				// Worker won't fire, so clean up the handed-off ephemeral body
 				// file ourselves (otherwise it would leak on disk).
-				cleanupStreamingBodyFile(transientBodyFile);
+				this.cleanupStreamingBodyFile(transientBodyFile);
 				return;
 			}
 
 			// Dispatch to worker thread
-			channelLeaseMap.remove(ctx);
+			this.channelLeaseMap.remove(ctx);
 			final EasyChatGlobalLock.Lease finalGlobalLease = globalLease;
-			worker.execute(() -> {
+			this.worker.execute(() -> {
 				HttpURLConnection connection = null;
-			StreamAccumulator accumulator = new StreamAccumulator();
-			// Record seed lengths for every continue request so hasNewContent() can
-			// detect a no-op (model emits EOS immediately, nothing appended). For
-			// streaming, the seed text is also appended to the accumulator so that
-			// streaming deltas produce original+new; for non-stream, llama.cpp returns
-			// the FULL text (prefill + new tokens) in choices[0].message.content, so
-			// seeding the content would double-count the original — only lengths are
-			// recorded.
-			if (finalIsContinue && finalConvDir != null) {
-				seedAccumulatorFromFragment(accumulator, finalConvDir, finalContinueSeq, finalContinueVariantIndex, finalRequestStream);
-			}
-				Path indexPath = finalConvDir == null ? null : storage.indexFile(finalConvDir);
+				StreamAccumulator accumulator = new StreamAccumulator();
+				// Record seed lengths for every continue request so hasNewContent() can
+				// detect a no-op (model emits EOS immediately, nothing appended). For
+				// streaming, the seed text is also appended to the accumulator so that
+				// streaming deltas produce original+new; for non-stream, llama.cpp returns
+				// the FULL text (prefill + new tokens) in choices[0].message.content, so
+				// seeding the content would double-count the original — only lengths are
+				// recorded.
+				if (finalIsContinue && finalConvDir != null) {
+					this.seedAccumulatorFromFragment(accumulator, finalConvDir, finalContinueSeq, finalContinueVariantIndex,
+							finalRequestStream);
+				}
+				Path indexPath = finalConvDir == null ? null : this.storage.indexFile(finalConvDir);
 				String trackerRequestId = null;
 				try {
 					// Double-check cancellation after acquiring a worker thread.
@@ -525,24 +542,25 @@ import io.netty.handler.codec.http.LastHttpContent;
 					}
 
 					if (finalIsRemoteNode) {
-						handleRemoteNodeRequest(ctx, conversationId, finalNodeId, finalModelId,
-							finalSystemPrompt, finalConvDir, finalToolsBytes, finalSamplingParams,
-							finalVariants, finalRegenerateSeq, finalContinueSeq, finalTransientBodyBytes,
-							finalTransientBodyFile, finalIsEphemeral, finalRequestStream, accumulator);
+						this.handleRemoteNodeRequest(ctx, conversationId, finalNodeId, finalModelId, finalSystemPrompt,
+								finalConvDir, finalToolsBytes, finalSamplingParams, finalVariants, finalRegenerateSeq,
+								finalContinueSeq, finalTransientBodyBytes, finalTransientBodyFile, finalIsEphemeral,
+								finalRequestStream, accumulator);
 					} else {
-						connection = openTrackedConnection(ctx, finalModelId, finalModelPort);
+						connection = this.openTrackedConnection(ctx, finalModelId, finalModelPort);
 
-                       // Stream request body to llama.cpp
-                        writeRequestBody(connection, conversationId, finalModelId, finalSystemPrompt, finalConvDir,
-							finalToolsBytes, finalSamplingParams, finalVariants, finalRegenerateSeq, finalContinueSeq,
-							finalTransientBodyBytes, finalTransientBodyFile, finalIsEphemeral, finalRequestStream);
+						// Stream request body to llama.cpp
+						this.writeRequestBody(connection, conversationId, finalModelId, finalSystemPrompt, finalConvDir,
+								finalToolsBytes, finalSamplingParams, finalVariants, finalRegenerateSeq,
+								finalContinueSeq, finalTransientBodyBytes, finalTransientBodyFile, finalIsEphemeral,
+								finalRequestStream);
 
 						int responseCode = connection.getResponseCode();
 
 						if (!(responseCode >= 200 && responseCode < 300)) {
-							String errBody = readErrorBody(connection);
+							String errBody = this.readErrorBody(connection);
 							logger.info("[EasyChat] llama.cpp错误响应 code={} body={}", responseCode, errBody);
-							sendErrorResponse(ctx, responseCode, errBody);
+							this.sendErrorResponse(ctx, responseCode, errBody);
 							return;
 						}
 
@@ -557,12 +575,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 								return;
 							}
 
-							proxySseStream(ctx, connection, accumulator);
+							this.proxySseStream(ctx, connection, accumulator);
 						} else {
 							byte[] responseBytes = connection.getInputStream().readAllBytes();
 							String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
-							accumulateNonStreamResponse(JsonUtil.tryParseObject(responseBody), accumulator);
-							sendJsonPayloadResponse(ctx, responseCode, connection.getContentType(), responseBytes);
+							this.accumulateNonStreamResponse(JsonUtil.tryParseObject(responseBody), accumulator);
+							this.sendJsonPayloadResponse(ctx, responseCode, connection.getContentType(), responseBytes);
 						}
 					}
 
@@ -570,19 +588,23 @@ import io.netty.handler.codec.http.LastHttpContent;
 					if (!finalIsEphemeral) {
 						synchronized (convLock) {
 							if (finalIsContinue ? accumulator.hasNewContent() : accumulator.hasContent()) {
-								JsonObject aiMsg = buildAiMessage(accumulator);
+								JsonObject aiMsg = this.buildAiMessage(accumulator);
 								byte[] aiBytes = JsonUtil.toJson(aiMsg).getBytes(StandardCharsets.UTF_8);
 								if (finalIsContinue) {
-									storage.updateVariant(finalConvDir, aiSeq, finalContinueVariantIndex, aiBytes);
-									recordModelForVariant(finalConvDir, aiSeq, finalContinueVariantIndex, finalModelId, conversationId);
+									this.storage.updateVariant(finalConvDir, aiSeq, finalContinueVariantIndex, aiBytes);
+									this.recordModelForVariant(finalConvDir, aiSeq, finalContinueVariantIndex, finalModelId,
+											conversationId);
 								} else {
-									int newVariantIndex = computeNextVariantIndex(finalConvDir, aiSeq, finalIsRegenerate);
-									boolean wroteNewAssistantFragment = persistAssistantFragment(finalConvDir, aiSeq, aiBytes, finalIsRegenerate, indexPath);
-									recordModelForVariant(finalConvDir, aiSeq, newVariantIndex, finalModelId, conversationId);
+									int newVariantIndex = this.computeNextVariantIndex(finalConvDir, aiSeq,
+											finalIsRegenerate);
+									boolean wroteNewAssistantFragment = this.persistAssistantFragment(finalConvDir, aiSeq,
+											aiBytes, finalIsRegenerate, indexPath);
+									this.recordModelForVariant(finalConvDir, aiSeq, newVariantIndex, finalModelId,
+											conversationId);
 									if (!finalIsRegenerate) {
-										updateStateMessageCount(conversationId, 2);
+										this.updateStateMessageCount(conversationId, 2);
 									} else if (wroteNewAssistantFragment) {
-										updateStateMessageCount(conversationId, 1);
+										this.updateStateMessageCount(conversationId, 1);
 									}
 								}
 							}
@@ -592,8 +614,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 					// Record usage to LlamaRecordService
 					if (accumulator.timings != null && (!finalIsContinue || accumulator.hasNewContent())) {
 						try {
-							Timing timing = timingFromJson(accumulator.timings);
-							ActiveRequest activeReq = new ActiveRequest(conversationId, finalModelId, "chat/completions");
+							Timing timing = this.timingFromJson(accumulator.timings);
+							ActiveRequest activeReq = new ActiveRequest(conversationId, finalModelId,
+									"chat/completions");
 							activeReq.setTiming(timing);
 							activeReq.setStatus(ActiveRequest.RequestStatus.COMPLETED);
 							activeReq.setPhase(ActiveRequest.Phase.GENERATION);
@@ -606,7 +629,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 					if (finalRequestStream) {
 						if (ctx.channel().isActive()) {
 							ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-								.addListener(ChannelFutureListener.CLOSE);
+									.addListener(ChannelFutureListener.CLOSE);
 						}
 					}
 
@@ -617,17 +640,21 @@ import io.netty.handler.codec.http.LastHttpContent;
 						if (!finalIsEphemeral) {
 							synchronized (convLock) {
 								if (finalIsContinue ? accumulator.hasNewContent() : accumulator.hasContent()) {
-									JsonObject aiMsg = buildAiMessage(accumulator);
+									JsonObject aiMsg = this.buildAiMessage(accumulator);
 									byte[] aiBytes = JsonUtil.toJson(aiMsg).getBytes(StandardCharsets.UTF_8);
 									if (finalIsContinue) {
-										storage.updateVariant(finalConvDir, aiSeq, finalContinueVariantIndex, aiBytes);
-										recordModelForVariant(finalConvDir, aiSeq, finalContinueVariantIndex, finalModelId, conversationId);
+										this.storage.updateVariant(finalConvDir, aiSeq, finalContinueVariantIndex, aiBytes);
+										this.recordModelForVariant(finalConvDir, aiSeq, finalContinueVariantIndex,
+												finalModelId, conversationId);
 									} else {
-										int newVariantIndex = computeNextVariantIndex(finalConvDir, aiSeq, finalIsRegenerate);
-										boolean wroteNewAssistantFragment = persistAssistantFragment(finalConvDir, aiSeq, aiBytes, finalIsRegenerate, indexPath);
-										recordModelForVariant(finalConvDir, aiSeq, newVariantIndex, finalModelId, conversationId);
+										int newVariantIndex = this.computeNextVariantIndex(finalConvDir, aiSeq,
+												finalIsRegenerate);
+										boolean wroteNewAssistantFragment = this.persistAssistantFragment(finalConvDir,
+												aiSeq, aiBytes, finalIsRegenerate, indexPath);
+										this.recordModelForVariant(finalConvDir, aiSeq, newVariantIndex, finalModelId,
+												conversationId);
 										if (finalIsRegenerate && wroteNewAssistantFragment) {
-											updateStateMessageCount(conversationId, 1);
+											this.updateStateMessageCount(conversationId, 1);
 										}
 									}
 								}
@@ -639,8 +666,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 					// Record usage even on error if timings available
 					if (accumulator.timings != null && (!finalIsContinue || accumulator.hasNewContent())) {
 						try {
-							Timing timing = timingFromJson(accumulator.timings);
-							ActiveRequest activeReq = new ActiveRequest(conversationId, finalModelId, "chat/completions");
+							Timing timing = this.timingFromJson(accumulator.timings);
+							ActiveRequest activeReq = new ActiveRequest(conversationId, finalModelId,
+									"chat/completions");
 							activeReq.setTiming(timing);
 							activeReq.setStatus(ActiveRequest.RequestStatus.FAILED);
 							activeReq.setPhase(ActiveRequest.Phase.GENERATION);
@@ -649,19 +677,19 @@ import io.netty.handler.codec.http.LastHttpContent;
 							logger.warn("[EasyChat] 异常状态下记录用量失败 conversation={}", conversationId, ex);
 						}
 					}
-				sendOpenAIError(ctx, 500, e.getMessage());
-			} finally {
-				if (trackerRequestId != null) {
-					ModelRequestTracker.getInstance().removeRequest(trackerRequestId);
+					this.sendOpenAIError(ctx, 500, e.getMessage());
+				} finally {
+					if (trackerRequestId != null) {
+						ModelRequestTracker.getInstance().removeRequest(trackerRequestId);
+					}
+					// Ephemeral streaming body file was handed off to the writer; clean
+					// it up now that the request body has fully streamed (or failed).
+					if (finalTransientBodyFile != null) {
+						this.cleanupStreamingBodyFile(finalTransientBodyFile);
+					}
+					this.cleanupConnection(ctx);
+					finalGlobalLease.close();
 				}
-				// Ephemeral streaming body file was handed off to the writer; clean
-				// it up now that the request body has fully streamed (or failed).
-				if (finalTransientBodyFile != null) {
-					cleanupStreamingBodyFile(finalTransientBodyFile);
-				}
-				cleanupConnection(ctx);
-				finalGlobalLease.close();
-			}
 			});
 			globalLease = null;
 
@@ -670,43 +698,43 @@ import io.netty.handler.codec.http.LastHttpContent;
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_PROCESS_FAILED + ": " + e.getMessage()));
 		} finally {
 			if (globalLease != null) {
-				channelLeaseMap.remove(ctx);
+				this.channelLeaseMap.remove(ctx);
 				globalLease.close();
 			}
-			cleanupStreamingBodyFile(streamingBodyFile);
+			this.cleanupStreamingBodyFile(streamingBodyFile);
 		}
 	}
 
 	/**
-	 * Stream conversation history as chunked JSON with per-message locking
-	 * and zero-copy file transfer via DefaultFileRegion.
-	 * Role is determined from seq parity (even=user, odd=assistant), so no
-	 * payload data is ever read into JVM memory. File transfers happen in
-	 * kernel space (sendfile) and never block the EventLoop thread.
+	 * Stream conversation history as chunked JSON with per-message locking and
+	 * zero-copy file transfer via DefaultFileRegion. Role is determined from seq
+	 * parity (even=user, odd=assistant), so no payload data is ever read into JVM
+	 * memory. File transfers happen in kernel space (sendfile) and never block the
+	 * EventLoop thread.
 	 */
 	public void handleStreamChatHistory(ChannelHandlerContext ctx, String conversationId, boolean useGzip) {
-		EasyChatGlobalLock.Lease globalLease = acquireGlobalLease(ctx, "chat.history");
+		EasyChatGlobalLock.Lease globalLease = this.acquireGlobalLease(ctx, "chat.history");
 		if (globalLease == null) {
 			return;
 		}
 		if (conversationId == null || conversationId.isBlank()) {
-			sendHistoryError(ctx, I18N_PARAM_CONVERSATION_ID_REQUIRED);
+			this.sendHistoryError(ctx, I18N_PARAM_CONVERSATION_ID_REQUIRED);
 			globalLease.close();
 			return;
 		}
 
 		Path convDir;
 		try {
-			convDir = storage.getConversationDir(conversationId);
+			convDir = this.storage.getConversationDir(conversationId);
 		} catch (IOException e) {
 			logger.info("[EasyChat] 获取碎片目录失败 conversation={}", conversationId, e);
-			sendHistoryError(ctx, I18N_CHAT_HISTORY_FAILED + ": " + e.getMessage());
+			this.sendHistoryError(ctx, I18N_CHAT_HISTORY_FAILED + ": " + e.getMessage());
 			globalLease.close();
 			return;
 		}
 
 		// Per-conversation lock to prevent concurrent read/write race
-		Object convLock = conversationLocks.computeIfAbsent(conversationId, k -> new Object());
+		Object convLock = this.conversationLocks.computeIfAbsent(conversationId, k -> new Object());
 
 		// Phase 1: pre-scan metadata (under conversation lock for consistency)
 		long recordCount = 0;
@@ -715,14 +743,14 @@ import io.netty.handler.codec.http.LastHttpContent;
 		long nextSeq = 0;
 		try {
 			synchronized (convLock) {
-				long endExclusive = storage.readNextSeq(convDir);
+				long endExclusive = this.storage.readNextSeq(convDir);
 				nextSeq = endExclusive;
 				for (long seq = 0; seq < endExclusive; seq++) {
-					EasyChatStorage.FragmentHeader header = storage.readFragmentHeader(convDir, seq);
+					EasyChatStorage.FragmentHeader header = this.storage.readFragmentHeader(convDir, seq);
 					if (header == null) {
 						continue;
 					}
-					if (!storage.isDeleted(header)) {
+					if (!this.storage.isDeleted(header)) {
 						for (int v = 0; v < header.variantCount; v++) {
 							totalSize += Math.max(0, header.lengths[v]);
 							if (v > 0) {
@@ -735,15 +763,14 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 		} catch (Exception e) {
 			logger.info("[EasyChat] 预扫描碎片失败 conversation={}", conversationId, e);
-			sendHistoryError(ctx, I18N_CHAT_HISTORY_FAILED + ": " + e.getMessage());
+			this.sendHistoryError(ctx, I18N_CHAT_HISTORY_FAILED + ": " + e.getMessage());
 			globalLease.close();
 			return;
 		}
 
 		// Phase 2: build JSON prefix
-		String prefix = "{\"message\":\"success\",\"totalSize\":" + totalSize
-			+ ",\"recordCount\":" + recordCount + ",\"variantCount\":" + variantCount
-			+ ",\"nextSeq\":" + nextSeq + ",\"data\":[";
+		String prefix = "{\"message\":\"success\",\"totalSize\":" + totalSize + ",\"recordCount\":" + recordCount
+				+ ",\"variantCount\":" + variantCount + ",\"nextSeq\":" + nextSeq + ",\"data\":[";
 
 		// Start chunked response — shared headers
 		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
@@ -775,8 +802,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 				long endExclusive;
 				Map<Long, Map<Integer, String>> modelIndex;
 				synchronized (convLock) {
-					endExclusive = storage.readNextSeq(convDir);
-					modelIndex = storage.readModelIndex(convDir);
+					endExclusive = this.storage.readNextSeq(convDir);
+					modelIndex = this.storage.readModelIndex(convDir);
 				}
 				Map<String, String> modelNameCache = new HashMap<>();
 				boolean first = true;
@@ -787,14 +814,14 @@ import io.netty.handler.codec.http.LastHttpContent;
 					int msgVariantCount = 0;
 
 					synchronized (convLock) {
-						header = storage.readFragmentHeader(convDir, seq);
-						if (header == null || storage.isDeleted(header)) {
+						header = this.storage.readFragmentHeader(convDir, seq);
+						if (header == null || this.storage.isDeleted(header)) {
 							continue;
 						}
 
 						role = (header.seq % 2 == 0) ? "user" : "assistant";
 
-						activeVariant = storage.resolveVariantIndex(header, header.activeVariantIndex);
+						activeVariant = this.storage.resolveVariantIndex(header, header.activeVariantIndex);
 						if (activeVariant < 0) {
 							activeVariant = 0;
 						}
@@ -808,14 +835,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 						Map<Integer, String> seqModels = (header.seq % 2 == 1) ? modelIndex.get(seq) : null;
 						String model = (seqModels != null) ? seqModels.get(activeVariant) : null;
-						String modelField = (model != null)
-							? ",\"model\":\"" + escapeJsonString(model) + "\""
-							: "";
+						String modelField = (model != null) ? ",\"model\":\"" + this.escapeJsonString(model) + "\"" : "";
 						String modelNameField = "";
 						if (model != null) {
 							String modelName = modelNameCache.computeIfAbsent(model, this::resolveModelName);
 							if (modelName != null && !modelName.equals(model)) {
-								modelNameField = ",\"modelName\":\"" + escapeJsonString(modelName) + "\"";
+								modelNameField = ",\"modelName\":\"" + this.escapeJsonString(modelName) + "\"";
 							}
 						}
 						String variantModelsField = "";
@@ -829,19 +854,17 @@ import io.netty.handler.codec.http.LastHttpContent;
 									variantModelNames.append(',');
 								}
 								String vmodel = seqModels.getOrDefault(v, "");
-								variantModels.append("\"").append(escapeJsonString(vmodel)).append("\"");
-								String vmodelName = vmodel.isBlank() ? "" : modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
-								variantModelNames.append("\"").append(escapeJsonString(vmodelName)).append("\"");
+								variantModels.append("\"").append(this.escapeJsonString(vmodel)).append("\"");
+								String vmodelName = vmodel.isBlank() ? ""
+										: modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
+								variantModelNames.append("\"").append(this.escapeJsonString(vmodelName)).append("\"");
 							}
 							variantModelsField = ",\"variantModels\":[" + variantModels + "]";
 							variantModelNamesField = ",\"variantModelNames\":[" + variantModelNames + "]";
 						}
-						String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + escapeJsonString(role) + "\""
-							+ modelField
-							+ modelNameField
-							+ variantModelsField
-							+ variantModelNamesField
-							+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
+						String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + this.escapeJsonString(role) + "\""
+								+ modelField + modelNameField + variantModelsField + variantModelNamesField
+								+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
 						gzipStream.write(msgPrefix.getBytes(StandardCharsets.UTF_8));
 
 						for (int v = 0; v < msgVariantCount; v++) {
@@ -849,10 +872,10 @@ import io.netty.handler.codec.http.LastHttpContent;
 								gzipStream.write(gzipComma);
 							}
 							gzipStream.write(gzipVariantPrefix);
-							EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(convDir, seq, v);
+							EasyChatStorage.FragmentSlice slice = this.storage.getVariantSlice(convDir, seq, v);
 							if (slice != null && slice.length > 0) {
 								try {
-									storage.streamSlice(slice, gzipStream);
+									this.storage.streamSlice(slice, gzipStream);
 								} catch (IOException e) {
 									logger.warn("[EasyChat] 读取payload失败 seq={} v={}", seq, v, e);
 									gzipStream.write("null".getBytes(StandardCharsets.UTF_8));
@@ -871,7 +894,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 				nettyOut.close();
 
 				logger.info("[EasyChat] 流式传输历史(gzip)完成 conversation={} records={} extraVariants={} bytes={}",
-					conversationId, recordCount, variantCount, totalSize);
+						conversationId, recordCount, variantCount, totalSize);
 				final EasyChatGlobalLock.Lease finalGlobalLease = globalLease;
 				ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
 					finalGlobalLease.close();
@@ -883,10 +906,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 				ctx.close();
 			} finally {
 				if (gzipStream != null) {
-					try { gzipStream.close(); } catch (Exception ignore) {}
+					try {
+						gzipStream.close();
+					} catch (Exception ignore) {
+					}
 				}
 				if (nettyOut != null) {
-					try { nettyOut.close(); } catch (Exception ignore) {}
+					try {
+						nettyOut.close();
+					} catch (Exception ignore) {
+					}
 				}
 				if (globalLease != null) {
 					globalLease.close();
@@ -900,14 +929,14 @@ import io.netty.handler.codec.http.LastHttpContent;
 			byte[] comma = ",".getBytes(StandardCharsets.UTF_8);
 			byte[] variantPrefix = "{\"content\":".getBytes(StandardCharsets.UTF_8);
 			byte[] variantSuffix = "}".getBytes(StandardCharsets.UTF_8);
-			byte[] msgSuffix = "]}" .getBytes(StandardCharsets.UTF_8);
+			byte[] msgSuffix = "]}".getBytes(StandardCharsets.UTF_8);
 			byte[] dataSuffix = "]}".getBytes(StandardCharsets.UTF_8);
 			try {
 				long endExclusive;
 				Map<Long, Map<Integer, String>> modelIndex;
 				synchronized (convLock) {
-					endExclusive = storage.readNextSeq(convDir);
-					modelIndex = storage.readModelIndex(convDir);
+					endExclusive = this.storage.readNextSeq(convDir);
+					modelIndex = this.storage.readModelIndex(convDir);
 				}
 				Map<String, String> modelNameCache = new HashMap<>();
 				boolean first = true;
@@ -918,15 +947,15 @@ import io.netty.handler.codec.http.LastHttpContent;
 					int msgVariantCount = 0;
 
 					synchronized (convLock) {
-						header = storage.readFragmentHeader(convDir, seq);
-						if (header == null || storage.isDeleted(header)) {
+						header = this.storage.readFragmentHeader(convDir, seq);
+						if (header == null || this.storage.isDeleted(header)) {
 							continue;
 						}
 
 						// Determine role from seq parity: even=user, odd=assistant
 						role = (header.seq % 2 == 0) ? "user" : "assistant";
 
-						activeVariant = storage.resolveVariantIndex(header, header.activeVariantIndex);
+						activeVariant = this.storage.resolveVariantIndex(header, header.activeVariantIndex);
 						if (activeVariant < 0) {
 							activeVariant = 0;
 						}
@@ -942,14 +971,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 						// {"seq":N,"role":"R","model":"M","modelName":"N","variantModels\":[...],"variantModelNames\":[...],"activeVariant":N,"variants":[
 						Map<Integer, String> seqModels = (header.seq % 2 == 1) ? modelIndex.get(seq) : null;
 						String model = (seqModels != null) ? seqModels.get(activeVariant) : null;
-						String modelField = (model != null)
-							? ",\"model\":\"" + escapeJsonString(model) + "\""
-							: "";
+						String modelField = (model != null) ? ",\"model\":\"" + this.escapeJsonString(model) + "\"" : "";
 						String modelNameField = "";
 						if (model != null) {
 							String modelName = modelNameCache.computeIfAbsent(model, this::resolveModelName);
 							if (modelName != null && !modelName.equals(model)) {
-								modelNameField = ",\"modelName\":\"" + escapeJsonString(modelName) + "\"";
+								modelNameField = ",\"modelName\":\"" + this.escapeJsonString(modelName) + "\"";
 							}
 						}
 						String variantModelsField = "";
@@ -963,19 +990,17 @@ import io.netty.handler.codec.http.LastHttpContent;
 									variantModelNames.append(',');
 								}
 								String vmodel = seqModels.getOrDefault(v, "");
-								variantModels.append("\"").append(escapeJsonString(vmodel)).append("\"");
-								String vmodelName = vmodel.isBlank() ? "" : modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
-								variantModelNames.append("\"").append(escapeJsonString(vmodelName)).append("\"");
+								variantModels.append("\"").append(this.escapeJsonString(vmodel)).append("\"");
+								String vmodelName = vmodel.isBlank() ? ""
+										: modelNameCache.computeIfAbsent(vmodel, this::resolveModelName);
+								variantModelNames.append("\"").append(this.escapeJsonString(vmodelName)).append("\"");
 							}
 							variantModelsField = ",\"variantModels\":[" + variantModels + "]";
 							variantModelNamesField = ",\"variantModelNames\":[" + variantModelNames + "]";
 						}
-						String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + escapeJsonString(role) + "\""
-							+ modelField
-							+ modelNameField
-							+ variantModelsField
-							+ variantModelNamesField
-							+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
+						String msgPrefix = "{\"seq\":" + seq + ",\"role\":\"" + this.escapeJsonString(role) + "\""
+								+ modelField + modelNameField + variantModelsField + variantModelNamesField
+								+ ",\"activeVariant\":" + activeVariant + ",\"variants\":[";
 						ctx.writeAndFlush(Unpooled.wrappedBuffer(msgPrefix.getBytes(StandardCharsets.UTF_8)));
 
 						// All variants — ChunkedFile (works with HTTPS, unlike DefaultFileRegion)
@@ -984,12 +1009,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 								ctx.writeAndFlush(Unpooled.wrappedBuffer(comma));
 							}
 							ctx.writeAndFlush(Unpooled.wrappedBuffer(variantPrefix));
-							EasyChatStorage.FragmentSlice slice = storage.getVariantSlice(convDir, seq, v);
+							EasyChatStorage.FragmentSlice slice = this.storage.getVariantSlice(convDir, seq, v);
 							if (slice != null && slice.length > 0) {
 								try {
 									ChunkedFile chunkedFile = new ChunkedFile(
-										new java.io.RandomAccessFile(slice.file.toFile(), "r"),
-										slice.offset, slice.length, 8192);
+											new java.io.RandomAccessFile(slice.file.toFile(), "r"), slice.offset,
+											slice.length, 8192);
 									ctx.writeAndFlush(chunkedFile);
 								} catch (IOException e) {
 									logger.warn("[EasyChat] ChunkedFile创建失败 seq={} v={}", seq, v, e);
@@ -1006,8 +1031,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 					// Lock released — DefaultFileRegion already submitted to EventLoop
 				}
 				ctx.writeAndFlush(Unpooled.wrappedBuffer(dataSuffix));
-				logger.info("[EasyChat] 流式传输历史完成 conversation={} records={} extraVariants={} bytes={}",
-					conversationId, recordCount, variantCount, totalSize);
+				logger.info("[EasyChat] 流式传输历史完成 conversation={} records={} extraVariants={} bytes={}", conversationId,
+						recordCount, variantCount, totalSize);
 				final EasyChatGlobalLock.Lease finalGlobalLease = globalLease;
 				ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
 					finalGlobalLease.close();
@@ -1027,7 +1052,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private void sendHistoryError(ChannelHandlerContext ctx, String msg) {
 		byte[] body = ("{\"message\":\"" + msg + "\",\"totalSize\":0,\"recordCount\":0,\"variantCount\":0,\"data\":[]}")
-			.getBytes(StandardCharsets.UTF_8);
+				.getBytes(StandardCharsets.UTF_8);
 		FullHttpResponse resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
 		resp.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
 		resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, body.length);
@@ -1038,17 +1063,17 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private EasyChatGlobalLock.Lease acquireGlobalLease(ChannelHandlerContext ctx, String operationName) {
-		EasyChatGlobalLock.Lease lease = globalLock.tryAcquire(operationName);
+		EasyChatGlobalLock.Lease lease = this.globalLock.tryAcquire(operationName);
 		if (lease != null) {
 			return lease;
 		}
-		sendGlobalLockBusy(ctx, operationName);
+		this.sendGlobalLockBusy(ctx, operationName);
 		return null;
 	}
 
 	/**
-	 * 解析模型目标：别名解析、自动加载、远程节点路由。
-	 * 返回的 ModelTarget 包含解析后的 modelId、port（本地）、nodeId（远程）以及 error（失败时非空）。
+	 * 解析模型目标：别名解析、自动加载、远程节点路由。 返回的 ModelTarget 包含解析后的 modelId、port（本地）、nodeId（远程）以及
+	 * error（失败时非空）。
 	 */
 	private ModelTarget resolveModelTarget(String modelId, String nodeId) {
 		boolean isRemoteNode = nodeId != null && !nodeId.isEmpty();
@@ -1124,10 +1149,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 	/**
 	 * Handle generate-title request.
 	 * <p>
-	 * Only accepts the user's first message text, builds a fixed-sampling non-stream
-	 * request (temperature=0.3, max_tokens=30, thinking disabled, no multimodal),
-	 * forwards to the target llama.cpp process, and returns the generated title.
-	 * Does NOT use the global lock (no fragment/state access) — frontend guarantees serial.
+	 * Only accepts the user's first message text, builds a fixed-sampling
+	 * non-stream request (temperature=0.3, max_tokens=30, thinking disabled, no
+	 * multimodal), forwards to the target llama.cpp process, and returns the
+	 * generated title. Does NOT use the global lock (no fragment/state access) —
+	 * frontend guarantees serial.
 	 */
 	public void handleGenerateTitle(ChannelHandlerContext ctx, FullHttpRequest request) {
 		JsonObject body;
@@ -1165,7 +1191,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 
 		// Resolve model target (alias resolution + auto-load + remote node routing)
-		ModelTarget modelTarget = resolveModelTarget(modelId, nodeId);
+			ModelTarget modelTarget = this.resolveModelTarget(modelId, nodeId);
 		if (modelTarget.error != null) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(modelTarget.error));
 			return;
@@ -1179,15 +1205,15 @@ import io.netty.handler.codec.http.LastHttpContent;
 		final String finalSystemPrompt = (systemPrompt != null && !systemPrompt.isBlank()) ? systemPrompt : null;
 		final String finalConversationId = conversationId;
 
-		worker.execute(() -> {
+		this.worker.execute(() -> {
 			try {
 				if (!ctx.channel().isActive()) {
 					logger.info("[EasyChat][TitleGen] channel已关闭，取消生成标题请求");
 					return;
 				}
 				String title = finalIsRemoteNode
-					? requestTitleFromRemoteNode(finalNodeId, finalModelId, finalPrompt, finalSystemPrompt)
-					: requestTitleFromLocal(finalModelId, finalModelPort, finalPrompt, finalSystemPrompt);
+						? this.requestTitleFromRemoteNode(finalNodeId, finalModelId, finalPrompt, finalSystemPrompt)
+						: this.requestTitleFromLocal(finalModelId, finalModelPort, finalPrompt, finalSystemPrompt);
 				if (!ctx.channel().isActive()) {
 					logger.info("[EasyChat][TitleGen] channel在响应前已关闭，丢弃标题");
 					return;
@@ -1202,22 +1228,17 @@ import io.netty.handler.codec.http.LastHttpContent;
 			} catch (Exception e) {
 				logger.info("[EasyChat][TitleGen] 生成标题失败 conversation={}", finalConversationId, e);
 				if (ctx.channel().isActive()) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_CHAT_TITLE_GENERATE_FAILED + ": " + e.getMessage()));
+					LlamaServer.sendJsonResponse(ctx,
+							ApiResponse.error(I18N_CHAT_TITLE_GENERATE_FAILED + ": " + e.getMessage()));
 				}
 			}
 		});
 	}
 
 	private JsonObject buildTitleRequestJson(String modelId, String userPrompt, String systemPrompt) {
-		String titlePrompt = "你是一个对话标题生成助手。\n"
-			+ "请根据下面的用户首条消息，生成一个简短准确的会话标题。\n"
-			+ "要求：\n"
-			+ "1. 只输出标题本身，不要加引号、标签或额外说明\n"
-			+ "2. 标题语言与用户输入的语言保持一致\n"
-			+ "3. 标题尽量简短，中文控制在 18 个汉字以内，其他语言控制在 8 个词以内\n"
-			+ "\n"
-			+ "[用户首条消息]\n"
-			+ userPrompt;
+		String titlePrompt = "你是一个对话标题生成助手。\n" + "请根据下面的用户首条消息，生成一个简短准确的会话标题。\n" + "要求：\n"
+				+ "1. 只输出标题本身，不要加引号、标签或额外说明\n" + "2. 标题语言与用户输入的语言保持一致\n" + "3. 标题尽量简短，中文控制在 18 个汉字以内，其他语言控制在 8 个词以内\n"
+				+ "\n" + "[用户首条消息]\n" + userPrompt;
 		JsonArray messages = new JsonArray();
 		if (systemPrompt != null && !systemPrompt.isBlank()) {
 			JsonObject systemMessage = new JsonObject();
@@ -1242,7 +1263,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 		return requestBody;
 	}
 
-	private String requestTitleFromLocal(String modelId, int port, String userPrompt, String systemPrompt) throws IOException {
+	private String requestTitleFromLocal(String modelId, int port, String userPrompt, String systemPrompt)
+			throws IOException {
 		String targetUrl = String.format("http://localhost:%d/v1/chat/completions", port);
 		HttpURLConnection connection = (HttpURLConnection) URI.create(targetUrl).toURL().openConnection();
 		try {
@@ -1251,34 +1273,36 @@ import io.netty.handler.codec.http.LastHttpContent;
 			connection.setConnectTimeout(TITLE_GEN_TIMEOUT_MS);
 			connection.setReadTimeout(TITLE_GEN_TIMEOUT_MS);
 			connection.setDoOutput(true);
-			byte[] requestBody = JsonUtil.toJson(buildTitleRequestJson(modelId, userPrompt, systemPrompt)).getBytes(StandardCharsets.UTF_8);
+			byte[] requestBody = JsonUtil.toJson(this.buildTitleRequestJson(modelId, userPrompt, systemPrompt))
+					.getBytes(StandardCharsets.UTF_8);
 			try (OutputStream os = connection.getOutputStream()) {
 				os.write(requestBody);
 				os.flush();
 			}
 			int responseCode = connection.getResponseCode();
 			if (!(responseCode >= 200 && responseCode < 300)) {
-				String errBody = readErrorBody(connection);
+				String errBody = this.readErrorBody(connection);
 				logger.warn("[EasyChat][TitleGen] llama.cpp错误响应 code={} body={}", responseCode, errBody);
 				throw new IOException(I18N_CHAT_MODEL_RESPONSE_ERROR + ": " + responseCode);
 			}
 			byte[] responseBytes = connection.getInputStream().readAllBytes();
 			String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
-			return parseTitleFromResponse(responseBody);
+			return this.parseTitleFromResponse(responseBody);
 		} finally {
 			connection.disconnect();
 		}
 	}
 
 	private String requestTitleFromRemoteNode(String nodeId, String modelId, String userPrompt, String systemPrompt) {
-		JsonObject requestBody = buildTitleRequestJson(modelId, userPrompt, systemPrompt);
-		NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(
-			nodeId, "POST", "v1/chat/completions", requestBody, TITLE_GEN_TIMEOUT_MS, TITLE_GEN_TIMEOUT_MS);
+		JsonObject requestBody = this.buildTitleRequestJson(modelId, userPrompt, systemPrompt);
+		NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(nodeId, "POST", "v1/chat/completions",
+				requestBody, TITLE_GEN_TIMEOUT_MS, TITLE_GEN_TIMEOUT_MS);
 		if (!result.isSuccess()) {
-			logger.warn("[EasyChat][TitleGen][Remote] 远程节点错误 code={} body={}", result.getStatusCode(), result.getBody());
+			logger.warn("[EasyChat][TitleGen][Remote] 远程节点错误 code={} body={}", result.getStatusCode(),
+					result.getBody());
 			throw new RuntimeException(I18N_CHAT_REMOTE_RESPONSE_ERROR + ": " + result.getStatusCode());
 		}
-		return parseTitleFromResponse(result.getBody());
+		return this.parseTitleFromResponse(result.getBody());
 	}
 
 	private String parseTitleFromResponse(String responseBody) {
@@ -1315,7 +1339,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private void sendGlobalLockBusy(ChannelHandlerContext ctx, String requestedOperation) {
-		EasyChatGlobalLock.LockState current = globalLock.current();
+		EasyChatGlobalLock.LockState current = this.globalLock.current();
 		String message = I18N_CHAT_GLOBAL_LOCK_BUSY;
 		Map<String, Object> data = new HashMap<>();
 		data.put("requestedOperation", requestedOperation);
@@ -1338,7 +1362,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 		void close();
 	}
 
-	private HttpURLConnection openTrackedConnection(ChannelHandlerContext ctx, String modelId, int port) throws IOException {
+	private HttpURLConnection openTrackedConnection(ChannelHandlerContext ctx, String modelId, int port)
+			throws IOException {
 		String targetUrl = String.format("http://localhost:%d/v1/chat/completions", port);
 		HttpURLConnection connection = (HttpURLConnection) URI.create(targetUrl).toURL().openConnection();
 		connection.setRequestMethod("POST");
@@ -1347,7 +1372,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 		connection.setReadTimeout(36000000);
 		connection.setDoOutput(true);
 		connection.setChunkedStreamingMode(8192);
-		channelConnectionMap.put(ctx, connection::disconnect);
+		this.channelConnectionMap.put(ctx, connection::disconnect);
 		return connection;
 	}
 
@@ -1355,11 +1380,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 		if (connection == null) {
 			return;
 		}
-		channelConnectionMap.put(ctx, connection);
+		this.channelConnectionMap.put(ctx, connection);
 	}
 
 	private void cleanupConnection(ChannelHandlerContext ctx) {
-		TrackedConnection tracked = channelConnectionMap.remove(ctx);
+		TrackedConnection tracked = this.channelConnectionMap.remove(ctx);
 		if (tracked != null) {
 			try {
 				tracked.close();
@@ -1379,74 +1404,74 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 	}
 
-    /**
-      * Create a FileOutputStream for request logging.
-      * Returns null if LlamaServer.logRequestBodyToFile is false or file creation fails (non-fatal).
-      */
-     private OutputStream createRequestLogStream(String conversationId, String modelId) {
-         if (!LlamaServer.logRequestBodyToFile) {
-             return null;
-         }
-        try {
-            Path logDir = LlamaServer.getCachePath().resolve("easy-chat");
-            if (!Files.exists(logDir)) {
-                Files.createDirectories(logDir);
-            }
-            String safeModel = modelId.replace("/", "_").replace("\\", "_");
-            String safeConv = conversationId.replace("/", "_").replace("\\", "_");
-            String filename = safeModel + "-" + safeConv + "-request-" + System.currentTimeMillis() + ".log";
-            Path logFile = logDir.resolve(filename);
-            logger.info("[EasyChat][RequestLog] {}", logFile);
-            return new FileOutputStream(logFile.toFile());
-        } catch (Exception e) {
-            logger.warn("[EasyChat][RequestLog] 创建日志文件失败", e);
-            return null;
-        }
-    }
+	/**
+	 * Create a FileOutputStream for request logging. Returns null if
+	 * LlamaServer.logRequestBodyToFile is false or file creation fails (non-fatal).
+	 */
+	private OutputStream createRequestLogStream(String conversationId, String modelId) {
+		if (!LlamaServer.logRequestBodyToFile) {
+			return null;
+		}
+		try {
+			Path logDir = LlamaServer.getCachePath().resolve("easy-chat");
+			if (!Files.exists(logDir)) {
+				Files.createDirectories(logDir);
+			}
+			String safeModel = modelId.replace("/", "_").replace("\\", "_");
+			String safeConv = conversationId.replace("/", "_").replace("\\", "_");
+			String filename = safeModel + "-" + safeConv + "-request-" + System.currentTimeMillis() + ".log";
+			Path logFile = logDir.resolve(filename);
+			logger.info("[EasyChat][RequestLog] {}", logFile);
+			return new FileOutputStream(logFile.toFile());
+		} catch (Exception e) {
+			logger.warn("[EasyChat][RequestLog] 创建日志文件失败", e);
+			return null;
+		}
+	}
 
-    /**
-     *  在这构建请求体。
-     * @param conn
-     * @param conversationId
-     * @param modelId
-     * @param systemPrompt
-     * @param convDir
-     * @param toolsBytes
-     * @param samplingParams
-     * @param variants
-     * @param regenerateSeq
-     * @throws IOException
-     */
-    private void writeRequestBody(HttpURLConnection conn, String conversationId, String modelId, String systemPrompt, Path convDir,
-            byte[] toolsBytes, JsonObject samplingParams, Map<Long, Integer> variants, Long regenerateSeq,
-            Long continueSeq, byte[] transientUserMessageBytes, Path transientUserMessageFile,
-            boolean skipHistory, boolean stream)
-            throws IOException {
-        OutputStream logStream = createRequestLogStream(conversationId, modelId);
-        OutputStream primary = conn.getOutputStream();
-        OutputStream os = (logStream != null) ? new TeeOutputStream(primary, logStream) : primary;
-        try {
-            requestWriter.writeRequestBody(os,
-                new EasyChatRequestWriter.RequestSpec(modelId, systemPrompt, convDir, toolsBytes,
-                    samplingParams, false, variants, regenerateSeq, continueSeq, transientUserMessageBytes,
-                    transientUserMessageFile, skipHistory, stream));
-        } finally {
-            if (logStream != null) {
-                logStream.close();
-            }
-        }
-    }
+	/**
+	 * 在这构建请求体。
+	 * 
+	 * @param conn
+	 * @param conversationId
+	 * @param modelId
+	 * @param systemPrompt
+	 * @param convDir
+	 * @param toolsBytes
+	 * @param samplingParams
+	 * @param variants
+	 * @param regenerateSeq
+	 * @throws IOException
+	 */
+	private void writeRequestBody(HttpURLConnection conn, String conversationId, String modelId, String systemPrompt,
+			Path convDir, byte[] toolsBytes, JsonObject samplingParams, Map<Long, Integer> variants, Long regenerateSeq,
+			Long continueSeq, byte[] transientUserMessageBytes, Path transientUserMessageFile, boolean skipHistory,
+			boolean stream) throws IOException {
+		OutputStream logStream = this.createRequestLogStream(conversationId, modelId);
+		OutputStream primary = conn.getOutputStream();
+		OutputStream os = (logStream != null) ? new TeeOutputStream(primary, logStream) : primary;
+		try {
+			this.requestWriter.writeRequestBody(os,
+					new EasyChatRequestWriter.RequestSpec(modelId, systemPrompt, convDir, toolsBytes, samplingParams,
+							false, variants, regenerateSeq, continueSeq, transientUserMessageBytes,
+							transientUserMessageFile, skipHistory, stream));
+		} finally {
+			if (logStream != null) {
+				logStream.close();
+			}
+		}
+	}
 
-	private boolean persistAssistantFragment(Path convDir, long aiSeq, byte[] aiBytes, boolean isRegenerate, Path indexPath)
-			throws IOException {
+	private boolean persistAssistantFragment(Path convDir, long aiSeq, byte[] aiBytes, boolean isRegenerate,
+			Path indexPath) throws IOException {
 		if (convDir == null || aiSeq < 0 || aiBytes == null) {
 			return false;
 		}
-		EasyChatStorage.FragmentHeader existingHeader = storage.readFragmentHeader(convDir, aiSeq);
+		EasyChatStorage.FragmentHeader existingHeader = this.storage.readFragmentHeader(convDir, aiSeq);
 
 		// Regenerate on a live (non-deleted) fragment: append a new variant.
-		if (isRegenerate && existingHeader != null && !storage.isDeleted(existingHeader)) {
-			storage.appendVariant(convDir, aiSeq, aiBytes);
+		if (isRegenerate && existingHeader != null && !this.storage.isDeleted(existingHeader)) {
+			this.storage.appendVariant(convDir, aiSeq, aiBytes);
 			return false;
 		}
 
@@ -1454,18 +1479,19 @@ import io.netty.handler.codec.http.LastHttpContent;
 		// 1. Non-regenerate new assistant message.
 		// 2. Regenerate target fragment does not exist (degraded path).
 		// 3. Regenerate target fragment was deleted — MUST overwrite it instead of
-		//    clearing the deleted flag and appending, otherwise the old deleted
-		//    variant resurrects after a page refresh.
+		// clearing the deleted flag and appending, otherwise the old deleted
+		// variant resurrects after a page refresh.
 		if (isRegenerate && existingHeader == null) {
 			logger.warn("[EasyChat] regenerate目标碎片不存在，降级为新写入 seq={}", aiSeq);
 		}
-		storage.writeFragment(convDir, aiSeq, System.currentTimeMillis(), aiBytes);
+		this.storage.writeFragment(convDir, aiSeq, System.currentTimeMillis(), aiBytes);
 		if (indexPath != null) {
-			long currentIndexSeq = storage.readIndexSeq(indexPath);
+			long currentIndexSeq = this.storage.readIndexSeq(indexPath);
 			if (currentIndexSeq <= aiSeq + 1) {
-				storage.writeIndexSeq(indexPath, aiSeq + 1);
+				this.storage.writeIndexSeq(indexPath, aiSeq + 1);
 			} else {
-				logger.warn("[EasyChat] regenerate目标碎片不存在但indexSeq更大，避免截断历史 seq={} currentIndexSeq={}", aiSeq, currentIndexSeq);
+				logger.warn("[EasyChat] regenerate目标碎片不存在但indexSeq更大，避免截断历史 seq={} currentIndexSeq={}", aiSeq,
+						currentIndexSeq);
 			}
 		}
 		return true;
@@ -1476,9 +1502,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 			return 0;
 		}
 		try {
-			EasyChatStorage.FragmentHeader existingHeader = storage.readFragmentHeader(convDir, seq);
+			EasyChatStorage.FragmentHeader existingHeader = this.storage.readFragmentHeader(convDir, seq);
 			// A deleted fragment will be overwritten, so the new content becomes variant 0.
-			if (existingHeader == null || storage.isDeleted(existingHeader)) {
+			if (existingHeader == null || this.storage.isDeleted(existingHeader)) {
 				return 0;
 			}
 			return existingHeader.variantCount;
@@ -1487,14 +1513,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 	}
 
-	private void recordModelForVariant(Path convDir, long seq, int variantIndex, String modelId, String conversationId) {
+	private void recordModelForVariant(Path convDir, long seq, int variantIndex, String modelId,
+			String conversationId) {
 		if (convDir == null || seq < 0 || seq % 2 != 1 || variantIndex < 0 || modelId == null || modelId.isBlank()) {
 			return;
 		}
 		try {
-			storage.setModelForVariant(convDir, seq, variantIndex, modelId);
+			this.storage.setModelForVariant(convDir, seq, variantIndex, modelId);
 		} catch (IOException e) {
-			logger.warn("[EasyChat] 写入model_index失败 seq={} variant={} conversation={}", seq, variantIndex, conversationId, e);
+			logger.warn("[EasyChat] 写入model_index失败 seq={} variant={} conversation={}", seq, variantIndex,
+					conversationId, e);
 		}
 	}
 
@@ -1529,25 +1557,40 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private String escapeJsonString(String s) {
-		if (s == null) return "";
+		if (s == null)
+			return "";
 		StringBuilder sb = new StringBuilder(s.length() + 16);
 		for (int i = 0; i < s.length(); i++) {
 			char c = s.charAt(i);
 			switch (c) {
-				case '"': sb.append('\\').append('"'); break;
-				case '\\': sb.append('\\').append('\\'); break;
-				case '\n': sb.append('\\').append('n'); break;
-				case '\r': sb.append('\\').append('r'); break;
-				case '\t': sb.append('\\').append('t'); break;
-				case '\b': sb.append('\\').append('b'); break;
-				case '\f': sb.append('\\').append('f'); break;
-				default:
-					if (c < 0x20) {
-						sb.append(String.format("\\u%04x", (int) c));
-					} else {
-						sb.append(c);
-					}
-					break;
+			case '"':
+				sb.append('\\').append('"');
+				break;
+			case '\\':
+				sb.append('\\').append('\\');
+				break;
+			case '\n':
+				sb.append('\\').append('n');
+				break;
+			case '\r':
+				sb.append('\\').append('r');
+				break;
+			case '\t':
+				sb.append('\\').append('t');
+				break;
+			case '\b':
+				sb.append('\\').append('b');
+				break;
+			case '\f':
+				sb.append('\\').append('f');
+				break;
+			default:
+				if (c < 0x20) {
+					sb.append(String.format("\\u%04x", (int) c));
+				} else {
+					sb.append(c);
+				}
+				break;
 			}
 		}
 		return sb.toString();
@@ -1581,9 +1624,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 
 		boolean hasNewContent() {
-			return content.length() > seedContentLength
-				|| reasoningContent.length() > seedReasoningContentLength
-				|| !toolCalls.isEmpty();
+			return content.length() > seedContentLength || reasoningContent.length() > seedReasoningContentLength
+					|| !toolCalls.isEmpty();
 		}
 	}
 
@@ -1602,11 +1644,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private boolean proxySseStream(ChannelHandlerContext ctx, HttpURLConnection connection,
-		StreamAccumulator accumulator) throws IOException {
+			StreamAccumulator accumulator) throws IOException {
 
 		Map<Integer, String> toolCallIds = new HashMap<>();
 		try (BufferedReader br = new BufferedReader(
-			new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+				new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
 
 			String line;
 			while ((line = br.readLine()) != null) {
@@ -1617,7 +1659,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 				if (!line.startsWith("data: ")) {
 					// Pass through non-data lines
-					if (!writeSseLine(ctx, line)) {
+					if (!this.writeSseLine(ctx, line)) {
 						return false;
 					}
 					continue;
@@ -1626,13 +1668,13 @@ import io.netty.handler.codec.http.LastHttpContent;
 				String data = line.substring(6);
 				if ("[DONE]".equals(data)) {
 					logger.info("[EasyChat] 流式响应结束");
-					return writeSseLine(ctx, line);
+					return this.writeSseLine(ctx, line);
 				}
 
 				// Parse and accumulate
 				JsonObject json = JsonUtil.tryParseObject(data);
 				if (json != null) {
-					accumulateDelta(json, accumulator, toolCallIds);
+					this.accumulateDelta(json, accumulator, toolCallIds);
 					if (json.has("timings")) {
 						accumulator.timings = json.getAsJsonObject("timings");
 					}
@@ -1640,18 +1682,18 @@ import io.netty.handler.codec.http.LastHttpContent;
 					if (changed) {
 						line = "data: " + JsonUtil.toJson(json);
 					}
-				String terminalFinishReason = readTerminalFinishReason(json);
-				if (terminalFinishReason != null) {
-					accumulator.finishReason = terminalFinishReason;
-					if (!writeSseLine(ctx, line)) {
-						return false;
+					String terminalFinishReason = readTerminalFinishReason(json);
+					if (terminalFinishReason != null) {
+						accumulator.finishReason = terminalFinishReason;
+						if (!this.writeSseLine(ctx, line)) {
+							return false;
+						}
+						return this.writeSseLine(ctx, "data: [DONE]");
 					}
-					return writeSseLine(ctx, "data: [DONE]");
 				}
-			}
 
-			if (!writeSseLine(ctx, line)) {
-				return false;
+				if (!this.writeSseLine(ctx, line)) {
+					return false;
 				}
 			}
 		}
@@ -1659,13 +1701,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private void accumulateDelta(JsonObject json, StreamAccumulator acc, Map<Integer, String> toolCallIds) {
-		if (!json.has("choices") || !json.get("choices").isJsonArray()) return;
+		if (!json.has("choices") || !json.get("choices").isJsonArray())
+			return;
 		JsonArray choices = json.getAsJsonArray("choices");
-		if (choices.size() == 0) return;
+		if (choices.size() == 0)
+			return;
 		JsonObject choice = choices.get(0).getAsJsonObject();
 
 		// Delta
-		if (!choice.has("delta") || !choice.get("delta").isJsonObject()) return;
+		if (!choice.has("delta") || !choice.get("delta").isJsonObject())
+			return;
 		JsonObject delta = choice.getAsJsonObject("delta");
 
 		// Content
@@ -1689,8 +1734,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 			JsonArray tcArr = delta.getAsJsonArray("tool_calls");
 			for (int i = 0; i < tcArr.size(); i++) {
 				JsonObject tc = tcArr.get(i).getAsJsonObject();
-				Integer idx = getToolCallIndex(tc);
-				if (idx == null) continue;
+				Integer idx = this.getToolCallIndex(tc);
+				if (idx == null)
+					continue;
 
 				JsonObject existing = acc.toolCalls.computeIfAbsent(idx, k -> {
 					JsonObject newTc = new JsonObject();
@@ -1727,7 +1773,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 					if (fn.has("arguments") && !fn.get("arguments").isJsonNull()) {
 						String args = fn.get("arguments").getAsString();
 						if (args != null && !args.isEmpty()) {
-							String current = existingFn.has("arguments") ? existingFn.get("arguments").getAsString() : "";
+							String current = existingFn.has("arguments") ? existingFn.get("arguments").getAsString()
+									: "";
 							existingFn.addProperty("arguments", current + args);
 						}
 					}
@@ -1737,9 +1784,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private Integer getToolCallIndex(JsonObject tc) {
-		if (!tc.has("index")) return null;
+		if (!tc.has("index"))
+			return null;
 		JsonElement idxEl = tc.get("index");
-		if (idxEl == null || idxEl.isJsonNull()) return null;
+		if (idxEl == null || idxEl.isJsonNull())
+			return null;
 		try {
 			return idxEl.getAsInt();
 		} catch (Exception e) {
@@ -1757,15 +1806,18 @@ import io.netty.handler.codec.http.LastHttpContent;
 	/* ---- AI message building ---- */
 
 	/**
-	 * Pre-seed a stream accumulator with the existing content of a persisted assistant fragment.
-	 * Used for "continue final message" so that accumulated deltas are appended to the original text.
+	 * Pre-seed a stream accumulator with the existing content of a persisted
+	 * assistant fragment. Used for "continue final message" so that accumulated
+	 * deltas are appended to the original text.
 	 *
-	 * @param appendContent when true (stream continue), the seed text is appended to the
-	 *                      accumulator so that streaming deltas produce original+new; when
-	 *                      false (non-stream continue), only the seed lengths are recorded
-	 *                      so hasNewContent() can still detect a no-op response.
+	 * @param appendContent when true (stream continue), the seed text is appended
+	 *                      to the accumulator so that streaming deltas produce
+	 *                      original+new; when false (non-stream continue), only the
+	 *                      seed lengths are recorded so hasNewContent() can still
+	 *                      detect a no-op response.
 	 */
-	private void seedAccumulatorFromFragment(StreamAccumulator accumulator, Path convDir, long seq, int variantIndex, boolean appendContent) {
+	private void seedAccumulatorFromFragment(StreamAccumulator accumulator, Path convDir, long seq, int variantIndex,
+			boolean appendContent) {
 		if (convDir == null || seq < 0) {
 			return;
 		}
@@ -1773,7 +1825,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 		// payload byte[] nor build a JsonObject tree just to pull out two
 		// string fields. Only the (possibly large) assistant content/reasoning
 		// string is buffered into the accumulator, which we need anyway.
-		try (InputStream in = storage.openVariantInputStream(convDir, seq, variantIndex)) {
+		try (InputStream in = this.storage.openVariantInputStream(convDir, seq, variantIndex)) {
 			if (in == null) {
 				return;
 			}
@@ -1819,16 +1871,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	/**
-	 * Cheap streaming probe: returns true if the variant fragment is a JSON
-	 * object whose top-level {@code "tool_calls"} is a non-empty JSON array.
-	 * Scans with {@link JsonReader}, skipping irrelevant fields without
-	 * materializing them; safe for multi-MB attachments.
+	 * Cheap streaming probe: returns true if the variant fragment is a JSON object
+	 * whose top-level {@code "tool_calls"} is a non-empty JSON array. Scans with
+	 * {@link JsonReader}, skipping irrelevant fields without materializing them;
+	 * safe for multi-MB attachments.
 	 */
 	private boolean fragmentHasNonEmptyToolCalls(Path convDir, long seq, int variantIndex) {
 		if (convDir == null || seq < 0) {
 			return false;
 		}
-		try (InputStream in = storage.openVariantInputStream(convDir, seq, variantIndex)) {
+		try (InputStream in = this.storage.openVariantInputStream(convDir, seq, variantIndex)) {
 			if (in == null) {
 				return false;
 			}
@@ -1864,15 +1916,15 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	/**
 	 * Cheap streaming probe: returns the top-level {@code "role"} string of a
-	 * fragment's JSON object (or {@code null} if absent / invalid). Avoids
-	 * loading the entire payload into memory — useful for sequential history
-	 * scans governed by role parity.
+	 * fragment's JSON object (or {@code null} if absent / invalid). Avoids loading
+	 * the entire payload into memory — useful for sequential history scans governed
+	 * by role parity.
 	 */
 	private String fragmentTopLevelRole(Path convDir, long seq, int variantIndex) {
 		if (convDir == null || seq < 0) {
 			return null;
 		}
-		try (InputStream in = storage.openVariantInputStream(convDir, seq, variantIndex)) {
+		try (InputStream in = this.storage.openVariantInputStream(convDir, seq, variantIndex)) {
 			if (in == null) {
 				return null;
 			}
@@ -1911,9 +1963,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 		if (!acc.toolCalls.isEmpty()) {
 			JsonArray tcArray = new JsonArray();
 			// Sort by index to maintain order
-			acc.toolCalls.entrySet().stream()
-				.sorted(Map.Entry.comparingByKey())
-				.forEachOrdered(e -> tcArray.add(e.getValue()));
+			acc.toolCalls.entrySet().stream().sorted(Map.Entry.comparingByKey())
+					.forEachOrdered(e -> tcArray.add(e.getValue()));
 			msg.add("tool_calls", tcArray);
 		}
 
@@ -1932,17 +1983,28 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private Timing timingFromJson(JsonObject timingsJson) {
 		Timing timing = new Timing();
-		if (timingsJson.has("cache_n")) timing.setCache_n(timingsJson.get("cache_n").getAsInt());
-		if (timingsJson.has("prompt_n")) timing.setPrompt_n(timingsJson.get("prompt_n").getAsInt());
-		if (timingsJson.has("prompt_ms")) timing.setPrompt_ms(timingsJson.get("prompt_ms").getAsDouble());
-		if (timingsJson.has("prompt_per_token_ms")) timing.setPrompt_per_token_ms(timingsJson.get("prompt_per_token_ms").getAsDouble());
-		if (timingsJson.has("prompt_per_second")) timing.setPrompt_per_second(timingsJson.get("prompt_per_second").getAsDouble());
-		if (timingsJson.has("predicted_n")) timing.setPredicted_n(timingsJson.get("predicted_n").getAsInt());
-		if (timingsJson.has("predicted_ms")) timing.setPredicted_ms(timingsJson.get("predicted_ms").getAsDouble());
-		if (timingsJson.has("predicted_per_token_ms")) timing.setPredicted_per_token_ms(timingsJson.get("predicted_per_token_ms").getAsDouble());
-		if (timingsJson.has("predicted_per_second")) timing.setPredicted_per_second(timingsJson.get("predicted_per_second").getAsDouble());
-		if (timingsJson.has("draft_n")) timing.setDraft_n(timingsJson.get("draft_n").getAsInt());
-		if (timingsJson.has("draft_n_accepted")) timing.setDraft_n_accepted(timingsJson.get("draft_n_accepted").getAsInt());
+		if (timingsJson.has("cache_n"))
+			timing.setCache_n(timingsJson.get("cache_n").getAsInt());
+		if (timingsJson.has("prompt_n"))
+			timing.setPrompt_n(timingsJson.get("prompt_n").getAsInt());
+		if (timingsJson.has("prompt_ms"))
+			timing.setPrompt_ms(timingsJson.get("prompt_ms").getAsDouble());
+		if (timingsJson.has("prompt_per_token_ms"))
+			timing.setPrompt_per_token_ms(timingsJson.get("prompt_per_token_ms").getAsDouble());
+		if (timingsJson.has("prompt_per_second"))
+			timing.setPrompt_per_second(timingsJson.get("prompt_per_second").getAsDouble());
+		if (timingsJson.has("predicted_n"))
+			timing.setPredicted_n(timingsJson.get("predicted_n").getAsInt());
+		if (timingsJson.has("predicted_ms"))
+			timing.setPredicted_ms(timingsJson.get("predicted_ms").getAsDouble());
+		if (timingsJson.has("predicted_per_token_ms"))
+			timing.setPredicted_per_token_ms(timingsJson.get("predicted_per_token_ms").getAsDouble());
+		if (timingsJson.has("predicted_per_second"))
+			timing.setPredicted_per_second(timingsJson.get("predicted_per_second").getAsDouble());
+		if (timingsJson.has("draft_n"))
+			timing.setDraft_n(timingsJson.get("draft_n").getAsInt());
+		if (timingsJson.has("draft_n_accepted"))
+			timing.setDraft_n_accepted(timingsJson.get("draft_n_accepted").getAsInt());
 		return timing;
 	}
 
@@ -1952,16 +2014,19 @@ import io.netty.handler.codec.http.LastHttpContent;
 		try {
 			Path stateDir = LlamaServer.getCachePath().resolve("easy-chat");
 			Path stateFile = stateDir.resolve("state.json");
-			if (!Files.exists(stateFile)) return;
+			if (!Files.exists(stateFile))
+				return;
 
 			String json = Files.readString(stateFile, StandardCharsets.UTF_8);
 			JsonObject state = JsonUtil.fromJson(json, JsonObject.class);
-			if (state == null || !state.has("conversations")) return;
+			if (state == null || !state.has("conversations"))
+				return;
 
 			JsonArray convs = state.getAsJsonArray("conversations");
 			for (int i = 0; i < convs.size(); i++) {
 				JsonElement el = convs.get(i);
-				if (!el.isJsonObject()) continue;
+				if (!el.isJsonObject())
+					continue;
 				JsonObject conv = el.getAsJsonObject();
 				String id = JsonUtil.getJsonString(conv, "id", "");
 				if (conversationId.equals(id)) {
@@ -1982,8 +2047,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 		if (assistantName == null || assistantName.isBlank()) {
 			return null;
 		}
-		for (Path stateFile : getAssistantStateFiles()) {
-			String systemPrompt = readAssistantSystemPromptFromState(stateFile, assistantName);
+		for (Path stateFile : this.getAssistantStateFiles()) {
+			String systemPrompt = this.readAssistantSystemPromptFromState(stateFile, assistantName);
 			if (systemPrompt != null && !systemPrompt.isBlank()) {
 				return systemPrompt;
 			}
@@ -1994,9 +2059,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private List<Path> getAssistantStateFiles() {
 		Path cachePath = LlamaServer.getCachePath().toAbsolutePath().normalize();
-		return List.of(
-			cachePath.resolve("easy-chat").resolve("state.json")
-		);
+		return List.of(cachePath.resolve("easy-chat").resolve("state.json"));
 	}
 
 	private String readAssistantSystemPromptFromState(Path stateFile, String assistantName) {
@@ -2028,7 +2091,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	public Path getFragmentsDir() throws IOException {
-		return storage.getFragmentsDir();
+		return this.storage.getFragmentsDir();
 	}
 
 	/* ---- Delete operations ---- */
@@ -2037,7 +2100,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	 * Delete an entire conversation: remove fragment directory.
 	 */
 	public void deleteConversation(String conversationId) throws Exception {
-		Path fragmentsBase = getFragmentsDir();
+		Path fragmentsBase = this.getFragmentsDir();
 		Path dir = fragmentsBase.resolve(conversationId);
 		if (!Files.exists(dir)) {
 			logger.info("[EasyChat] 删除会话: 目录不存在 conversationId={}", conversationId);
@@ -2045,10 +2108,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 		}
 		Files.walkFileTree(dir, new java.nio.file.SimpleFileVisitor<Path>() {
 			@Override
-			public java.nio.file.FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
+			public java.nio.file.FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs)
+					throws IOException {
 				Files.delete(file);
 				return java.nio.file.FileVisitResult.CONTINUE;
 			}
+
 			@Override
 			public java.nio.file.FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
 				Files.delete(d);
@@ -2062,16 +2127,16 @@ import io.netty.handler.codec.http.LastHttpContent;
 	 * Delete a whole message or a single variant within a message.
 	 */
 	public Integer deleteMessage(String conversationId, long seq, Integer variantIndex) throws Exception {
-		Path dir = storage.getConversationDir(conversationId);
+		Path dir = this.storage.getConversationDir(conversationId);
 		if (!Files.exists(dir)) {
 			throw new IOException("Conversation directory not found: " + conversationId);
 		}
-		Object convLock = conversationLocks.computeIfAbsent(conversationId, k -> new Object());
+		Object convLock = this.conversationLocks.computeIfAbsent(conversationId, k -> new Object());
 		synchronized (convLock) {
 			if (variantIndex != null) {
-				return storage.deleteVariant(dir, seq, variantIndex);
+				return this.storage.deleteVariant(dir, seq, variantIndex);
 			} else {
-				storage.deleteMessage(dir, seq);
+				this.storage.deleteMessage(dir, seq);
 				return null;
 			}
 		}
@@ -2079,7 +2144,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private String readErrorBody(HttpURLConnection conn) throws IOException {
 		try (BufferedReader br = new BufferedReader(
-			new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+				new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
 			StringBuilder sb = new StringBuilder();
 			String line;
 			while ((line = br.readLine()) != null) {
@@ -2091,10 +2156,10 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private void sendJsonPayloadResponse(ChannelHandlerContext ctx, int code, String contentType, byte[] bytes) {
 		byte[] safeBytes = bytes == null ? new byte[0] : bytes;
-		FullHttpResponse resp = new DefaultFullHttpResponse(
-			HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(code), Unpooled.wrappedBuffer(safeBytes));
+		FullHttpResponse resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(code),
+				Unpooled.wrappedBuffer(safeBytes));
 		resp.headers().set(HttpHeaderNames.CONTENT_TYPE,
-			contentType == null || contentType.isBlank() ? "application/json; charset=UTF-8" : contentType);
+				contentType == null || contentType.isBlank() ? "application/json; charset=UTF-8" : contentType);
 		resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, safeBytes.length);
 		resp.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
 		resp.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
@@ -2126,11 +2191,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 			}
 		}
 		JsonObject message = choice != null && choice.has("message") && choice.get("message").isJsonObject()
-			? choice.getAsJsonObject("message")
-			: null;
+				? choice.getAsJsonObject("message")
+				: null;
 		if (message != null) {
-			appendJsonString(accumulator.content, message.get("content"));
-			appendJsonString(accumulator.reasoningContent, message.get("reasoning_content"));
+			this.appendJsonString(accumulator.content, message.get("content"));
+			this.appendJsonString(accumulator.reasoningContent, message.get("reasoning_content"));
 			if (message.has("tool_calls") && message.get("tool_calls").isJsonArray()) {
 				JsonArray toolCalls = message.getAsJsonArray("tool_calls");
 				for (int i = 0; i < toolCalls.size(); i++) {
@@ -2156,8 +2221,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	private void sendErrorResponse(ChannelHandlerContext ctx, int code, String body) {
-		FullHttpResponse resp = new DefaultFullHttpResponse(
-			HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(code));
+		FullHttpResponse resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(code));
 		resp.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
 		byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
 		resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
@@ -2169,9 +2233,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 	private void sendOpenAIError(ChannelHandlerContext ctx, int httpStatus, String message) {
 		String type = "server_error";
-		if (httpStatus == 400) type = "invalid_request_error";
-		if (httpStatus == 404) type = "invalid_request_error";
-		if (httpStatus >= 500) type = "server_error";
+		if (httpStatus == 400)
+			type = "invalid_request_error";
+		if (httpStatus == 404)
+			type = "invalid_request_error";
+		if (httpStatus >= 500)
+			type = "server_error";
 
 		JsonObject error = new JsonObject();
 		error.addProperty("message", message);
@@ -2181,8 +2248,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 		JsonObject response = new JsonObject();
 		response.add("error", error);
 
-		FullHttpResponse resp = new DefaultFullHttpResponse(
-			HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(httpStatus));
+		FullHttpResponse resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+				HttpResponseStatus.valueOf(httpStatus));
 		resp.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=utf-8");
 		byte[] bytes = JsonUtil.toJson(response).getBytes(StandardCharsets.UTF_8);
 		resp.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
@@ -2194,48 +2261,47 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	/**
-	 * Update a specific variant's payload in an existing fragment file.
-	 * Reads header, replaces the target variant, rewrites the entire file.
+	 * Update a specific variant's payload in an existing fragment file. Reads
+	 * header, replaces the target variant, rewrites the entire file.
 	 */
 	public void updateFragmentVariant(Path dir, long seq, int variantIndex, byte[] newPayload) throws IOException {
-		storage.updateVariant(dir, seq, variantIndex, newPayload);
+		this.storage.updateVariant(dir, seq, variantIndex, newPayload);
 		logger.info("[EasyChat] 更新碎片变体成功 seq={} variantIndex={} newLength={}", seq, variantIndex, newPayload.length);
 	}
 
 	/**
-	 * Handle stream-chat request routed to a remote node.
-	 * Builds the request body, forwards to remote node via NodeManager, and proxies the SSE stream back.
+	 * Handle stream-chat request routed to a remote node. Builds the request body,
+	 * forwards to remote node via NodeManager, and proxies the SSE stream back.
 	 */
 	private void handleRemoteNodeRequest(ChannelHandlerContext ctx, String conversationId, String nodeId,
-		String modelId, String systemPrompt, Path convDir, byte[] toolsBytes,
-		JsonObject samplingParams, Map<Long, Integer> variants, Long regenerateSeq, Long continueSeq,
-		byte[] transientUserMessageBytes, Path transientUserMessageFile, boolean skipHistory, boolean stream,
-		StreamAccumulator accumulator) throws Exception {
+			String modelId, String systemPrompt, Path convDir, byte[] toolsBytes, JsonObject samplingParams,
+			Map<Long, Integer> variants, Long regenerateSeq, Long continueSeq, byte[] transientUserMessageBytes,
+			Path transientUserMessageFile, boolean skipHistory, boolean stream, StreamAccumulator accumulator)
+			throws Exception {
 
 		logger.info("[EasyChat][Remote] 转发到远程节点 nodeId={}, model={}, conversation={}", nodeId, modelId, conversationId);
 
-      // Forward to remote node
-        NodeManager nodeManager = NodeManager.getInstance();
-        OutputStream remoteLogStream = createRequestLogStream(conversationId, modelId);
-        NodeManager.StreamResult streamResult = nodeManager.callRemoteApiStreaming(
-            nodeId, "POST", "v1/chat/completions",
-            output -> {
-                OutputStream os = (remoteLogStream != null) ? new TeeOutputStream(output, remoteLogStream) : output;
-                try {
-                    requestWriter.writeRequestBody(os,
-                        new EasyChatRequestWriter.RequestSpec(modelId, systemPrompt, convDir, toolsBytes,
-                            samplingParams, false, variants, regenerateSeq, continueSeq, transientUserMessageBytes,
-                            transientUserMessageFile, skipHistory, stream));
-                } finally {
-                    if (remoteLogStream != null) {
-                        try {
-                            remoteLogStream.close();
-                        } catch (Exception ignore) {}
-                    }
-                }
-            },
-            null, STREAM_TIMEOUT_MS);
-		trackConnection(ctx, streamResult::abort);
+		// Forward to remote node
+		NodeManager nodeManager = NodeManager.getInstance();
+		OutputStream remoteLogStream = this.createRequestLogStream(conversationId, modelId);
+		NodeManager.StreamResult streamResult = nodeManager.callRemoteApiStreaming(nodeId, "POST",
+				"v1/chat/completions", output -> {
+					OutputStream os = (remoteLogStream != null) ? new TeeOutputStream(output, remoteLogStream) : output;
+					try {
+						this.requestWriter.writeRequestBody(os,
+								new EasyChatRequestWriter.RequestSpec(modelId, systemPrompt, convDir, toolsBytes,
+										samplingParams, false, variants, regenerateSeq, continueSeq,
+										transientUserMessageBytes, transientUserMessageFile, skipHistory, stream));
+					} finally {
+						if (remoteLogStream != null) {
+							try {
+								remoteLogStream.close();
+							} catch (Exception ignore) {
+							}
+						}
+					}
+				}, null, STREAM_TIMEOUT_MS);
+		this.trackConnection(ctx, streamResult::abort);
 
 		int responseCode = streamResult.getStatusCode();
 		logger.info("[EasyChat][Remote] 远程节点响应码: {} conversation={}", responseCode, conversationId);
@@ -2248,15 +2314,15 @@ import io.netty.handler.codec.http.LastHttpContent;
 				errBody = "Remote node error: " + responseCode;
 			}
 			logger.info("[EasyChat][Remote] 远程节点错误响应 code={} body={}", responseCode, errBody);
-			sendErrorResponse(ctx, responseCode, errBody);
+			this.sendErrorResponse(ctx, responseCode, errBody);
 			return;
 		}
 
 		if (!stream) {
 			byte[] responseBytes = streamResult.getBody().readAllBytes();
 			String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
-			accumulateNonStreamResponse(JsonUtil.tryParseObject(responseBody), accumulator);
-			sendJsonPayloadResponse(ctx, responseCode, "application/json; charset=UTF-8", responseBytes);
+			this.accumulateNonStreamResponse(JsonUtil.tryParseObject(responseBody), accumulator);
+			this.sendJsonPayloadResponse(ctx, responseCode, "application/json; charset=UTF-8", responseBytes);
 			return;
 		}
 
@@ -2270,14 +2336,14 @@ import io.netty.handler.codec.http.LastHttpContent;
 			return;
 		}
 
-		proxySseStreamFromRemote(ctx, streamResult.getBody(), accumulator);
+		this.proxySseStreamFromRemote(ctx, streamResult.getBody(), accumulator);
 	}
 
 	/**
 	 * Proxy SSE stream from a remote node's InputStream to the client.
 	 */
 	private RemoteStreamTrace proxySseStreamFromRemote(ChannelHandlerContext ctx, java.io.InputStream inputStream,
-		StreamAccumulator accumulator) throws IOException {
+			StreamAccumulator accumulator) throws IOException {
 
 		RemoteStreamTrace trace = new RemoteStreamTrace();
 		Map<Integer, String> toolCallIds = new HashMap<>();
@@ -2297,7 +2363,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 
 				if (!line.startsWith("data: ")) {
 					trace.nonDataLineCount += 1;
-					if (!writeSseLine(ctx, line)) {
+					if (!this.writeSseLine(ctx, line)) {
 						trace.endReason = "write_failed_non_data";
 						return trace;
 					}
@@ -2310,7 +2376,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 				if ("[DONE]".equals(data)) {
 					trace.doneReceivedAt = now;
 					trace.endReason = "done";
-					if (!writeSseLine(ctx, line)) {
+					if (!this.writeSseLine(ctx, line)) {
 						trace.endReason = "write_failed_done";
 					}
 					return trace;
@@ -2322,39 +2388,38 @@ import io.netty.handler.codec.http.LastHttpContent;
 					int reasoningLength = accumulator.reasoningContent.length();
 					int toolCallCount = accumulator.toolCalls.size();
 					boolean hadTimings = accumulator.timings != null;
-					accumulateDelta(json, accumulator, toolCallIds);
+					this.accumulateDelta(json, accumulator, toolCallIds);
 					if (json.has("timings")) {
 						accumulator.timings = json.getAsJsonObject("timings");
 					}
 					if (accumulator.content.length() != contentLength
-						|| accumulator.reasoningContent.length() != reasoningLength
-						|| accumulator.toolCalls.size() != toolCallCount
-						|| (!hadTimings && accumulator.timings != null)
-						|| json.has("timings")) {
+							|| accumulator.reasoningContent.length() != reasoningLength
+							|| accumulator.toolCalls.size() != toolCallCount
+							|| (!hadTimings && accumulator.timings != null) || json.has("timings")) {
 						trace.lastUsefulDeltaAt = now;
 					}
 					boolean changed = JsonUtil.ensureToolCallIds(json, toolCallIds);
 					if (changed) {
 						line = "data: " + JsonUtil.toJson(json);
 					}
-				String terminalFinishReason = readTerminalFinishReason(json);
-				if (terminalFinishReason != null) {
-					trace.terminalFinishReason = terminalFinishReason;
-					accumulator.finishReason = terminalFinishReason;
-					if (!writeSseLine(ctx, line)) {
+					String terminalFinishReason = readTerminalFinishReason(json);
+					if (terminalFinishReason != null) {
+						trace.terminalFinishReason = terminalFinishReason;
+						accumulator.finishReason = terminalFinishReason;
+						if (!this.writeSseLine(ctx, line)) {
 							trace.endReason = "write_failed_terminal_chunk";
 							return trace;
 						}
 						trace.doneReceivedAt = System.currentTimeMillis();
 						trace.endReason = "finish_reason";
-						if (!writeSseLine(ctx, "\ndata: [DONE]")) {
+						if (!this.writeSseLine(ctx, "\ndata: [DONE]")) {
 							trace.endReason = "write_failed_synthetic_done";
 						}
 						return trace;
 					}
 				}
 
-				if (!writeSseLine(ctx, line)) {
+				if (!this.writeSseLine(ctx, line)) {
 					trace.endReason = "write_failed_data";
 					return trace;
 				}
@@ -2366,12 +2431,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 	}
 
 	/**
-	 * Clean up tracked connection on channel inactive.
-	 * Also releases the global lease if the request has not yet been handed off to the worker.
+	 * Clean up tracked connection on channel inactive. Also releases the global
+	 * lease if the request has not yet been handed off to the worker.
 	 */
 	public void channelInactive(ChannelHandlerContext ctx) {
-		cleanupConnection(ctx);
-		EasyChatGlobalLock.Lease lease = channelLeaseMap.remove(ctx);
+		this.cleanupConnection(ctx);
+		EasyChatGlobalLock.Lease lease = this.channelLeaseMap.remove(ctx);
 		if (lease != null) {
 			try {
 				lease.close();
