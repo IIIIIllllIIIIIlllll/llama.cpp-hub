@@ -12,7 +12,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -58,6 +60,7 @@ public class LlamaCppProcess {
 	private BufferedWriter stdwriter;
 	private int ctxSize;
 	private int slotNum;
+	private int[] slotStatus;
 	private CompletableFuture<Void> exitFuture;
 	private final AtomicReference<ProcessExitInfo> exitInfoRef = new AtomicReference<>();
 	private Map<String, String> envVars = java.util.Collections.emptyMap();
@@ -92,14 +95,19 @@ public class LlamaCppProcess {
 
 	public void setSlotNum(int slotNum) {
 		this.slotNum = slotNum;
+		this.slotStatus = new int[slotNum];
 	}
-
+	
 	public int getSlotNum() {
 		return this.slotNum;
 	}
+	
+	public int[] getSlotStaus() {
+		return this.slotStatus;
+	}
 
 	public void setEnvVars(Map<String, String> envVars) {
-		this.envVars = envVars == null ? java.util.Collections.emptyMap() : new java.util.LinkedHashMap<>(envVars);
+		this.envVars = envVars == null ? Collections.emptyMap() : new LinkedHashMap<>(envVars);
 	}
 
 	/**
