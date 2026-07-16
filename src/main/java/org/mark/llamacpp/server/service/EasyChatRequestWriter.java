@@ -33,7 +33,7 @@ final class EasyChatRequestWriter {
 		writeAscii(output, "\",\"stream\":".getBytes(StandardCharsets.UTF_8));
 		writeString(output, Boolean.toString(spec.stream));
 		if (spec.stream) {
-			writeAscii(output, ",\"timings_per_token\":true,\"return_progress\":true".getBytes(StandardCharsets.UTF_8));
+			writeAscii(output, ",\"timings_per_token\":true,\"return_progress\":true,\"verbose\":true".getBytes(StandardCharsets.UTF_8));
 		}
 		writeAscii(output, ",\"messages\":[".getBytes(StandardCharsets.UTF_8));
 

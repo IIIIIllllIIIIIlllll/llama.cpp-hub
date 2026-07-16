@@ -195,7 +195,7 @@ public class StreamingForwarder {
             }
         }
         
-        String timingInjection = "\"timings_per_token\":true,\"return_progress\":true";
+        String timingInjection = "\"timings_per_token\":true,\"return_progress\":true,\"verbose\":true";
         try {
             if (nodeId != null && !nodeId.isBlank()) {
                 long injected = bodyBuffer.streamInjected(targetOutput, timingInjection);
