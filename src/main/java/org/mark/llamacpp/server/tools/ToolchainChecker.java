@@ -123,7 +123,7 @@ public class ToolchainChecker {
                 }
             }
         } else {
-            String[] paths = {"/opt/rocm", "/opt/rocm-7.2.0", "/usr/local/rocm"};
+            String[] paths = {"/opt/rocm/core-7.14", "/opt/rocm/core", "/opt/rocm", "/usr/local/rocm"};
             for (String p : paths) {
                 File dir = new File(p);
                 if (dir.isDirectory()) {

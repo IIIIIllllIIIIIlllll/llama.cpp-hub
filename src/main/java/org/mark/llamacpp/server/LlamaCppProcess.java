@@ -173,8 +173,8 @@ public class LlamaCppProcess {
 			}
 
 			String[] rocmPaths = {
-				"/opt/rocm-7.2.0/lib",
-				"/opt/rocm-7.2.0/lib64",
+				"/opt/rocm/core-7.14/lib",
+				"/opt/rocm/core/lib",
 				"/opt/rocm/lib",
 				"/opt/rocm/lib64",
 				"/usr/local/rocm/lib",
