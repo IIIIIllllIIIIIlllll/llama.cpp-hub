@@ -35,7 +35,7 @@ function showModelDetailModal(model) {
         document.body.appendChild(modal);
     }
     const content = document.getElementById(modalId + 'Content');
-    const isMobileView = !!document.getElementById('mobileMainModels') || /index-mobile\.html$/i.test((location && location.pathname) ? location.pathname : '');
+    const isMobileView = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
     let tabs = `<div style="display:flex; gap:8px; margin-bottom:12px;">` +
                 `<button class="btn btn-secondary" id="${modalId}TabInfo">${t('modal.model_detail.tab.overview', '概览')}</button>` +
                 `<button class="btn btn-secondary" id="${modalId}TabSampling">${t('modal.model_detail.tab.sampling', '采样设置')}</button>` +

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>llama.cpp-Hub</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="apple-touch-icon" href="/icon/icon-192x192.png">
+<link rel="stylesheet" href="css/all.min.css">
+<link rel="stylesheet" href="css/newui.css">
+</head>
+<body>
+
+<!-- ===== 桌面侧边栏（窄屏隐藏） ===== -->
+<aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+        <img src="llama1-icon-transparent.png" alt="">
+        <span>llama.cpp-Hub</span>
+    </div>
+    <nav class="sb-nav">
+        <button class="active" data-page="models"><i class="fas fa-cubes"></i><span>模型</span></button>
+        <button data-page="downloads"><i class="fas fa-download"></i><span>下载</span></button>
+        <button data-page="sysinfo"><i class="fas fa-microchip"></i><span>系统信息</span></button>
+        <button data-page="settings"><i class="fas fa-gear"></i><span>设置</span></button>
+    </nav>
+    <div class="sb-foot">
+        <a href="chat/index.html" class="sb-chat"><i class="fas fa-comments"></i><span>开始聊天</span></a>
+        <a href="index.html" class="sb-legacy" title="旧版完整页面"><i class="fas fa-clock-rotate-left"></i><span>旧版页面</span></a>
+    </div>
+</aside>
+
+<!-- ===== 移动端抽屉遮罩 ===== -->
+<div class="drawer-mask" id="drawerMask"></div>
+
+<div class="shell">
+    <!-- ===== 顶栏 ===== -->
+    <header class="app-header">
+        <button class="icon-btn drawer-btn" id="drawerBtn" title="菜单"><i class="fas fa-bars"></i></button>
+        <div class="title" id="headerTitle">模型</div>
+        <button class="icon-btn" id="themeHdrBtn" title="切换主题"><i class="fas fa-circle-half-stroke"></i></button>
+        <button class="icon-btn" id="refreshBtn" title="刷新"><i class="fas fa-rotate"></i></button>
+        <button class="icon-btn accent" id="chatBtn" title="聊天"><i class="fas fa-comments"></i></button>
+    </header>
+
+    <div class="pages">
+        <!-- ============ 模型页 ============ -->
+        <section class="page active" id="page-models">
+            <div class="toolbar">
+                <div class="search-wrap">
+                    <i class="fas fa-search"></i>
+                    <input type="search" id="modelSearch" placeholder="搜索模型…">
+                </div>
+                <select id="nodeFilter" class="select-inline" style="display:none"></select>
+            </div>
+            <div class="chip-row" id="modelChips">
+                <button class="chip active" data-filter="all">全部</button>
+                <button class="chip" data-filter="loaded">已加载</button>
+                <button class="chip" data-filter="fav">收藏</button>
+                <button class="chip" data-sort="name">名称 ↑</button>
+                <button class="chip" data-sort="size">大小</button>
+            </div>
+            <div id="modelList" class="model-grid"></div>
+        </section>
+
+        <!-- ============ 下载页 ============ -->
+        <section class="page" id="page-downloads">
+            <div class="toolbar">
+                <button class="btn primary block" id="newDownloadBtn"><i class="fas fa-plus"></i> 新建下载任务</button>
+            </div>
+            <div id="downloadList"></div>
+        </section>
+
+        <!-- ============ 系统页 ============ -->
+        <section class="page" id="page-sysinfo">
+            <div class="chip-row" id="sysinfoNodes" style="display:none"></div>
+            <div id="sysinfoBody"></div>
+        </section>
+
+        <!-- ============ 设置页 ============ -->
+        <section class="page" id="page-settings">
+            <div class="card">
+                <h3><i class="fas fa-palette"></i> 外观</h3>
+                <div class="kv"><span class="k">夜间模式</span>
+                    <span class="v"><button class="btn" id="themeToggle">跟随系统</button></span></div>
+                <div class="kv"><span class="k">语言 / Language</span>
+                    <span class="v"><button class="btn" id="langToggle">中文</button></span></div>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-circle-info"></i> 关于</h3>
+                <div class="kv"><span class="k">服务版本</span><span class="v" id="versionVal">…</span></div>
+                <div class="kv"><span class="k">完整功能</span><span class="v"><a href="index.html" class="link">打开旧版页面</a></span></div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- ===== 移动端底部导航 ===== -->
+<nav class="bottom-nav">
+    <button class="active" data-page="models"><i class="fas fa-cubes"></i>模型</button>
+    <button data-page="downloads"><i class="fas fa-download"></i>下载</button>
+    <button data-page="sysinfo"><i class="fas fa-microchip"></i>系统</button>
+    <button data-page="settings"><i class="fas fa-gear"></i>设置</button>
+</nav>
+
+<!-- ===== 通用遮罩 ===== -->
+<div class="sheet-mask" id="sheetMask"></div>
+
+<!-- ===== 模型加载配置弹窗（桌面居中 / 移动底部弹层） ===== -->
+<div class="sheet config-sheet" id="configSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+        <h2 id="configTitle">加载模型</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <!-- 移动端 TAB（桌面隐藏） -->
+    <div class="config-tabs" id="configTabs">
+        <button class="active" data-ctab="basic">基本配置</button>
+        <button data-ctab="params">启动参数</button>
+        <button data-ctab="more">高级</button>
+    </div>
+    <div class="sheet-body config-body">
+        <!-- 左栏：基本配置 -->
+        <div class="config-col" data-ccol="basic">
+            <div class="field">
+                <label>模型</label>
+                <input type="text" id="cfgModelName" readonly disabled>
+            </div>
+            <div class="field">
+                <label>配置方案</label>
+                <div class="row-gap">
+                    <select id="cfgSelect" class="grow"></select>
+                    <button class="icon-btn" id="cfgAddBtn" title="新增配置"><i class="fas fa-plus"></i></button>
+                    <button class="icon-btn" id="cfgDelBtn" title="删除配置"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="field">
+                <label>Llama.cpp 版本</label>
+                <select id="cfgLlama"></select>
+            </div>
+            <div class="field">
+                <label>设备</label>
+                <div id="cfgDevices" class="device-list"><span class="muted">选择 Llama.cpp 版本后加载</span></div>
+            </div>
+            <div class="row-gap">
+                <div class="field grow">
+                    <label>主 GPU</label>
+                    <select id="cfgMainGpu"><option value="-1">默认</option></select>
+                </div>
+                <div class="field grow">
+                    <label>&nbsp;</label>
+                    <label class="check-line"><input type="checkbox" id="cfgVision"> 启用视觉 (mmproj)</label>
+                </div>
+            </div>
+        </div>
+        <!-- 右栏：动态参数 -->
+        <div class="config-col" data-ccol="params">
+            <div class="param-head">
+                <span class="muted" id="paramHint">参数改动实时生成命令行</span>
+                <button class="btn mini" id="paramModeBtn" title="切换命令行模式"><i class="fas fa-terminal"></i> 命令行</button>
+            </div>
+            <div id="paramForm"></div>
+            <div class="field" id="cmdField" style="display:none">
+                <label>命令行</label>
+                <textarea id="cfgCmd" spellcheck="false" rows="4"></textarea>
+            </div>
+            <div class="field">
+                <label>额外参数（无法识别的参数会归入此处）</label>
+                <input type="text" id="cfgExtra" spellcheck="false">
+            </div>
+            <div class="field">
+                <label>生成的命令</label>
+                <pre class="cmd-preview" id="cmdPreview"></pre>
+            </div>
+        </div>
+        <!-- 高级：能力 + 自动加载 -->
+        <div class="config-col" data-ccol="more">
+            <div class="field">
+                <label>模型能力</label>
+                <div class="cap-grid" id="capGrid">
+                    <label class="check-line"><input type="checkbox" data-cap="thinking"> Thinking</label>
+                    <label class="check-line"><input type="checkbox" data-cap="tools"> 工具调用</label>
+                    <label class="check-line"><input type="checkbox" data-cap="rerank"> Rerank</label>
+                    <label class="check-line"><input type="checkbox" data-cap="embedding"> Embedding</label>
+                    <label class="check-line"><input type="checkbox" data-cap="vision"> 视觉</label>
+                    <label class="check-line"><input type="checkbox" data-cap="audio"> 音频</label>
+                </div>
+            </div>
+            <div class="field">
+                <label>自动加载 / 自动卸载</label>
+                <label class="check-line"><input type="checkbox" id="autoLoadChk"> 允许自动加载（API 请求时未加载则自动启动）</label>
+                <label class="check-line"><input type="checkbox" id="autoUnloadChk"> 允许自动卸载</label>
+            </div>
+            <div class="field">
+                <label>别名</label>
+                <div class="row-gap">
+                    <input type="text" id="cfgAlias" class="grow" placeholder="模型别名（API 调用名）">
+                    <button class="btn" id="aliasSaveBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" id="cfgVramBtn"><i class="fas fa-memory"></i> 估算显存</button>
+        <button class="btn" id="cfgSaveBtn"><i class="fas fa-floppy-disk"></i> 保存配置</button>
+        <button class="btn primary grow" id="cfgStartBtn"><i class="fas fa-play"></i> 启动</button>
+    </div>
+</div>
+
+<!-- ===== 新建下载弹层 ===== -->
+<div class="sheet" id="downloadSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>新建下载任务</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="field"><label>下载到节点</label><select id="dlNode"></select></div>
+        <div class="field"><label>下载地址（HF / ModelScope 直链）</label>
+            <input type="url" id="dlUrl" placeholder="https://…/model.gguf"></div>
+        <div class="field"><label>文件名（可选）</label><input type="text" id="dlFileName" placeholder="留空自动识别"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn primary grow" id="dlSubmitBtn"><i class="fas fa-download"></i> 开始下载</button>
+    </div>
+</div>
+
+<!-- ===== 小型输入对话框 ===== -->
+<div class="sheet prompt-sheet" id="promptSheet">
+    <div class="sheet-head"><h2 id="promptTitle">输入</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="field"><input type="text" id="promptInput"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn primary grow" id="promptOk">确定</button>
+    </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="js/model-icon.js"></script>
+<script src="js/newui/app.js"></script>
+<script src="js/newui/models.js"></script>
+<script src="js/newui/model-config.js"></script>
+<script src="js/newui/misc-pages.js"></script>
+<script>App.start();</script>
+</body>
+</html>

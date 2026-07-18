@@ -1328,6 +1328,18 @@ function switchParamMode(mode) {
     window.__paramMode = mode;
 }
 
+// 移动端加载弹窗：「简要配置 / 详细配置」两个面板互斥切换（仅窄屏下 TAB 可见）
+function switchLoadModelMobileTab(tab) {
+    if (tab !== 'basic' && tab !== 'detail') return;
+    const modal = getLoadModelModal();
+    if (!modal) return;
+    const layout = modal.querySelector('.load-model-layout');
+    if (layout) layout.dataset.mobileTab = tab;
+    modal.querySelectorAll('.load-model-mobile-tab').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.lmtab === tab);
+    });
+}
+
 function setModelActionMode(mode) {
     const resolved = mode === 'benchmark' ? 'benchmark' : 'load';
     window.__modelActionMode = resolved;

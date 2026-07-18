@@ -3066,7 +3066,7 @@
 
         
         @media (max-width: 768px) {
-            .sidebar { display: none; } /* Mobile sidebar not implemented yet for brevity */
+            /* 抽屉式 sidebar 由文件末尾的统一移动端媒体查询实现，此处不再隐藏 */
         }
         
         /* Console Log Styles */
@@ -4020,4 +4020,257 @@
             color: #6b7280;
             font-size: 0.85em;
             font-weight: normal;
+        }
+
+        /* ===== 移动端适配（窄屏 ≤900px），废弃独立 index-mobile.html 后的统一响应式方案 ===== */
+        .mobile-nav-overlay { display: none; }
+        .mobile-header { display: none; }
+
+        @media (max-width: 900px) {
+            /* 移动端独立顶栏：汉堡 + 当前页面标题 */
+            body { flex-direction: column; }
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+                height: 52px;
+                padding: 0 0.75rem;
+                flex-shrink: 0;
+                background: var(--topbar-bg);
+                border-bottom: 1px solid var(--border-color);
+                z-index: 12;
+            }
+            #mobileNavToggle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 36px;
+                height: 36px;
+                border-radius: 9px;
+                border: 1px solid var(--border-color);
+                background: var(--card-bg);
+                color: var(--text-primary);
+                font-size: 0.95rem;
+                cursor: pointer;
+                flex-shrink: 0;
+            }
+            .mobile-header-title {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* 侧边栏改为抽屉 */
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                height: 100dvh;
+                transform: translateX(-105%);
+                transition: transform 0.25s ease;
+                box-shadow: none;
+            }
+            body.mobile-nav-open .sidebar {
+                transform: none;
+                box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+            }
+            .mobile-nav-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.45);
+                z-index: 15;
+            }
+            body.mobile-nav-open .mobile-nav-overlay { display: block; }
+
+            /* 移动端下砍掉的入口：性能测试、HF模型搜索、系统日志、用量报表、神奇妙妙工具 */
+            #nav-benchmark-v3,
+            #nav-hf,
+            #nav-console,
+            #nav-usage-report { display: none; }
+            .sidebar-quick-links:has(#sidebarMagicToolsList) { display: none; }
+
+            /* 顶栏：标题移至 mobile-header，这里只留操作区 */
+            .top-bar,
+            #main-model-list .top-bar {
+                height: auto;
+                min-height: 0;
+                padding: 0.6rem 1rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .top-bar .page-title { display: none; }
+            /* 操作区：单行横滑，不换行堆叠 */
+            .top-actions {
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+                width: 100%;
+                overflow-x: auto;
+                scrollbar-width: none;
+                padding-bottom: 2px;
+            }
+            .top-actions::-webkit-scrollbar { display: none; }
+            .top-actions > * { flex-shrink: 0; }
+            .top-actions .search-box {
+                width: auto !important;
+                flex: 1 1 auto;
+                min-width: 150px;
+            }
+            .content-scrollable { padding: 0 0.75rem 1rem; }
+
+            /* 模型列表项：行1 收藏+图标+状态，行2 名称/meta（全宽），行3 操作按钮 */
+            .model-item {
+                padding: 0.75rem 0.9rem;
+                flex-wrap: wrap;
+                gap: 0.35rem 0.5rem;
+                align-items: center;
+            }
+            .model-fav-btn { margin-right: 0.25rem; }
+            .model-icon-wrapper { margin-right: 0.4rem; }
+            /* 状态徽章紧凑化，提到行1右侧 */
+            .model-status-badge {
+                order: 3;
+                margin-left: auto;
+                min-width: 0;
+                padding: 0.25rem 0.7rem;
+                font-size: 0.72rem;
+                gap: 0.35rem;
+            }
+            .model-details {
+                order: 4;
+                flex-basis: 100%;
+                margin-right: 0;
+                min-width: 0;
+                gap: 0.2rem;
+            }
+            /* 名称最多两行，不再一刀切 */
+            .model-name {
+                max-width: 100%;
+                overflow: hidden;
+                white-space: normal;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                line-height: 1.35;
+            }
+            .model-meta { flex-wrap: wrap; gap: 0.25rem 0.6rem; }
+            .model-speed-row { white-space: nowrap; display: flex; gap: 0.75rem; }
+            .model-actions {
+                order: 5;
+                margin-left: auto;
+                gap: 0.5rem;
+            }
+            .model-actions .btn-icon {
+                width: 36px;
+                height: 36px;
+            }
+
+            /* 弹窗全屏化 */
+            .modal .modal-content {
+                width: 100vw;
+                max-width: none;
+                height: 100dvh;
+                max-height: none;
+                border-radius: 0;
+            }
+            #loadModelModal .load-model-layout {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+            }
+        }
+
+        @media (max-width: 900px) {
+            /* 设置页标签条可横向滑动 */
+            .settings-tabs { overflow-x: auto; flex-wrap: nowrap; }
+            /* 弹窗底部按钮文字不折行 */
+            .modal-footer { flex-wrap: wrap; }
+            .modal-footer .btn { white-space: nowrap; }
+        }
+
+        @media (max-width: 900px) {
+            /* 移动端强制列表视图，隐藏网格切换按钮 */
+            #modelViewToggle { display: none; }
+            /* 加载弹窗：隐藏模型能力区 */
+            #loadModelModal #modelCapabilitiesGroup { display: none; }
+        }
+
+        /* 加载弹窗移动端 TAB（桌面端不显示） */
+        .load-model-mobile-tabs { display: none; }
+
+        @media (max-width: 900px) {
+            .load-model-mobile-tabs {
+                display: flex;
+                gap: 0.5rem;
+                flex-shrink: 0;
+            }
+            .load-model-mobile-tab {
+                flex: 1;
+                padding: 0.5rem 0.75rem;
+                font-size: 0.85rem;
+                border: 1px solid var(--border-color);
+                border-radius: 0.625rem;
+                background: var(--card-bg);
+                color: var(--text-secondary);
+                cursor: pointer;
+                text-align: center;
+            }
+            .load-model-mobile-tab.active {
+                background: var(--active-bg);
+                border-color: var(--primary-color);
+                color: var(--primary-color);
+                font-weight: 600;
+            }
+            /* 两个面板互斥显示 */
+            #loadModelModal .load-model-layout[data-mobile-tab="basic"] .right-param-area { display: none; }
+            #loadModelModal .load-model-layout[data-mobile-tab="detail"] #basicParamsContainer { display: none; }
+        }
+
+        @media (max-width: 900px) {
+            /* 加载弹窗底部按钮：一行均分，不换行 */
+            #loadModelModal .modal-footer {
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+                padding: 0.75rem 1rem;
+            }
+            #loadModelModal .modal-footer .btn {
+                flex: 1 1 0;
+                min-width: 0;
+                justify-content: center;
+                padding-left: 0.25rem;
+                padding-right: 0.25rem;
+                font-size: 0.82rem;
+            }
+        }
+
+        @media (max-width: 900px) {
+            /* 移动端字号收敛 */
+            .model-name { font-size: 0.95rem; }
+            .model-meta { font-size: 0.8rem; }
+            .model-speed-row { font-size: 0.8rem; }
+            .top-actions .form-control,
+            .top-actions .btn { font-size: 0.82rem; }
+        }
+
+        @media (max-width: 900px) {
+            /* 顶栏只剩标题时（标题已移至 mobile-header），整条隐藏 */
+            .top-bar:has(.page-title):not(:has(.top-actions)) { display: none; }
+        }
+
+        @media (max-width: 900px) {
+            /* 系统信息卡片：长文本允许换行 */
+            #main-sysinfo .ff-stat-value { white-space: normal; font-size: 14px; }
+        }
+
+        @media (max-width: 900px) {
+            /* 模型图标缩小 */
+            .model-icon-wrapper {
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                font-size: 1rem;
+                margin-right: 0.4rem;
+            }
         }

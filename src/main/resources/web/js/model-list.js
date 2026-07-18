@@ -326,7 +326,8 @@ function renderModelsList(models) {
     }
 
     let html = '';
-    const isGridView = getModelView() === 'grid';
+    // 移动端（窄屏）强制列表视图，忽略 localStorage 中的网格视图偏好
+    const isGridView = getModelView() === 'grid' && !isMobileListView();
     modelsList.classList.toggle('grid-view', isGridView);
     models.forEach(model => {
         const architecture = model.architecture || t('common.unknown', '未知');
@@ -539,6 +540,11 @@ function getModelView() {
     }
 }
 
+// 与 css/index.css 的移动端媒体查询断点保持一致
+function isMobileListView() {
+    return window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+}
+
 function setModelView(view) {
     try {
         localStorage.setItem('modelView', view);
@@ -557,7 +563,7 @@ function applyModelView() {
     const view = getModelView();
     const modelsList = document.getElementById('modelsList');
     if (modelsList) {
-        modelsList.classList.toggle('grid-view', view === 'grid');
+        modelsList.classList.toggle('grid-view', view === 'grid' && !isMobileListView());
     }
     const btn = document.getElementById('modelViewToggle');
     if (btn) {

@@ -514,7 +514,7 @@ function openModelBenchmarkList(modelId, modelName) {
     const modalId = 'modelBenchmarkCompareModal';
     let modal = document.getElementById(modalId);
     if (!modal) {
-        const isMobileView = !!document.getElementById('mobileMainModels') || /index-mobile\.html$/i.test((location && location.pathname) ? location.pathname : '');
+        const isMobileView = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
         const layoutStyle = isMobileView
             ? 'display:flex; flex-direction:column; gap:12px; flex:1; min-height:0;'
             : 'display:flex; gap:16px; height:60vh;';

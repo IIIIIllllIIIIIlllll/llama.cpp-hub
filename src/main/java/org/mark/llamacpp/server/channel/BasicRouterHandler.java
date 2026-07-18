@@ -215,7 +215,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			boolean isRootRequest = path.equals("/");
 
 			if (isRootRequest) {
-				path = isMobileRequest(request) ? "/index-mobile.html" : "/index.html";
+				path = isMobileRequest(request) ? "/index-new.html" : "/index.html";
 			}
 			if (path.equals("/llama.cpp") || path.equals("/llama.cpp/")) {
 				path = "/llama.cpp/index.html";
@@ -271,8 +271,7 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				|| ua.contains("opera mini")
 				|| ua.contains("opera mobi");
 	}
-	
-	
+
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 		for(BaseController controller : pipeline) {

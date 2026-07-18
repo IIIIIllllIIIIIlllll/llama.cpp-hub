@@ -19,3 +19,4 @@ llama-server.exe
 /ssl/
 /src/main/resources/tools/gguf-mem
 /src/main/resources/web/llama.cpp
+/tools-dev/

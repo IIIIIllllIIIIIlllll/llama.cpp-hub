@@ -2385,6 +2385,29 @@
     <!-- Language switch curtain (shown during page reload on non-view-transition browsers) -->
     <div id="langCurtain" class="lang-curtain"></div>
 
+    <!-- 移动端：独立顶栏（汉堡 + 当前页面标题）+ 抽屉遮罩，仅窄屏显示 -->
+    <div class="mobile-header">
+        <button id="mobileNavToggle" type="button" aria-label="菜单" onclick="toggleMobileNav()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <span class="mobile-header-title" id="mobileHeaderTitle"></span>
+    </div>
+    <div class="mobile-nav-overlay" onclick="closeMobileNav()"></div>
+    <script>
+        function toggleMobileNav() {
+            document.body.classList.toggle('mobile-nav-open');
+        }
+        function closeMobileNav() {
+            document.body.classList.remove('mobile-nav-open');
+        }
+        // 点击抽屉内任意导航项后自动收起（事件委托，sidebar 在此脚本之后才解析）
+        document.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('.sidebar-nav .nav-item')) {
+                closeMobileNav();
+            }
+        });
+    </script>
+
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -4141,7 +4164,18 @@ llama.cpp-hub</textarea>
             <div class="modal-body">
                 <form id="loadModelForm">
                     <!-- 左右两侧布局 -->
-                    <div class="load-model-layout">
+                    <div class="load-model-layout" data-mobile-tab="basic">
+                        <!-- 移动端 TAB 条（仅窄屏显示，切换 简要配置/详细配置） -->
+                        <div class="load-model-mobile-tabs">
+                            <button type="button" class="load-model-mobile-tab active" data-lmtab="basic"
+                                onclick="switchLoadModelMobileTab('basic')">
+                                <i class="fas fa-sliders-h"></i> 简要配置
+                            </button>
+                            <button type="button" class="load-model-mobile-tab" data-lmtab="detail"
+                                onclick="switchLoadModelMobileTab('detail')">
+                                <i class="fas fa-list"></i> 详细配置
+                            </button>
+                        </div>
                         <!-- 左侧：模型ID、Llama.cpp 版本、设备选择 -->
                         <div id="basicParamsContainer">
                             <div class="form-group">
@@ -6854,6 +6888,38 @@ llama.cpp-hub</textarea>
     <script src="js/benchmark-v3.js"></script>
     <script src="js/usage-report.js"></script>
     <script>if('serviceWorker'in navigator)navigator.serviceWorker.register('/service-worker.js');</script>
+    <script>
+        // 移动端顶栏：同步当前可见 main-area 的页面标题（含计数徽标）
+        (function () {
+            var titleEl = document.getElementById('mobileHeaderTitle');
+            if (!titleEl) return;
+            function syncMobileHeaderTitle() {
+                var mains = document.querySelectorAll('main.main-area');
+                for (var i = 0; i < mains.length; i++) {
+                    if (mains[i].offsetParent === null) continue;
+                    var pt = mains[i].querySelector('.page-title');
+                    if (pt) {
+                        titleEl.textContent = pt.textContent.replace(/\s+/g, ' ').trim();
+                        return;
+                    }
+                }
+            }
+            // 页面切换（main-area 的 display 变化）与标题文本变化（i18n/计数更新）都触发同步
+            document.querySelectorAll('main.main-area').forEach(function (m) {
+                new MutationObserver(syncMobileHeaderTitle).observe(m, {
+                    attributes: true, attributeFilter: ['style', 'class']
+                });
+                var pt = m.querySelector('.page-title');
+                if (pt) {
+                    new MutationObserver(syncMobileHeaderTitle).observe(pt, {
+                        childList: true, subtree: true, characterData: true
+                    });
+                }
+            });
+            window.addEventListener('i18n:ready', syncMobileHeaderTitle);
+            syncMobileHeaderTitle();
+        })();
+    </script>
 </body>
 
 </html>
