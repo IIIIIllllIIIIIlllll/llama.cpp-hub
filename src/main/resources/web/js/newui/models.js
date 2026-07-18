@@ -164,6 +164,17 @@ const Models = {
     find(key) { const [id, nodeId] = key.split('|'); return this.all.find(m => m.id === id && (m.nodeId || 'local') === nodeId); },
     nodeParam(m) { return (m.nodeId && m.nodeId !== 'local') ? m.nodeId : undefined; },
 
+    /* WS 事件驱动的局部状态更新（不重拉列表） */
+    patch(modelId, fields, nodeId) {
+        const nid = nodeId || 'local';
+        const m = this.all.find(x => x.id === modelId && (x.nodeId || 'local') === nid);
+        if (m) {
+            Object.assign(m, fields);
+            this.loadedCount = this.all.filter(x => x.isLoaded).length;
+        }
+        this.render();
+    },
+
     fav(key) {
         const m = this.find(key); if (!m) return;
         const body = { modelId: m.id, favourite: !m.favourite };
@@ -208,8 +219,16 @@ const Models = {
     doLoad(id, payload) {
         this.busyIds.add(id); this.render();
         post('/api/models/load', payload).then(r => {
-            if (r.success) { toast('启动指令已提交', 'success'); }
-            else { this.busyIds.delete(id); toast(r.error || '启动失败', 'error'); this.render(); }
+            if (r.success) {
+                if (r.data && r.data.async) {
+                    toast('启动指令已提交，等待加载完成…', 'success');
+                    // 保持 busy 状态，由 WS modelLoad/modelLoadStart 事件结算
+                } else {
+                    this.busyIds.delete(id);
+                    toast('模型启动成功', 'success');
+                    this.load();
+                }
+            } else { this.busyIds.delete(id); toast(r.error || '启动失败', 'error'); this.render(); }
         }).catch(e => { this.busyIds.delete(id); toast(e.message, 'error'); this.render(); });
     },
 

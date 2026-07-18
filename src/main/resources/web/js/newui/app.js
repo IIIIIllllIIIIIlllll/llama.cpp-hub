@@ -138,21 +138,39 @@ const WS = {
         let d; try { d = JSON.parse(raw); } catch (e) { return; }
         switch (d.type) {
             case 'modelLoadStart':
-                if (d.modelId) { Models.busyIds.add(d.modelId); Models.render(); }
+                if (d.modelId) {
+                    Models.busyIds.add(d.modelId);
+                    Models.patch(d.modelId, { status: 'stopped', isLoaded: false, port: d.port != null ? d.port : null }, d.nodeId);
+                }
                 break;
-            case 'modelLoad':
+            case 'modelLoad': {
                 if (d.modelId) Models.busyIds.delete(d.modelId);
-                toast('模型加载完成', 'success');
-                Models.load();
+                const label = (d.nodeId ? '[' + d.nodeId + '] ' : '') + (d.modelId || '');
+                if (d.success) {
+                    toast('模型 ' + label + ' 加载成功', 'success');
+                    Models.patch(d.modelId, { isLoaded: true, status: 'running', port: d.port != null ? d.port : null }, d.nodeId);
+                } else {
+                    toast('模型 ' + label + ' 加载失败', 'error');
+                    Models.patch(d.modelId, { isLoaded: false, status: 'stopped', port: null }, d.nodeId);
+                }
                 break;
-            case 'modelStop':
+            }
+            case 'modelStop': {
                 if (d.modelId) Models.busyIds.delete(d.modelId);
-                Models.load();
+                const label = (d.nodeId ? '[' + d.nodeId + '] ' : '') + (d.modelId || '');
+                if (d.success) toast('模型 ' + label + ' 已停止', 'success');
+                else toast('模型 ' + label + ' 停止失败', 'error');
+                Models.patch(d.modelId, { isLoaded: false, status: 'stopped', port: null, busy: false }, d.nodeId);
                 break;
+            }
             case 'model_status':
+                if (d.modelId && d.status) Models.patch(d.modelId, { status: d.status }, d.nodeId);
+                break;
             case 'model_busy':
+                if (d.modelId) Models.patch(d.modelId, { busy: !!d.busy }, d.nodeId);
+                break;
             case 'model_slots':
-                Models.load();
+                // slots 细节暂不展示，忽略
                 break;
             case 'notification':
                 if (d.message) toast(d.message, d.level === 'error' ? 'error' : '');
