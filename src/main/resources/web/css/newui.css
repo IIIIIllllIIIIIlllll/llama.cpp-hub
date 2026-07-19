@@ -323,7 +323,7 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
     .config-col { flex: 1; overflow-y: auto; min-height: 0; }
     .config-col + .config-col { border-left: 1px solid var(--border); }
     .config-col[data-ccol="more"] { display: none; } /* 桌面端高级栏并入左栏 */
-    .config-tabs { display: none; }
+    #configTabs { display: none; }
 }
 @media (min-width: 901px) {
     /* 桌面端：高级区追加在左栏下方（JS 移动 DOM，见 model-config.js） */
@@ -344,3 +344,90 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .node-section .ns-dot { width: 8px; height: 8px; border-radius: 50%; }
 .node-section.offline { opacity: .55; }
 .node-section .ns-off { font-size: 11px; color: var(--danger); }
+
+/* ================= 淡化按钮（快速启动等低风险弱入口） ================= */
+.btn.ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-2);
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+.btn.ghost:active { opacity: .5; }
+
+/* 详情弹窗 tab 内容区 */
+.detail-pane { display: none; }
+.detail-pane.active { display: block; }
+.detail-kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 13.5px; }
+.detail-kv .dk { color: var(--text-2); font-weight: 600; white-space: nowrap; }
+.detail-kv .dv { word-break: break-all; }
+.detail-kv .dv.mono { font-family: Consolas, monospace; font-size: 12.5px; }
+
+/* ================= 方形图标按钮 ================= */
+.btn-sq { width: 44px; padding: 0; flex-shrink: 0; }
+.btn.ghost.btn-sq { width: 38px; height: 38px; }
+
+/* ================= 详情弹窗美化 ================= */
+.detail-hero { display: flex; align-items: center; gap: 12px; padding: 2px 0 14px; }
+.detail-hero img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--surface-2); border: 1px solid var(--border); }
+.detail-hero .dh-name { font-size: 16px; font-weight: 700; line-height: 1.3; word-break: break-all; }
+.detail-hero .dh-sub { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.stat-box {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 12px; min-width: 0;
+}
+.stat-box .sb-icon { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.stat-box .sb-val { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-box .sb-label { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+
+.info-list { display: flex; flex-direction: column; }
+.info-row { display: flex; gap: 12px; padding: 9px 2px; font-size: 13.5px; align-items: baseline; }
+.info-row + .info-row { border-top: 1px dashed var(--border); }
+.info-row .ir-icon { width: 18px; text-align: center; color: var(--text-2); flex-shrink: 0; font-size: 12px; }
+.info-row .ir-k { color: var(--text-2); flex-shrink: 0; width: 64px; }
+.info-row .ir-v { flex: 1; min-width: 0; word-break: break-all; }
+.info-row .ir-v.mono { font-family: Consolas, monospace; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+
+.section-title { font-size: 13px; color: var(--text-2); font-weight: 600; margin: 4px 0 10px; display: flex; align-items: center; gap: 8px; }
+.section-title:not(:first-child) { margin-top: 18px; }
+
+/* ================= 详情面板桌面级排版 ================= */
+#detailSheet .sheet-body { padding: 18px 22px; }
+#detailSheet .detail-hero { padding-bottom: 18px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+#detailSheet .stat-grid { gap: 10px; margin-bottom: 18px; }
+#detailSheet .stat-box { padding: 14px 16px; }
+#detailSheet .info-row { padding: 11px 4px; gap: 14px; line-height: 1.6; }
+#detailSheet .info-row .ir-k { width: 76px; }
+#detailSheet .ir-v.mono { line-height: 1.7; }
+#detailSheet .section-title { margin: 6px 0 12px; font-size: 13.5px; }
+
+/* ================= 采样覆盖表单 ================= */
+.samp-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.samp-bar select { flex: 1; min-width: 180px; max-width: 320px; height: 38px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); padding: 0 10px; font-size: 13.5px; }
+.samp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 14px; }
+.samp-field label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 5px; }
+.samp-field label .sf-flag { font-family: Consolas, monospace; opacity: .75; margin-left: 4px; }
+.samp-field input {
+    width: 100%; height: 36px; border: 1px solid var(--border); border-radius: 9px;
+    background: var(--surface-2); color: var(--text); padding: 0 10px; font-size: 13px; outline: none;
+}
+.samp-field input:focus { border-color: var(--primary); }
+.samp-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.samp-chip {
+    padding: 6px 12px; border-radius: 999px; font-size: 12px; font-family: Consolas, monospace;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+}
+.samp-chip.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.samp-note { font-size: 12px; color: var(--text-2); line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+.samp-saving { font-size: 12px; color: var(--text-2); margin-left: auto; }
+@media (max-width: 900px) {
+    #detailSheet .sheet-body { padding: 14px 16px; }
+    .samp-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* 输入对话框须始终位于其他弹窗之上 */
+.prompt-sheet { z-index: 210; }

@@ -133,10 +133,12 @@ const Models = {
         const speed = (m.inSpeed || m.outSpeed)
             ? '<span class="mc-speed"><i class="fas fa-bolt"></i>' + (fmtSpeed(m.inSpeed) || '—') + ' / ' + (fmtSpeed(m.outSpeed) || '—') + ' t/s</span>' : '';
         const mainBtn = this.busyIds.has(m.id)
-            ? '<button class="btn" disabled><i class="fas fa-spinner fa-spin"></i> 处理中</button>'
+            ? '<button class="btn btn-sq" disabled><i class="fas fa-spinner fa-spin"></i></button>'
             : m.isLoaded
-                ? '<button class="btn danger-soft" onclick="Models.stop(\'' + key + '\')"><i class="fas fa-stop"></i> 停止</button>'
-                : '<button class="btn primary" onclick="Models.quickStart(\'' + key + '\')"><i class="fas fa-play"></i> 启动</button>';
+                ? '<button class="btn primary btn-sq" onclick="Models.stop(\'' + key + '\')" title="停止"><i class="fas fa-stop"></i></button>' +
+                  '<button class="btn btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置"><i class="fas fa-sliders"></i></button>'
+                : '<button class="btn primary btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置 / 启动"><i class="fas fa-sliders"></i></button>' +
+                  '<button class="btn ghost btn-sq" onclick="Models.quickStart(\'' + key + '\')" title="快速启动（按已保存配置直接启动）"><i class="fas fa-bolt"></i></button>';
         const cloneBtn = m.isClone
             ? '<button class="btn danger-soft" onclick="Models.deleteClone(\'' + key + '\')" title="删除克隆体"><i class="fas fa-trash"></i></button>'
             : '<button class="btn" onclick="Models.clone(\'' + key + '\')" title="创建克隆体"><i class="fas fa-clone"></i></button>';
@@ -155,8 +157,9 @@ const Models = {
                 '<span><i class="fas fa-hdd"></i>' + fmtSize(m.size) + '</span>' + speed +
             '</div>' +
             '<div class="mc-foot">' + mainBtn +
-                '<button class="btn" onclick="ModelConfig.open(\'' + key + '\')"><i class="fas fa-sliders"></i> 配置</button>' +
-                '<span class="spacer"></span>' + cloneBtn +
+                '<span class="spacer"></span>' +
+                '<button class="icon-btn" onclick="ModelDetail.open(\'' + key + '\')" title="详情"><i class="fas fa-circle-info"></i></button>' +
+                cloneBtn +
             '</div>' +
         '</div>';
     },

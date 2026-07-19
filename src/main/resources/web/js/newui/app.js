@@ -64,9 +64,21 @@ const UI = {
         input.value = initial || '';
         this.openSheet('#promptSheet');
         setTimeout(() => input.focus(), 250);
+        // 只关闭 prompt 自身；若底层还有其他弹窗（如详情/配置），遮罩保留
+        const closeSelf = () => {
+            $('#promptSheet').classList.remove('open');
+            if (!document.querySelector('.sheet.open')) $('#sheetMask').classList.remove('open');
+        };
         const ok = $('#promptOk');
-        const handler = () => { ok.removeEventListener('click', handler); const v = input.value; UI.closeSheet(); onOk(v); };
-        ok.addEventListener('click', handler);
+        const cancel = $$('#promptSheet .sheet-foot .btn:not(.primary), #promptSheet .sheet-head .icon-btn');
+        const okHandler = () => { cleanup(); const v = input.value; closeSelf(); onOk(v); };
+        const cancelHandler = () => { cleanup(); closeSelf(); };
+        const cleanup = () => {
+            ok.removeEventListener('click', okHandler);
+            cancel.forEach(b => b.removeEventListener('click', cancelHandler));
+        };
+        ok.addEventListener('click', okHandler);
+        cancel.forEach(b => b.addEventListener('click', cancelHandler));
     }
 };
 
@@ -82,6 +94,7 @@ const App = {
         this.bindShell();
         Models.init();
         ModelConfig.init();
+        ModelDetail.init();
         MiscPages.init();
         WS.connect();
         Models.load();
