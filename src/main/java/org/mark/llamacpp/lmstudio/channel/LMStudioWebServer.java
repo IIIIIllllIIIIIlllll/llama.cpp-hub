@@ -4,6 +4,7 @@ import java.net.InetSocketAddress;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.mark.llamacpp.server.NettySharedGroups;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,8 +13,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -33,8 +32,6 @@ public class LMStudioWebServer implements AutoCloseable {
 	private final int maxContentLength;
 	
 	private final AtomicBoolean started = new AtomicBoolean(false);
-	private EventLoopGroup bossGroup;
-	private EventLoopGroup workerGroup;
 	private Channel serverChannel;
 	
 	public LMStudioWebServer(int port) {
@@ -52,11 +49,8 @@ public class LMStudioWebServer implements AutoCloseable {
 			throw new IllegalStateException("server already started");
 		}
 		
-		bossGroup = new NioEventLoopGroup(1);
-		workerGroup = new NioEventLoopGroup();
-		
 		ServerBootstrap bootstrap = new ServerBootstrap();
-		bootstrap.group(bossGroup, workerGroup)
+		bootstrap.group(NettySharedGroups.boss(), NettySharedGroups.worker())
 				.channel(NioServerSocketChannel.class)
 				.option(ChannelOption.SO_BACKLOG, 1024)
 				.childOption(ChannelOption.SO_KEEPALIVE, true)
@@ -107,14 +101,6 @@ public class LMStudioWebServer implements AutoCloseable {
 		if (ch != null) {
 			ch.close();
 			this.serverChannel = null;
-		}
-		if (bossGroup != null) {
-			bossGroup.shutdownGracefully();
-			bossGroup = null;
-		}
-		if (workerGroup != null) {
-			workerGroup.shutdownGracefully();
-			workerGroup = null;
 		}
 		started.set(false);
 	}

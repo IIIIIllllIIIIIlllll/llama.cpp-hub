@@ -901,6 +901,8 @@ public class OpenAIService {
 		if (responseBytes == null || responseBytes.length == 0) {
 			return;
 		}
+		// 注意：responseBody 需传给 LlamaRecordService.handleStream 持久化，
+		// 此处无法避免 byte[] -> String 的完整拷贝；若要消除需改造记录服务为流式解析（后续优化项）
 		String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
 		JsonObject parsed = JsonUtil.tryParseObject(responseBody);
 		if (parsed == null) {

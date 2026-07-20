@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.mark.llamacpp.ollama.channel.OllamaRouterHandler;
+import org.mark.llamacpp.server.NettySharedGroups;
 import org.mark.llamacpp.server.channel.OpenAIChatStreamingHandler;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
@@ -18,8 +19,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.WriteBufferWaterMark;
@@ -57,8 +56,6 @@ public class Ollama {
 	private final AtomicLong generation = new AtomicLong(0L);
 	private volatile long activeGeneration = 0L;
 	
-	private volatile EventLoopGroup bossGroup;
-	private volatile EventLoopGroup workerGroup;
 	private volatile Channel serverChannel;
 	
 	/**
@@ -123,19 +120,9 @@ public class Ollama {
 	}
 	
 	private void runServer(long gen) {
-		EventLoopGroup localBossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup localWorkerGroup = new NioEventLoopGroup(2);
-		
-		synchronized (lifecycleLock) {
-			if (this.activeGeneration == gen) {
-				this.bossGroup = localBossGroup;
-				this.workerGroup = localWorkerGroup;
-			}
-		}
-		
 		try {
 			ServerBootstrap bootstrap = new ServerBootstrap();
-			bootstrap.group(localBossGroup, localWorkerGroup)
+			bootstrap.group(NettySharedGroups.boss(), NettySharedGroups.worker())
 					.channel(NioServerSocketChannel.class)
 					.option(ChannelOption.SO_BACKLOG, 1024)
 					.childOption(ChannelOption.SO_KEEPALIVE, true)
@@ -191,20 +178,10 @@ public class Ollama {
 		} catch (Exception e) {
 			logger.info("服务器启动失败", e);
 		} finally {
-			try {
-				localBossGroup.shutdownGracefully();
-			} catch (Exception ignore) {
-			}
-			try {
-				localWorkerGroup.shutdownGracefully();
-			} catch (Exception ignore) {
-			}
-			
+			// 共享 EventLoopGroup 由 shutdown hook 统一关闭（NettySharedGroups.shutdownAll），此处不关闭
 			synchronized (lifecycleLock) {
 				if (this.activeGeneration == gen) {
 					this.serverChannel = null;
-					this.bossGroup = null;
-					this.workerGroup = null;
 					this.worker = null;
 				}
 			}
@@ -218,22 +195,6 @@ public class Ollama {
 			if (ch != null) {
 				try {
 					ch.close();
-				} catch (Exception ignore) {
-				}
-			}
-			
-			EventLoopGroup bg = this.bossGroup;
-			if (bg != null) {
-				try {
-					bg.shutdownGracefully();
-				} catch (Exception ignore) {
-				}
-			}
-			
-			EventLoopGroup wg = this.workerGroup;
-			if (wg != null) {
-				try {
-					wg.shutdownGracefully();
 				} catch (Exception ignore) {
 				}
 			}

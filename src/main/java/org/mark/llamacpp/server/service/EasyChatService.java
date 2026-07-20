@@ -578,8 +578,7 @@ public class EasyChatService {
 							this.proxySseStream(ctx, connection, accumulator);
 						} else {
 							byte[] responseBytes = connection.getInputStream().readAllBytes();
-							String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
-							this.accumulateNonStreamResponse(JsonUtil.tryParseObject(responseBody), accumulator);
+							this.accumulateNonStreamResponse(JsonUtil.tryParseObject(responseBytes), accumulator);
 							this.sendJsonPayloadResponse(ctx, responseCode, connection.getContentType(), responseBytes);
 						}
 					}

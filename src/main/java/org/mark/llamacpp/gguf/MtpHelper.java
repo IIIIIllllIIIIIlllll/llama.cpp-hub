@@ -110,17 +110,12 @@ import com.google.gson.*;
         if (file == null || !file.exists() || !file.isFile()) {
             return Collections.emptyMap();
         }
-        MappedByteBuffer mappedBuffer = null;
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r");
-             FileChannel channel = raf.getChannel()) {
-            long size = channel.size();
-            long mapSize = Math.min(size, 64L * 1024 * 1024);
-            mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, mapSize);
-            mappedBuffer.order(ByteOrder.LITTLE_ENDIAN);
-            skipMagic(mappedBuffer);
-            mappedBuffer.getInt(); // version
-            mappedBuffer.getLong(); // tensor count (skip)
-            long kvCount = readULE64(mappedBuffer);
+        // 流式读取（GgufReader），替代旧的 64MB 内存映射，避免堆外内存累积
+        try (GgufReader reader = new GgufReader(file)) {
+            reader.skipNBytes(4); // magic
+            reader.readUInt32(); // version
+            reader.readUInt64(); // tensor count (skip)
+            long kvCount = reader.readUInt64();
 
             Map<String, Object> metadata = new HashMap<>();
             String arch = null;
@@ -128,25 +123,23 @@ import com.google.gson.*;
             String archNextnKey = null;
 
             for (long i = 0; i < kvCount; i++) {
-                String key = readString(mappedBuffer);
-                int type = mappedBuffer.getInt();
+                String key = reader.readString();
+                int type = reader.readUInt32();
 
                 if ("general.architecture".equals(key)) {
-                    arch = readString(mappedBuffer);
+                    arch = reader.readString();
                     archBlockCountKey = arch + ".block_count";
                     archNextnKey = arch + ".nextn_predict_layers";
                     metadata.put(key, arch);
                 } else if (archBlockCountKey != null && archBlockCountKey.equals(key)) {
-                    metadata.put(key, readValue(mappedBuffer, type));
+                    metadata.put(key, reader.readValue(type));
                 } else if (archNextnKey != null && archNextnKey.equals(key)) {
-                    metadata.put(key, readValue(mappedBuffer, type));
+                    metadata.put(key, reader.readValue(type));
                 } else {
-                    skipValue(mappedBuffer, type);
+                    reader.skipValue(type);
                 }
             }
             return metadata;
-        } finally {
-            unmap(mappedBuffer);
         }
     }
 
@@ -483,43 +476,38 @@ import com.google.gson.*;
         Map<String, Object> metaOut, Map<String, Integer> kvTypesOut,
         List<TensorInfo> tensorsOut, List<Long> onDiskSizesOut
     ) throws IOException {
-        MappedByteBuffer mappedBuffer = null;
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r");
-             FileChannel channel = raf.getChannel()) {
-            long size = channel.size();
-            long mapSize = Math.min(size, 64L * 1024 * 1024);
-            mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, mapSize);
-            mappedBuffer.order(ByteOrder.LITTLE_ENDIAN);
-            skipMagic(mappedBuffer);
-            mappedBuffer.getInt(); // version
-            long tensorCount = readULE64(mappedBuffer);
-            long kvCount = readULE64(mappedBuffer);
+        // 流式读取（GgufReader），替代旧的 64MB 内存映射，避免堆外内存累积
+        try (GgufReader reader = new GgufReader(file)) {
+            reader.skipNBytes(4); // magic
+            reader.readUInt32(); // version
+            long tensorCount = reader.readUInt64();
+            long kvCount = reader.readUInt64();
 
             LinkedHashMap<String, Object> meta = new LinkedHashMap<>();
             LinkedHashMap<String, Integer> kvTypes = new LinkedHashMap<>();
             for (long i = 0; i < kvCount; i++) {
-                String key = readString(mappedBuffer);
-                int type = mappedBuffer.getInt();
+                String key = reader.readString();
+                int type = reader.readUInt32();
                 kvTypes.put(key, type);
-                Object value = readValue(mappedBuffer, type);
+                Object value = reader.readValue(type);
                 meta.put(key, value);
             }
 
             List<TensorInfo> tensors = new ArrayList<>((int) tensorCount);
             for (long i = 0; i < tensorCount; i++) {
-                String tname = readString(mappedBuffer);
-                int nDims = mappedBuffer.getInt();
+                String tname = reader.readString();
+                int nDims = reader.readUInt32();
                 List<Long> shape = new ArrayList<>(nDims);
-                for (int j = 0; j < nDims; j++) shape.add(readULE64(mappedBuffer));
-                int ttype = mappedBuffer.getInt();
-                long off = readULE64(mappedBuffer);
+                for (int j = 0; j < nDims; j++) shape.add(reader.readUInt64());
+                int ttype = reader.readUInt32();
+                long off = reader.readUInt64();
                 tensors.add(new TensorInfo(tname, shape, ttype, off, 0));
             }
 
             int effectiveAlignment = meta.containsKey("general.alignment")
                 ? ((Number) meta.get("general.alignment")).intValue()
                 : alignment;
-            long posAfterTi = mappedBuffer.position();
+            long posAfterTi = reader.position();
             long padToAlign = (effectiveAlignment - (posAfterTi % effectiveAlignment)) % effectiveAlignment;
             long dataSectionStart = posAfterTi + padToAlign;
 
@@ -539,8 +527,6 @@ import com.google.gson.*;
             for (TensorInfo t : tensorsWithSizes) {
                 onDiskSizesOut.add(t.dataSize);
             }
-        } finally {
-            unmap(mappedBuffer);
         }
     }
 
@@ -551,35 +537,29 @@ import com.google.gson.*;
         if (file == null || !file.exists() || !file.isFile()) {
             return Collections.emptyMap();
         }
-        MappedByteBuffer mappedBuffer = null;
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r");
-             FileChannel channel = raf.getChannel()) {
-            long size = channel.size();
-            long mapSize = Math.min(size, 64L * 1024 * 1024);
-            mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, mapSize);
-            mappedBuffer.order(ByteOrder.LITTLE_ENDIAN);
-            byte[] magic = new byte[4];
-            mappedBuffer.get(magic);
-            if (!"GGUF".equals(new String(magic, StandardCharsets.US_ASCII))) {
+        // 流式读取（GgufReader），替代旧的 64MB 内存映射，避免堆外内存累积
+        try (GgufReader reader = new GgufReader(file)) {
+            String magic = reader.readMagic();
+            if (!"GGUF".equals(magic)) {
                 return Collections.emptyMap();
             }
-            mappedBuffer.getInt(); // version
-            readULE64(mappedBuffer); // tensor count (skip)
-            long kvCount = readULE64(mappedBuffer);
+            reader.readUInt32(); // version
+            reader.readUInt64(); // tensor count (skip)
+            long kvCount = reader.readUInt64();
 
             Map<String, Object> metadata = new HashMap<>();
             for (long i = 0; i < kvCount; i++) {
-                String key = readString(mappedBuffer);
-                int type = mappedBuffer.getInt();
+                String key = reader.readString();
+                int type = reader.readUInt32();
                 if ("tokenizer.ggml.tokens".equals(key) && type == ARRAY) {
-                    int elemType = mappedBuffer.getInt();
-                    long len = readULE64(mappedBuffer);
+                    int elemType = reader.readUInt32();
+                    long len = reader.readUInt64();
                     for (long j = 0; j < len; j++) {
-                        skipValue(mappedBuffer, elemType);
+                        reader.skipValue(elemType);
                     }
                     metadata.put(key + ".size", len);
                 } else {
-                    Object value = readValue(mappedBuffer, type);
+                    Object value = reader.readValue(type);
                     metadata.put(key, value);
                 }
             }
@@ -588,21 +568,6 @@ import com.google.gson.*;
             return metadata;
         } catch (Exception e) {
             return Collections.emptyMap();
-        } finally {
-            unmap(mappedBuffer);
-        }
-    }
-
-    static void unmap(MappedByteBuffer buffer) {
-        if (buffer == null) return;
-        try {
-            java.lang.reflect.Method getCleaner = buffer.getClass().getMethod("cleaner");
-            getCleaner.setAccessible(true);
-            Object cleaner = getCleaner.invoke(buffer);
-            if (cleaner != null) {
-                cleaner.getClass().getMethod("clean").invoke(cleaner);
-            }
-        } catch (Throwable ignore) {
         }
     }
 
@@ -675,92 +640,6 @@ import com.google.gson.*;
             return new JsonPrimitive(n.longValue());
         }
         return JsonNull.INSTANCE;
-    }
-
-    // ── ByteBuffer read helpers ────────────────────────────────────────────
-
-    static void skipMagic(ByteBuffer buffer) {
-        ensureRemaining(buffer, 4);
-        buffer.position(buffer.position() + 4);
-    }
-
-    static long readULE64(ByteBuffer buffer) {
-        return buffer.getLong();
-    }
-
-    static String readString(ByteBuffer buffer) {
-        long len = readULE64(buffer);
-        ensureRemaining(buffer, len);
-        byte[] bytes = new byte[(int) len];
-        buffer.get(bytes);
-        return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    static void skipString(ByteBuffer buffer) {
-        long len = readULE64(buffer);
-        ensureRemaining(buffer, len);
-        buffer.position(buffer.position() + (int) len);
-    }
-
-    static Object readValue(ByteBuffer buffer, int type) {
-        switch (type) {
-            case UINT8:  return buffer.get() & 0xFF;
-            case INT8:   return buffer.get();
-            case UINT16: return Short.toUnsignedInt(buffer.getShort());
-            case INT16:  return buffer.getShort();
-            case UINT32: return buffer.getInt() & 0xFFFFFFFFL;
-            case INT32:  return buffer.getInt();
-            case FLOAT32: return buffer.getFloat();
-            case BOOL:   return buffer.get() != 0;
-            case STRING: return readString(buffer);
-            case ARRAY: {
-                int subType = buffer.getInt();
-                long len = readULE64(buffer);
-                List<Object> list = new ArrayList<>((int) len);
-                for (int i = 0; i < len; i++) {
-                    list.add(readValue(buffer, subType));
-                }
-                return list;
-            }
-            case UINT64: return buffer.getLong();
-            case INT64:  return buffer.getLong();
-            case FLOAT64: return buffer.getDouble();
-            default: throw new IllegalArgumentException("Unknown GGUF value type: " + type);
-        }
-    }
-
-    static void skipValue(ByteBuffer buffer, int type) {
-        switch (type) {
-            case UINT8: case INT8: case BOOL:
-                buffer.get(); break;
-            case UINT16: case INT16:
-                buffer.getShort(); break;
-            case UINT32: case INT32: case FLOAT32:
-                buffer.getInt(); break;
-            case UINT64: case INT64: case FLOAT64:
-                buffer.getLong(); break;
-            case STRING: {
-                long len = readULE64(buffer);
-                ensureRemaining(buffer, len);
-                buffer.position(buffer.position() + (int) len);
-                break;
-            }
-            case ARRAY: {
-                int subType = buffer.getInt();
-                long len = readULE64(buffer);
-                for (int i = 0; i < len; i++) {
-                    skipValue(buffer, subType);
-                }
-                break;
-            }
-            default: break;
-        }
-    }
-
-    static void ensureRemaining(ByteBuffer buffer, long needed) {
-        if (needed < 0 || needed > Integer.MAX_VALUE || buffer.remaining() < (int) needed) {
-            throw new BufferUnderflowException();
-        }
     }
 
     // ── RandomAccessFile write helpers ─────────────────────────────────────
