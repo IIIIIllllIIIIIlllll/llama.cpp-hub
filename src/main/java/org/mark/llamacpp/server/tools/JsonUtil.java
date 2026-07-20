@@ -1,6 +1,9 @@
 package org.mark.llamacpp.server.tools;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -227,6 +230,23 @@ public class JsonUtil {
 				return null;
 			}
 			JsonElement el = fromJson(s, JsonElement.class);
+			return el != null && el.isJsonObject() ? el.getAsJsonObject() : null;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	/**
+	 * 	直接解析 UTF-8 字节数组，避免先整体拷贝成 String。
+	 */
+	public static JsonObject tryParseObject(byte[] bytes) {
+		try {
+			if (bytes == null || bytes.length == 0) {
+				return null;
+			}
+			JsonElement el = gson.fromJson(
+					new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8),
+					JsonElement.class);
 			return el != null && el.isJsonObject() ? el.getAsJsonObject() : null;
 		} catch (Exception e) {
 			return null;

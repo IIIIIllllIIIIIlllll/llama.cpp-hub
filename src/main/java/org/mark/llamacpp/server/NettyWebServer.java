@@ -15,8 +15,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.WriteBufferWaterMark;
@@ -47,9 +45,6 @@ public class NettyWebServer {
     private final String certPath;
     private final String password;
     private final boolean httpsEnabled;
-
-    private EventLoopGroup bossGroup;
-    private EventLoopGroup workerGroup;
 
     /**
      * 共享 HTTPS SSL 上下文，供其他兼容服务使用。
@@ -155,12 +150,9 @@ public class NettyWebServer {
      * 绑定 OpenAI 服务端口
      */
     private void bindOpenAI(int port) {
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup(4);
-
         try {
             ServerBootstrap bootstrap = new ServerBootstrap();
-            bootstrap.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
+            bootstrap.group(NettySharedGroups.boss(), NettySharedGroups.worker()).channel(NioServerSocketChannel.class)
                     .option(ChannelOption.SO_BACKLOG, 1024)
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
                     .childOption(ChannelOption.TCP_NODELAY, true)
@@ -190,12 +182,9 @@ public class NettyWebServer {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             logger.error("OpenAI服务启动失败，端口 {} 可能已被占用，退出进程", port, e);
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
             System.exit(1);
         } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
+            // 共享 EventLoopGroup 由 shutdown hook 统一关闭（NettySharedGroups.shutdownAll），此处不关闭
             logger.info("[{}]服务器已关闭", port);
         }
     }

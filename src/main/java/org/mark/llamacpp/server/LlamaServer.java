@@ -208,6 +208,11 @@ public class LlamaServer {
 			} catch (Exception e) {
 				logger.error("关闭下载任务管理器失败", e);
 			}
+			try {
+				NettySharedGroups.shutdownAll();
+			} catch (Exception e) {
+				logger.error("关闭共享Netty线程组失败", e);
+			}
 			logger.info("清理完成，进程退出");
 			
             // 以前不知道log4j也要执行shutdown

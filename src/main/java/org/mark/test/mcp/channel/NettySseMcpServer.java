@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.mark.llamacpp.server.NettySharedGroups;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.test.mcp.struct.McpSession;
 import org.slf4j.Logger;
@@ -21,7 +22,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -47,8 +47,6 @@ public class NettySseMcpServer {
 	private final SseTransportHandler sseTransportHandler;
 	private final StreamableHttpTransportHandler streamableHttpTransportHandler;
 
-	private NioEventLoopGroup bossGroup;
-	private NioEventLoopGroup workerGroup;
 	private ChannelFuture bindFuture;
 	private volatile boolean running;
 
@@ -62,11 +60,9 @@ public class NettySseMcpServer {
 		if (this.running) {
 			return;
 		}
-		this.bossGroup = new NioEventLoopGroup(1);
-		this.workerGroup = new NioEventLoopGroup(2);
 		try {
 			ServerBootstrap bootstrap = new ServerBootstrap();
-			bootstrap.group(this.bossGroup, this.workerGroup).channel(NioServerSocketChannel.class)
+			bootstrap.group(NettySharedGroups.boss(), NettySharedGroups.worker()).channel(NioServerSocketChannel.class)
 					.option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.SO_KEEPALIVE, true)
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
@@ -80,7 +76,6 @@ public class NettySseMcpServer {
 			this.bindFuture.channel().closeFuture().addListener(future -> this.running = false);
 			logger.info("MCP测试服务启动成功: http://localhost:{}", this.port);
 		} catch (Exception e) {
-			this.shutdownEventLoopGroups();
 			this.bindFuture = null;
 			this.running = false;
 			throw e;
@@ -92,7 +87,6 @@ public class NettySseMcpServer {
 		if (this.bindFuture != null && this.bindFuture.channel() != null) {
 			this.bindFuture.channel().close().syncUninterruptibly();
 		}
-		this.shutdownEventLoopGroups();
 		this.bindFuture = null;
 		this.running = false;
 	}
@@ -110,17 +104,6 @@ public class NettySseMcpServer {
 
 	public int getPort() {
 		return this.port;
-	}
-
-	private void shutdownEventLoopGroups() {
-		if (this.bossGroup != null) {
-			this.bossGroup.shutdownGracefully().syncUninterruptibly();
-			this.bossGroup = null;
-		}
-		if (this.workerGroup != null) {
-			this.workerGroup.shutdownGracefully().syncUninterruptibly();
-			this.workerGroup = null;
-		}
 	}
 
 	public void handleSseConnect(ChannelHandlerContext ctx, String serviceKey) {
