@@ -12,7 +12,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 /**
  * 全局共享的 Netty EventLoopGroup。
  * <p>
- * 主服务（NettyWebServer）、Ollama 兼容层、LMStudio 兼容层、MCP 服务共用同一组
+ * 主服务（NettyWebServer）与 MCP 服务共用同一组
  * boss/worker 事件循环，避免每个服务独立创建 NioEventLoopGroup 造成的
  * PooledByteBufAllocator arena（堆 + direct）与线程重复开销。
  * <p>

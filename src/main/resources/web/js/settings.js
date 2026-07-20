@@ -349,16 +349,6 @@
         // Compatibility
         const c = data.compat;
         if (c) {
-            const ollamaToggle = byId('toggleOllamaCompat');
-            if (ollamaToggle && c.ollama) ollamaToggle.checked = !!c.ollama.enabled;
-            const ollamaPort = byId('ollamaCompatPortInput');
-            if (ollamaPort && c.ollama && c.ollama.port) ollamaPort.value = c.ollama.port;
-
-            const lmstudioToggle = byId('toggleLmstudioCompat');
-            if (lmstudioToggle && c.lmstudio) lmstudioToggle.checked = !!c.lmstudio.enabled;
-            const lmstudioPort = byId('lmstudioCompatPortInput');
-            if (lmstudioPort && c.lmstudio && c.lmstudio.port) lmstudioPort.value = c.lmstudio.port;
-
             const mcpToggle = byId('toggleMcpServer');
             if (mcpToggle && c.mcpServer) mcpToggle.checked = !!c.mcpServer.enabled;
         }
@@ -545,63 +535,6 @@
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
         } finally {
             if (btn) btn.disabled = false;
-        }
-    }
-
-    async function saveCompatPorts() {
-        const ollamaPort = byId('ollamaCompatPortInput');
-        const lmstudioPort = byId('lmstudioCompatPortInput');
-        const payload = {};
-        if (ollamaPort && ollamaPort.value) payload.ollamaPort = Number(ollamaPort.value);
-        if (lmstudioPort && lmstudioPort.value) payload.lmstudioPort = Number(lmstudioPort.value);
-        if (!payload.ollamaPort && !payload.lmstudioPort) {
-            toast(t('toast.error', '错误'), '请至少填写一个端口', 'error');
-            return;
-        }
-        try {
-            const resp = await fetch('/api/sys/setting', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await resp.json();
-            if (!data || !data.success) {
-                toast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
-                return;
-            }
-            toast(t('toast.success', '成功'), t('common.saved', '已保存'), 'success');
-            loadSettings();
-        } catch (e) {
-            toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
-        }
-    }
-
-    async function setCompatService(type, enable, toggleEl) {
-        const endpoint = type === 'ollama' ? '/api/sys/ollama' : '/api/sys/lmstudio';
-        const prev = !enable;
-        if (toggleEl) toggleEl.disabled = true;
-        try {
-            const body = { enable: !!enable };
-            const portInput = type === 'ollama' ? byId('ollamaCompatPortInput') : byId('lmstudioCompatPortInput');
-            if (portInput && portInput.value) body.port = Number(portInput.value);
-            const resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const data = await resp.json();
-            if (!data || !data.success) {
-                if (toggleEl) toggleEl.checked = prev;
-                toast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.operation_failed', '操作失败'), 'error');
-                return;
-            }
-            toast(t('toast.success', '成功'), enable ? t('common.enabled', '已开启') : t('common.disabled', '已关闭'), 'success');
-            loadSettings();
-        } catch (e) {
-            if (toggleEl) toggleEl.checked = prev;
-            toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
-        } finally {
-            if (toggleEl) toggleEl.disabled = false;
         }
     }
 
@@ -2069,16 +2002,6 @@
         // Server tab
         const saveServerBtn = byId('saveServerPortsBtn');
         if (saveServerBtn) saveServerBtn.addEventListener('click', saveServerPorts);
-
-        // Compatibility tab
-        const saveCompatBtn = byId('saveCompatPortsBtn');
-        if (saveCompatBtn) saveCompatBtn.addEventListener('click', saveCompatPorts);
-
-        const ollamaToggle = byId('toggleOllamaCompat');
-        if (ollamaToggle) ollamaToggle.addEventListener('change', () => { if (!_populating) setCompatService('ollama', ollamaToggle.checked, ollamaToggle); });
-
-        const lmstudioToggle = byId('toggleLmstudioCompat');
-        if (lmstudioToggle) lmstudioToggle.addEventListener('change', () => { if (!_populating) setCompatService('lmstudio', lmstudioToggle.checked, lmstudioToggle); });
 
         const mcpToggle = byId('toggleMcpServer');
         if (mcpToggle) mcpToggle.addEventListener('change', () => { if (!_populating) setMcpServer(mcpToggle.checked); });

@@ -16,8 +16,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import org.mark.llamacpp.lmstudio.LMStudio;
-import org.mark.llamacpp.ollama.Ollama;
 import org.mark.llamacpp.server.BuildInfo;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.LlamaServerManager;
@@ -76,8 +74,6 @@ public class SystemController implements BaseController {
 	// param validation
 	private static final String I18N_PARAM_ENABLE_REQUIRED = "api.error.param.enable.required";
 	private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
-	private static final String I18N_PARAM_OLLAMA_PORT_INVALID = "api.error.param.ollama.port.invalid";
-	private static final String I18N_PARAM_LMSTUDIO_PORT_INVALID = "api.error.param.lmstudio.port.invalid";
 	private static final String I18N_PARAM_WEB_PORT_INVALID = "api.error.param.web.port.invalid";
 	private static final String I18N_PARAM_MODEL_ID_MISSING = "api.error.param.modelId.missing";
 	private static final String I18N_PARAM_MODEL_ID_MISSING_REQUIRED = "api.error.param.modelId.required";
@@ -89,8 +85,6 @@ public class SystemController implements BaseController {
 	private static final String I18N_COMPAT_STATUS_FAILED = "api.error.compat.status.failed";
 	private static final String I18N_VERSION_INFO_FAILED = "api.error.version.info.failed";
 	private static final String I18N_PID_FAILED = "api.error.pid.failed";
-	private static final String I18N_OLLAMA_TOGGLE_FAILED = "api.error.ollama.toggle.failed";
-	private static final String I18N_LMSTUDIO_TOGGLE_FAILED = "api.error.lmstudio.toggle.failed";
 	private static final String I18N_MCP_TOGGLE_FAILED = "api.error.mcp.toggle.failed";
 	private static final String I18N_SETTINGS_GET_FAILED = "api.error.settings.get.failed";
 	private static final String I18N_SETTINGS_SAVE_FAILED = "api.error.settings.save.failed";
@@ -163,16 +157,6 @@ public class SystemController implements BaseController {
 //			this.handleGgufMemEstimateRequest(ctx, request);
 //			return true;
 //		}
-		// 启用、禁用ollama兼容api
-		if (uri.equals("/api/sys/ollama")) {
-			this.handleOllamaEnableRequest(ctx, request);
-			return true;
-		}
-		// 启用、禁用lmstudio
-		if (uri.equals("/api/sys/lmstudio")) {
-			this.handleLmstudioEnableRequest(ctx, request);
-			return true;
-		}
 		// 启用、禁用内置MCP服务
 		if (uri.equals("/api/sys/mcp")) {
 			this.handleMcpEnableRequest(ctx, request);
@@ -681,7 +665,7 @@ public class SystemController implements BaseController {
 //	}
 
 	/**
-	 * 	获取兼容服务 ollama和lmstudio 状态
+	 * 	获取兼容服务状态（MCP服务、请求日志）
 	 * @param ctx
 	 * @param request
 	 * @throws RequestMethodException
@@ -693,24 +677,7 @@ public class SystemController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.GET, "只支持GET请求");
 		try {
-			Ollama ollama = Ollama.getInstance();
-			LMStudio lmstudio = LMStudio.getInstance();
-			
 			Map<String, Object> data = new HashMap<>();
-			
-			Map<String, Object> ollamaData = new HashMap<>();
-			ollamaData.put("enabled", LlamaServer.isOllamaCompatEnabled());
-			ollamaData.put("configuredPort", LlamaServer.getOllamaCompatPort());
-			ollamaData.put("running", ollama.isRunning());
-			ollamaData.put("port", ollama.getPort());
-			data.put("ollama", ollamaData);
-			
-			Map<String, Object> lmstudioData = new HashMap<>();
-			lmstudioData.put("enabled", LlamaServer.isLmstudioCompatEnabled());
-			lmstudioData.put("configuredPort", LlamaServer.getLmstudioCompatPort());
-			lmstudioData.put("running", lmstudio.isRunning());
-			lmstudioData.put("port", lmstudio.getPort());
-			data.put("lmstudio", lmstudioData);
 
 			Map<String, Object> mcpServerData = new HashMap<>();
 			mcpServerData.put("enabled", LlamaServer.isMcpServerEnabled());
@@ -768,106 +735,6 @@ public class SystemController implements BaseController {
 		} catch (Exception e) {
 			logger.info("获取PID时发生错误", e);
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PID_FAILED + ": " + e.getMessage()));
-		}
-	}
-	
-	/**
-	 * 	启用、禁用ollama兼容api
-	 * @param ctx
-	 * @param request
-	 * @throws RequestMethodException
-	 */
-	private void handleOllamaEnableRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (request.method() == HttpMethod.OPTIONS) {
-			LlamaServer.sendCorsResponse(ctx);
-			return;
-		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
-		try {
-			JsonObject obj = parseJsonBody(ctx, request);
-			if (obj == null) {
-				return;
-			}
-			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ENABLE_REQUIRED));
-				return;
-			}
-			
-			boolean enable = ParamTool.parseJsonBoolean(obj, "enable", false);
-			Integer port = JsonUtil.getJsonInt(obj, "port", null);
-			int bindPort = port == null ? LlamaServer.getOllamaCompatPort() : port.intValue();
-			if (bindPort <= 0 || bindPort > 65535) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PORT_INVALID));
-				return;
-			}
-			
-			Ollama ollama = Ollama.getInstance();
-			if (enable) {
-				ollama.start(bindPort);
-			} else {
-				ollama.stop();
-			}
-			
-			LlamaServer.updateOllamaCompatConfig(enable, bindPort);
-			
-			Map<String, Object> data = new HashMap<>();
-			data.put("enable", enable);
-			data.put("port", bindPort);
-			data.put("running", ollama.isRunning());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-		} catch (Exception e) {
-			logger.info("处理ollama启停请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_OLLAMA_TOGGLE_FAILED + ": " + e.getMessage()));
-		}
-	}
-	
-	/**
-	 * 	启用、禁用lm studio兼容api
-	 * @param ctx
-	 * @param request
-	 * @throws RequestMethodException
-	 */
-	private void handleLmstudioEnableRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
-		if (request.method() == HttpMethod.OPTIONS) {
-			LlamaServer.sendCorsResponse(ctx);
-			return;
-		}
-		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
-		try {
-			JsonObject obj = parseJsonBody(ctx, request);
-			if (obj == null) {
-				return;
-			}
-			if (!obj.has("enable") || obj.get("enable") == null || obj.get("enable").isJsonNull()) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_ENABLE_REQUIRED));
-				return;
-			}
-			
-			boolean enable = ParamTool.parseJsonBoolean(obj, "enable", false);
-			Integer port = JsonUtil.getJsonInt(obj, "port", null);
-			int bindPort = port == null ? LlamaServer.getLmstudioCompatPort() : port.intValue();
-			if (bindPort <= 0 || bindPort > 65535) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PORT_INVALID));
-				return;
-			}
-			
-			LMStudio lmstudio = LMStudio.getInstance();
-			if (enable) {
-				lmstudio.start(bindPort);
-			} else {
-				lmstudio.stop();
-			}
-			
-			LlamaServer.updateLmstudioCompatConfig(enable, bindPort);
-			
-			Map<String, Object> data = new HashMap<>();
-			data.put("enable", enable);
-			data.put("port", bindPort);
-			data.put("running", lmstudio.isRunning());
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
-		} catch (Exception e) {
-			logger.info("处理lmstudio启停请求时发生错误", e);
-			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_LMSTUDIO_TOGGLE_FAILED + ": " + e.getMessage()));
 		}
 	}
 
@@ -936,16 +803,6 @@ public class SystemController implements BaseController {
 			data.put("security", security);
 			
 			Map<String, Object> compat = new HashMap<>();
-			Map<String, Object> ollama = new HashMap<>();
-			ollama.put("enabled", LlamaServer.isOllamaCompatEnabled());
-			ollama.put("port", LlamaServer.getOllamaCompatPort());
-			compat.put("ollama", ollama);
-			
-			Map<String, Object> lmstudio = new HashMap<>();
-			lmstudio.put("enabled", LlamaServer.isLmstudioCompatEnabled());
-			lmstudio.put("port", LlamaServer.getLmstudioCompatPort());
-			compat.put("lmstudio", lmstudio);
-			
 			Map<String, Object> mcpServer = new HashMap<>();
 			mcpServer.put("enabled", LlamaServer.isMcpServerEnabled());
 			compat.put("mcpServer", mcpServer);
@@ -992,8 +849,6 @@ Map<String, Object> https = new HashMap<>();
 				return;
 			}
 
-			Integer ollamaPort = firstPort(obj, "ollamaPort", "ollama_port", "ollamaCompatPort", "ollama_compat_port");
-			Integer lmstudioPort = firstPort(obj, "lmstudioPort", "lmstudio_port", "lmstudioCompatPort", "lmstudio_compat_port");
 			Boolean logRequestUrl = firstBoolean(obj, "LlamaServer.logRequestUrl", "logRequestUrl", "log_request_url");
 			Boolean logRequestHeader = firstBoolean(obj, "LlamaServer.logRequestHeader", "logRequestHeader", "log_request_header");
 			Boolean logRequestBody = firstBoolean(obj, "LlamaServer.logRequestBody", "logRequestBody", "log_request_body");
@@ -1007,29 +862,13 @@ Integer webPort = firstPort(obj, "webPort", "web_port");
 		String downloadDirectory = JsonUtil.getJsonString(obj, "downloadDirectory", null);
 		String nodeRole = JsonUtil.getJsonString(obj, "nodeRole", null);
 
-		if (ollamaPort == null && lmstudioPort == null && logRequestUrl == null && logRequestHeader == null && logRequestBody == null
+		if (logRequestUrl == null && logRequestHeader == null && logRequestBody == null
 			&& webPort == null && apiKeyEnabled == null && apiKey == null
 			&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
 			&& downloadDirectory == null
 			&& nodeRole == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SAVABLE_MISSING));
 				return;
-			}
-
-			if (ollamaPort != null) {
-				if (!isValidPort(ollamaPort.intValue())) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_OLLAMA_PORT_INVALID));
-					return;
-				}
-				LlamaServer.updateOllamaCompatConfig(LlamaServer.isOllamaCompatEnabled(), ollamaPort.intValue());
-			}
-
-			if (lmstudioPort != null) {
-				if (!isValidPort(lmstudioPort.intValue())) {
-					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LMSTUDIO_PORT_INVALID));
-					return;
-				}
-				LlamaServer.updateLmstudioCompatConfig(LlamaServer.isLmstudioCompatEnabled(), lmstudioPort.intValue());
 			}
 
 			if (logRequestUrl != null || logRequestHeader != null || logRequestBody != null) {
@@ -1061,16 +900,6 @@ if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
 		}
 
 			Map<String, Object> data = new HashMap<>();
-			Map<String, Object> ollama = new HashMap<>();
-			ollama.put("enabled", LlamaServer.isOllamaCompatEnabled());
-			ollama.put("port", LlamaServer.getOllamaCompatPort());
-			data.put("ollama", ollama);
-
-			Map<String, Object> lmstudio = new HashMap<>();
-			lmstudio.put("enabled", LlamaServer.isLmstudioCompatEnabled());
-			lmstudio.put("port", LlamaServer.getLmstudioCompatPort());
-			data.put("lmstudio", lmstudio);
-
 			Map<String, Object> requestLog = new HashMap<>();
 			requestLog.put("logRequestUrl", LlamaServer.isLogRequestUrlEnabled());
 			requestLog.put("logRequestHeader", LlamaServer.isLogRequestHeaderEnabled());

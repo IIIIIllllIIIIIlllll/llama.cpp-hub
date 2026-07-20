@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.mark.llamacpp.lmstudio.LMStudio;
-import org.mark.llamacpp.ollama.Ollama;
 import org.apache.logging.log4j.LogManager;
 import org.mark.file.downloader.DownloadTaskManager;
 import org.mark.llamacpp.server.io.ConsoleBroadcastOutputStream;
@@ -179,16 +177,6 @@ public class LlamaServer {
 				logger.error("关闭Web服务通道失败", e);
 			}
 			try {
-				Ollama.getInstance().stop();
-			} catch (Exception e) {
-				logger.error("停止Ollama服务失败", e);
-			}
-			try {
-				LMStudio.getInstance().stop();
-			} catch (Exception e) {
-				logger.error("停止LMStudio服务失败", e);
-			}
-			try {
 				LlamaServer.stopMcpServerListener();
 			} catch (Exception e) {
 				logger.error("停止MCP服务失败", e);
@@ -229,22 +217,6 @@ public class LlamaServer {
 			webServer.start();
 		});
 		t1.start();
-		
-		if (lmstudioCompatEnabled) {
-			try {
-				LMStudio.getInstance().start(lmstudioCompatPort);
-			} catch (Exception e) {
-				logger.info("启动LMStudio兼容服务失败: {}", e.getMessage());
-			}
-		}
-		
-		if (ollamaCompatEnabled) {
-			try {
-				Ollama.getInstance().start(ollamaCompatPort);
-			} catch (Exception e) {
-				logger.info("启动Ollama兼容服务失败: {}", e.getMessage());
-			}
-		}
 
 		if (mcpServerEnabled) {
 			try {
@@ -408,14 +380,6 @@ public class LlamaServer {
 	private static volatile boolean apiKeyValidationEnabled = false;
 	
 	private static volatile String apiKey = "";
-	
-	private static volatile boolean ollamaCompatEnabled = false;
-	
-	private static volatile int ollamaCompatPort = 11434;
-	
-	private static volatile boolean lmstudioCompatEnabled = false;
-	
-	private static volatile int lmstudioCompatPort = 1234;
 
 	private static volatile boolean mcpServerEnabled = false;
 
@@ -530,28 +494,6 @@ public class LlamaServer {
 		if (root.has("compat")) {
 			JsonObject compat = root.getAsJsonObject("compat");
 			if (compat != null) {
-				if (compat.has("ollama")) {
-					JsonObject ollama = compat.getAsJsonObject("ollama");
-					if (ollama != null) {
-						if (ollama.has("enabled")) {
-							ollamaCompatEnabled = ollama.get("enabled").getAsBoolean();
-						}
-						if (ollama.has("port")) {
-							ollamaCompatPort = ollama.get("port").getAsInt();
-						}
-					}
-				}
-				if (compat.has("lmstudio")) {
-					JsonObject lmstudio = compat.getAsJsonObject("lmstudio");
-					if (lmstudio != null) {
-						if (lmstudio.has("enabled")) {
-							lmstudioCompatEnabled = lmstudio.get("enabled").getAsBoolean();
-						}
-						if (lmstudio.has("port")) {
-							lmstudioCompatPort = lmstudio.get("port").getAsInt();
-						}
-					}
-				}
 				if (compat.has("mcpServer")) {
 					JsonObject mcpServer = compat.getAsJsonObject("mcpServer");
 					if (mcpServer != null && mcpServer.has("enabled")) {
@@ -629,16 +571,6 @@ public class LlamaServer {
 				root.add("security", security);
 				
 				JsonObject compat = new JsonObject();
-				JsonObject ollama = new JsonObject();
-				ollama.addProperty("enabled", ollamaCompatEnabled);
-				ollama.addProperty("port", ollamaCompatPort);
-				compat.add("ollama", ollama);
-				
-				JsonObject lmstudio = new JsonObject();
-				lmstudio.addProperty("enabled", lmstudioCompatEnabled);
-				lmstudio.addProperty("port", lmstudioCompatPort);
-				compat.add("lmstudio", lmstudio);
-
 				JsonObject mcpServer = new JsonObject();
 				mcpServer.addProperty("enabled", mcpServerEnabled);
 				compat.add("mcpServer", mcpServer);
@@ -795,22 +727,6 @@ public class LlamaServer {
 		}
 	}
 
-	public static boolean isOllamaCompatEnabled() {
-		return ollamaCompatEnabled;
-	}
-
-	public static int getOllamaCompatPort() {
-		return ollamaCompatPort;
-	}
-
-	public static boolean isLmstudioCompatEnabled() {
-		return lmstudioCompatEnabled;
-	}
-
-	public static int getLmstudioCompatPort() {
-		return lmstudioCompatPort;
-	}
-
 	public static boolean isMcpServerEnabled() {
 		return mcpServerEnabled;
 	}
@@ -857,26 +773,6 @@ public class LlamaServer {
 		synchronized (APPLICATION_CONFIG_LOCK) {
 			String normalized = role == null ? "" : role.trim();
 			nodeRole = normalized.isEmpty() ? "slave" : normalized;
-			saveApplicationConfig();
-		}
-	}
-
-	public static void updateOllamaCompatConfig(boolean enabled, int port) {
-		synchronized (APPLICATION_CONFIG_LOCK) {
-			ollamaCompatEnabled = enabled;
-			if (port > 0 && port <= 65535) {
-				ollamaCompatPort = port;
-			}
-			saveApplicationConfig();
-		}
-	}
-
-	public static void updateLmstudioCompatConfig(boolean enabled, int port) {
-		synchronized (APPLICATION_CONFIG_LOCK) {
-			lmstudioCompatEnabled = enabled;
-			if (port > 0 && port <= 65535) {
-				lmstudioCompatPort = port;
-			}
 			saveApplicationConfig();
 		}
 	}
@@ -1765,9 +1661,6 @@ public class LlamaServer {
 			try {
 				// 1. 关闭所有 Web 服务端口
 				NettyWebServer.stop();
-				// 停掉动态兼容服务
-				Ollama.getInstance().stop();
-				LMStudio.getInstance().stop();
 				LlamaServer.stopMcpServerListener();
 				// 断开远程节点连接
 				NodeManager.getInstance().shutdown();

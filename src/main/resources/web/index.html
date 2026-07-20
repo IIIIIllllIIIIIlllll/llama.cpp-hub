@@ -2713,10 +2713,6 @@
                         <i class="fas fa-server"></i> <span
                             data-i18n="page.settings.tab.server">page.settings.tab.server</span>
                     </button>
-                    <button class="settings-tab" data-tab="compat">
-                        <i class="fas fa-plug"></i> <span
-                            data-i18n="page.settings.tab.compat">page.settings.tab.compat</span>
-                    </button>
                     <button class="settings-tab" data-tab="security">
                         <i class="fas fa-shield-alt"></i> <span
                             data-i18n="page.settings.tab.security">page.settings.tab.security</span>
@@ -2956,65 +2952,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tab: Compatibility -->
-                    <div class="settings-tab-panel" data-tab-panel="compat">
-                        <div class="settings-panel">
-                            <div class="settings-panel-body">
-                                <div class="form-group" style="margin: 0;">
-                                    <label class="form-label"
-                                        data-i18n="page.settings.general.compat.title">page.settings.general.compat.title</label>
-                                    <small class="form-text"
-                                        data-i18n="page.settings.general.compat.desc">page.settings.general.compat.desc</small>
-                                </div>
-                                <div class="settings-hint" data-i18n="page.settings.compat.hint">
-                                    page.settings.compat.hint</div>
-                                <div class="settings-toggle-list">
-                                    <div class="settings-toggle-row">
-                                        <div class="settings-toggle-title">
-                                            <i class="fas fa-plug"></i><span>Ollama</span>
-                                        </div>
-                                        <div class="settings-compat-actions">
-                                            <div class="settings-port-field">
-                                                <span class="settings-port-label"
-                                                    data-i18n="common.port">common.port</span>
-                                                <input class="form-control settings-port-input" type="number"
-                                                    id="ollamaCompatPortInput" min="1" max="65535" placeholder="11434">
-                                            </div>
-                                            <div class="form-check" style="margin: 0;">
-                                                <input class="form-check-input" type="checkbox" id="toggleOllamaCompat">
-                                                <label class="form-check-label" for="toggleOllamaCompat"
-                                                    data-i18n="common.enable">common.enable</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="settings-toggle-row">
-                                        <div class="settings-toggle-title">
-                                            <i class="fas fa-plug"></i><span>LMStudio</span>
-                                        </div>
-                                        <div class="settings-compat-actions">
-                                            <div class="settings-port-field">
-                                                <span class="settings-port-label"
-                                                    data-i18n="common.port">common.port</span>
-                                                <input class="form-control settings-port-input" type="number"
-                                                    id="lmstudioCompatPortInput" min="1" max="65535" placeholder="1234">
-                                            </div>
-                                            <div class="form-check" style="margin: 0;">
-                                                <input class="form-check-input" type="checkbox"
-                                                    id="toggleLmstudioCompat">
-                                                <label class="form-check-label" for="toggleLmstudioCompat"
-                                                    data-i18n="common.enable">common.enable</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="settings-actions-row">
-                                    <button class="btn btn-primary" id="saveCompatPortsBtn"
-                                        data-i18n="page.settings.general.compat.save_ports">page.settings.general.compat.save_ports</button>
                                 </div>
                             </div>
                         </div>
@@ -6129,22 +6066,7 @@ llama.cpp-hub</textarea>
             }
         }
 
-        function initCompatServiceToggles() {
-            const ollama = document.getElementById('toggleOllamaCompat');
-            if (ollama) {
-                ollama.addEventListener('change', () => setCompatServiceEnabled('ollama', ollama.checked, ollama));
-            }
-            const lmstudio = document.getElementById('toggleLmstudioCompat');
-            if (lmstudio) {
-                lmstudio.addEventListener('change', () => setCompatServiceEnabled('lmstudio', lmstudio.checked, lmstudio));
-            }
-        }
-
         function initSettingsForms() {
-            const savePortsBtn = document.getElementById('saveCompatPortsBtn');
-            if (savePortsBtn) {
-                savePortsBtn.addEventListener('click', saveCompatPorts);
-            }
             initRequestLogToggles();
             initMcpServerToggle();
             const saveZhipuBtn = document.getElementById('saveZhipuSearchApiKeyBtn');
@@ -6183,36 +6105,6 @@ llama.cpp-hub</textarea>
                     return;
                 }
 
-                const ollama = document.getElementById('toggleOllamaCompat');
-                if (ollama && data.data.ollama) {
-                    const enabled = (typeof data.data.ollama.enabled === 'boolean')
-                        ? !!data.data.ollama.enabled
-                        : (typeof data.data.ollama.running === 'boolean' ? !!data.data.ollama.running : false);
-                    ollama.checked = enabled;
-                }
-                const ollamaPort = document.getElementById('ollamaCompatPortInput');
-                if (ollamaPort && data.data.ollama) {
-                    const p = data.data.ollama.configuredPort || data.data.ollama.port;
-                    if (typeof p === 'number' && p > 0) {
-                        ollamaPort.value = String(p);
-                    }
-                }
-
-                const lmstudio = document.getElementById('toggleLmstudioCompat');
-                if (lmstudio && data.data.lmstudio) {
-                    const enabled = (typeof data.data.lmstudio.enabled === 'boolean')
-                        ? !!data.data.lmstudio.enabled
-                        : (typeof data.data.lmstudio.running === 'boolean' ? !!data.data.lmstudio.running : false);
-                    lmstudio.checked = enabled;
-                }
-                const lmstudioPort = document.getElementById('lmstudioCompatPortInput');
-                if (lmstudioPort && data.data.lmstudio) {
-                    const p = data.data.lmstudio.configuredPort || data.data.lmstudio.port;
-                    if (typeof p === 'number' && p > 0) {
-                        lmstudioPort.value = String(p);
-                    }
-                }
-
                 const logRequestUrl = document.getElementById('toggleLogRequestUrl');
                 if (logRequestUrl && data.data.requestLog && typeof data.data.requestLog.logRequestUrl === 'boolean') {
                     logRequestUrl.checked = !!data.data.requestLog.logRequestUrl;
@@ -6234,46 +6126,6 @@ llama.cpp-hub</textarea>
                     mcpServer.checked = enabled;
                 }
             } catch (e) {
-            }
-        }
-
-        function readPortFromInput(id) {
-            const el = document.getElementById(id);
-            if (!el) return null;
-            const raw = (el.value || '').trim();
-            if (!raw) return null;
-            const n = Number(raw);
-            if (!Number.isFinite(n)) return null;
-            const port = Math.trunc(n);
-            if (port <= 0 || port > 65535) return null;
-            return port;
-        }
-
-        async function saveCompatPorts() {
-            const ollamaPort = readPortFromInput('ollamaCompatPortInput');
-            const lmstudioPort = readPortFromInput('lmstudioCompatPortInput');
-            if (!ollamaPort && !lmstudioPort) {
-                showToast(t('toast.error', '错误'), t('page.settings.general.compat.port_required', '请至少填写一个端口'), 'error');
-                return;
-            }
-            const payload = {};
-            if (ollamaPort) payload.ollamaPort = ollamaPort;
-            if (lmstudioPort) payload.lmstudioPort = lmstudioPort;
-            try {
-                const response = await fetch('/api/sys/setting', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                if (!data || !data.success) {
-                    showToast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
-                    return;
-                }
-                showToast(t('toast.success', '成功'), t('page.settings.general.compat.saved', '端口已保存'), 'success');
-                loadCompatServiceStatus();
-            } catch (e) {
-                showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
             }
         }
 
@@ -6312,35 +6164,6 @@ llama.cpp-hub</textarea>
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enable: !!enable })
-                });
-                const data = await response.json();
-                if (!data || !data.success) {
-                    if (toggleEl) toggleEl.checked = prev;
-                    showToast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.operation_failed', '操作失败'), 'error');
-                    return;
-                }
-                showToast(t('toast.success', '成功'), enable ? t('toast.enabled', '已开启') : t('toast.disabled', '已关闭'), 'success');
-                loadCompatServiceStatus();
-            } catch (e) {
-                if (toggleEl) toggleEl.checked = prev;
-                showToast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
-            } finally {
-                if (toggleEl) toggleEl.disabled = false;
-            }
-        }
-
-        async function setCompatServiceEnabled(type, enable, toggleEl) {
-            const endpoint = type === 'ollama' ? '/api/sys/ollama' : '/api/sys/lmstudio';
-            const prev = !enable;
-            if (toggleEl) toggleEl.disabled = true;
-            try {
-                const body = { enable: !!enable };
-                const port = type === 'ollama' ? readPortFromInput('ollamaCompatPortInput') : readPortFromInput('lmstudioCompatPortInput');
-                if (port) body.port = port;
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
                 });
                 const data = await response.json();
                 if (!data || !data.success) {

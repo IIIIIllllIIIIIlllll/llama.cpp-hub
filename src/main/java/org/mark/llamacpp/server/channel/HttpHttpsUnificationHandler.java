@@ -149,6 +149,7 @@ public class HttpHttpsUnificationHandler extends ByteToMessageDecoder {
         pipeline.addLast(new OpenAIChatStreamingHandler());
         pipeline.addLast(new FileUploadRouterHandler());
         pipeline.addLast(new EasyChatStreamingHandler());
+        pipeline.addLast(HttpContentLimitHandler.forMainServer());
         pipeline.addLast(new HttpObjectAggregator(maxHttpContentLength));
         pipeline.addLast(new ChunkedWriteHandler());
         pipeline.addLast(new WebSocketServerProtocolHandler(websocketPath, null, true, 32768));
