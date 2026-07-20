@@ -228,13 +228,61 @@
 <!-- ===== 小型输入对话框 ===== -->
 <div class="sheet prompt-sheet" id="promptSheet">
     <div class="sheet-head"><h2 id="promptTitle">输入</h2>
-        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+        <button class="icon-btn"><i class="fas fa-xmark"></i></button></div>
     <div class="sheet-body">
         <div class="field"><input type="text" id="promptInput"></div>
     </div>
     <div class="sheet-foot">
-        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn">取消</button>
         <button class="btn primary grow" id="promptOk">确定</button>
+    </div>
+</div>
+
+<!-- ===== 模型详情弹窗 ===== -->
+<div class="sheet config-sheet" id="detailSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+        <h2 id="detailTitle">模型详情</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="config-tabs" id="detailTabs">
+        <button class="active" data-dtab="overview">概览</button>
+        <button data-dtab="config">启动配置</button>
+        <button data-dtab="sampling">采样设置</button>
+        <button data-dtab="template">聊天模板</button>
+        <button data-dtab="kwargs">Kwargs</button>
+    </div>
+    <div class="sheet-body">
+        <div class="detail-pane active" data-dpane="overview" id="detailOverview"></div>
+        <div class="detail-pane" data-dpane="config" id="detailConfig"></div>
+        <div class="detail-pane" data-dpane="sampling">
+            <div class="samp-note">开启后，该模型的所有请求将强制使用此处指定的采样参数（忽略客户端传参），用于快速切换模型的工作模式。修改后自动保存。</div>
+            <div class="samp-bar">
+                <select id="sampSelect"></select>
+                <button class="icon-btn" id="sampAddBtn" title="新增配置"><i class="fas fa-plus"></i></button>
+                <button class="icon-btn" id="sampDelBtn" title="删除配置"><i class="fas fa-trash"></i></button>
+                <span class="samp-saving" id="sampSaving"></span>
+            </div>
+            <div id="sampBody"></div>
+        </div>
+        <div class="detail-pane" data-dpane="template">
+            <div class="row-gap" style="margin-bottom:10px;flex-wrap:wrap">
+                <button class="btn mini" id="tplDefaultBtn"><i class="fas fa-rotate-left"></i> 恢复默认</button>
+                <button class="btn mini" id="tplSaveBtn"><i class="fas fa-floppy-disk"></i> 保存</button>
+                <button class="btn mini danger-soft" id="tplDeleteBtn"><i class="fas fa-trash"></i> 删除</button>
+            </div>
+            <div class="field"><textarea id="tplText" rows="14" spellcheck="false" placeholder="(可选) 该模型未保存自定义聊天模板"></textarea></div>
+        </div>
+        <div class="detail-pane" data-dpane="kwargs">
+            <div class="row-gap" style="margin-bottom:10px">
+                <button class="btn mini" id="kwSaveBtn"><i class="fas fa-check"></i> 应用</button>
+                <button class="btn mini danger-soft" id="kwClearBtn"><i class="fas fa-trash"></i> 清空</button>
+            </div>
+            <div class="field"><textarea id="kwText" rows="12" spellcheck="false" placeholder='请输入 JSON 内容，如 {"enable_thinking": true}'></textarea></div>
+        </div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn grow" onclick="UI.closeSheet()">关闭</button>
     </div>
 </div>
 
@@ -244,6 +292,7 @@
 <script src="js/newui/app.js"></script>
 <script src="js/newui/models.js"></script>
 <script src="js/newui/model-config.js"></script>
+<script src="js/newui/model-detail.js"></script>
 <script src="js/newui/misc-pages.js"></script>
 <script>App.start();</script>
 </body>
