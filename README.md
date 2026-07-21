@@ -155,8 +155,8 @@
 |------|------|
 | 8080 | WebUI + OpenAI/Anthropic API + WebSocket |
 | 8081+ | 每个已加载模型的推理进程（自动分配） |
-| 11434 | Ollama 兼容 API（可选） |
-| 1234 | LM Studio 兼容 API（可选） |
+| 11434 | Ollama 兼容 API（已经移除） |
+| 1234 | LM Studio 兼容 API（已经移除） |
 | 8075 | MCP 服务器（可选） |
 
 > ## ⚠️ 安全声明

@@ -155,8 +155,8 @@ If the auto-update fails, just download the package manually and overwrite — *
 |------|---------|
 | 8080 | WebUI + OpenAI/Anthropic API + WebSocket |
 | 8081+ | Inference process for each loaded model (auto-assigned) |
-| 11434 | Ollama compatible API (optional) |
-| 1234 | LM Studio compatible API (optional) |
+| 11434 | Ollama compatible API (removed) |
+| 1234 | LM Studio compatible API (removed) |
 | 8075 | MCP server (optional) |
 
 > ## ⚠️ Security Disclaimer
