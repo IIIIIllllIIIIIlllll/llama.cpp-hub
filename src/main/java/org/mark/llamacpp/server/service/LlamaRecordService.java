@@ -39,6 +39,7 @@ public class LlamaRecordService {
 	private final Map<String, LogEntry> logMap = new ConcurrentHashMap<>();
 	private final AtomicLong totalRecordCount = new AtomicLong(0);
 	private final Map<String, TokenSummaryEntry> tokenSummaryCache = new ConcurrentHashMap<>();
+	private final ScheduledExecutorService sweeper;
 
 	/**
 	 * 日志句柄空闲超时：超过该时间未写入的 BinaryRequestLog 会被关闭（下次写入时自动重开）。
@@ -74,9 +75,9 @@ public class LlamaRecordService {
 		} catch (IOException e) {
 			logger.error("Failed to initialize LlamaRecordService", e);
 		}
-		ScheduledExecutorService sweeper = new ScheduledThreadPoolExecutor(1,
+		this.sweeper = new ScheduledThreadPoolExecutor(1,
 				Thread.ofVirtual().name("record-log-sweeper-", 0).factory());
-		sweeper.scheduleWithFixedDelay(this::sweepIdleLogs, LOG_SWEEP_INTERVAL_MS, LOG_SWEEP_INTERVAL_MS,
+		this.sweeper.scheduleWithFixedDelay(this::sweepIdleLogs, LOG_SWEEP_INTERVAL_MS, LOG_SWEEP_INTERVAL_MS,
 				TimeUnit.MILLISECONDS);
 	}
 
@@ -183,6 +184,27 @@ public class LlamaRecordService {
             }
         }
     }
+
+	/**
+	 * 优雅关闭：停止空闲句柄清扫器并关闭全部日志句柄。仅由 JVM shutdown hook 调用。
+	 */
+	public void shutdown() {
+		this.sweeper.shutdown();
+		for (Map.Entry<String, LogEntry> e : this.logMap.entrySet()) {
+			LogEntry entry = e.getValue();
+			synchronized (entry) {
+				if (entry.closed) {
+					continue;
+				}
+				this.logMap.remove(e.getKey(), entry);
+				try {
+					entry.log.close();
+				} catch (IOException ignore) {
+				}
+				entry.closed = true;
+			}
+		}
+	}
 
     /**
      * 定时清扫：关闭空闲超过 LOG_IDLE_TIMEOUT_MS 的日志句柄。

@@ -72,7 +72,7 @@ public class SystemController implements BaseController {
 	private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
 	// param validation
 	private static final String I18N_PARAM_ENABLE_REQUIRED = "api.error.param.enable.required";
-	private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
+	//private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
 	private static final String I18N_PARAM_WEB_PORT_INVALID = "api.error.param.web.port.invalid";
 	private static final String I18N_PARAM_MODEL_ID_MISSING = "api.error.param.modelId.missing";
 	private static final String I18N_PARAM_MODEL_ID_MISSING_REQUIRED = "api.error.param.modelId.required";

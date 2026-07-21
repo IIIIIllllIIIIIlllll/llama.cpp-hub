@@ -197,6 +197,11 @@ public class LlamaServer {
 				logger.error("关闭下载任务管理器失败", e);
 			}
 			try {
+				LlamaRecordService.getInstance().shutdown();
+			} catch (Exception e) {
+				logger.error("关闭请求记录服务失败", e);
+			}
+			try {
 				NettySharedGroups.shutdownAll();
 			} catch (Exception e) {
 				logger.error("关闭共享Netty线程组失败", e);
