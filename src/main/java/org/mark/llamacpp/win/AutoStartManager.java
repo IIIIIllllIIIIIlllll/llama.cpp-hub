@@ -173,7 +173,7 @@ public class AutoStartManager {
             fixed = fixed.replace(javaHome.replace('\\', '/'), javaHomeReplacement.replace('\\', '/'));
             fixed = fixed.replace(userDir, "%APP_DIR%");
             fixed = fixed.replace(userDir.replace('\\', '/'), "%APP_DIR%");
-            jvmArgsLine.append(fixed).append(" ");
+            jvmArgsLine.append("\"").append(fixed).append("\" ");
         }
 
         StringBuilder bat = new StringBuilder();
@@ -181,7 +181,7 @@ public class AutoStartManager {
         bat.append("setlocal EnableExtensions\r\n");
         bat.append("cd /d \"%~dp0\"\r\n");
         bat.append("set \"APP_DIR=%CD%\"\r\n");
-        bat.append("start \"\" ").append(javawRelative).append(" ")
+        bat.append("start \"\" \"").append(javawRelative).append("\" ")
            .append(jvmArgsLine)
            .append("-classpath \"./classes;./lib/*\" org.mark.llamacpp.server.LlamaServer\r\n");
         bat.append("endlocal\r\n");
