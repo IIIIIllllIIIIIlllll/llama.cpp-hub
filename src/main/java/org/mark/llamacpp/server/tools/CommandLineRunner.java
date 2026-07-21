@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.mark.llamacpp.server.LlamaServer;
+import org.mark.llamacpp.server.util.TailCharBuffer;
 
 /**
  * 	执行命令返回结果
@@ -140,8 +141,8 @@ public class CommandLineRunner {
 		} catch (IOException ignored) {
 		}
 
-		// 读取标准输出
-		StringBuilder outputBuilder = new StringBuilder();
+		// 读取标准输出（只保留尾部 64KB，避免无界累积）
+		TailCharBuffer outputBuilder = new TailCharBuffer(64 * 1024);
 		Thread outputThread = Thread.ofVirtual().start(() -> {
 			try (BufferedReader reader = new BufferedReader(
 					new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -154,8 +155,8 @@ public class CommandLineRunner {
 			}
 		});
 
-		// 读取错误输出
-		StringBuilder errorBuilder = new StringBuilder();
+		// 读取错误输出（只保留尾部 64KB，避免无界累积）
+		TailCharBuffer errorBuilder = new TailCharBuffer(64 * 1024);
 		Thread errorThread = Thread.ofVirtual().start(() -> {
 			try (BufferedReader reader = new BufferedReader(
 					new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {

@@ -102,8 +102,8 @@ public class PerplexityController implements BaseController {
 	private void handleRun(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
-		String content = request.content().toString(CharsetUtil.UTF_8);
-		if (content == null || content.trim().isEmpty()) {
+		byte[] content = JsonUtil.readRequestBytes(request);
+		if (content == null || content.length == 0) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 			return;
 		}

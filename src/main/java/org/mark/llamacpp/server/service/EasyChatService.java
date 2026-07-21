@@ -98,12 +98,27 @@ public class EasyChatService {
 	private final ExecutorService worker = Executors.newVirtualThreadPerTaskExecutor();
 	private final Map<ChannelHandlerContext, TrackedConnection> channelConnectionMap = new ConcurrentHashMap<>();
 	private final Map<ChannelHandlerContext, EasyChatGlobalLock.Lease> channelLeaseMap = new ConcurrentHashMap<>();
-	private final Map<String, Object> conversationLocks = new ConcurrentHashMap<>();
+	/**
+	 * 会话锁：固定 64 分片，按 conversationId 哈希映射。
+	 * 替代原先的 ConcurrentHashMap.computeIfAbsent —— key 由客户端 HTTP header 传入且从不清理，会无界增长。
+	 * 不同会话哈希冲突时仅短暂串行，不影响正确性。
+	 */
+	private final Object[] conversationLocks = new Object[64];
+	{
+		for (int i = 0; i < this.conversationLocks.length; i++) {
+			this.conversationLocks[i] = new Object();
+		}
+	}
 	private final EasyChatStorage storage = new EasyChatStorage();
 	private final EasyChatRequestWriter requestWriter = new EasyChatRequestWriter(storage);
 	private final EasyChatGlobalLock globalLock = EasyChatGlobalLock.getInstance();
 
 	private EasyChatService() {
+	}
+
+	private Object conversationLock(String conversationId) {
+		int hash = conversationId == null ? 0 : conversationId.hashCode();
+		return this.conversationLocks[(hash & 0x7fffffff) % this.conversationLocks.length];
 	}
 
 	/**
@@ -314,7 +329,7 @@ public class EasyChatService {
 			}
 
 			// Per-conversation lock
-			Object convLock = this.conversationLocks.computeIfAbsent(conversationId, k -> new Object());
+			Object convLock = this.conversationLock(conversationId);
 
 			Path convDir = isEphemeral ? null : this.storage.getConversationDir(conversationId);
 
@@ -733,7 +748,7 @@ public class EasyChatService {
 		}
 
 		// Per-conversation lock to prevent concurrent read/write race
-		Object convLock = this.conversationLocks.computeIfAbsent(conversationId, k -> new Object());
+		Object convLock = this.conversationLock(conversationId);
 
 		// Phase 1: pre-scan metadata (under conversation lock for consistency)
 		long recordCount = 0;
@@ -2130,7 +2145,7 @@ public class EasyChatService {
 		if (!Files.exists(dir)) {
 			throw new IOException("Conversation directory not found: " + conversationId);
 		}
-		Object convLock = this.conversationLocks.computeIfAbsent(conversationId, k -> new Object());
+		Object convLock = this.conversationLock(conversationId);
 		synchronized (convLock) {
 			if (variantIndex != null) {
 				return this.storage.deleteVariant(dir, seq, variantIndex);

@@ -154,14 +154,15 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<WebSocke
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        if (this.connected && this.connectionId != null) {
+        // 无条件清理：握手后未发 "connect" 就断开的客户端也会在 WebSocketManager 留下条目
+        if (this.connectionId != null) {
             this.wsManager.removeConnection(this.connectionId);
         }
     }
-    
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        if (this.connected && this.connectionId != null) {
+        if (this.connectionId != null) {
             this.wsManager.removeConnection(this.connectionId);
         }
         ctx.close();

@@ -90,8 +90,7 @@ public class NodeController implements BaseController {
             return;
         }
         try {
-            String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
-            JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+            JsonObject obj = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
             if (obj == null) {
 		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
@@ -154,8 +153,7 @@ public class NodeController implements BaseController {
             return;
         }
         try {
-            String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
-            JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+            JsonObject obj = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
             if (obj == null) {
 		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
@@ -186,8 +184,7 @@ public class NodeController implements BaseController {
             return;
         }
         try {
-            String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
-            JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+            JsonObject obj = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
             if (obj == null) {
 		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;
@@ -230,8 +227,7 @@ public class NodeController implements BaseController {
             return;
         }
         try {
-            String content = request.content().toString(io.netty.util.CharsetUtil.UTF_8);
-            JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+            JsonObject obj = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
             if (obj == null) {
 		LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NODE_BODY_REQUIRED));
                 return;

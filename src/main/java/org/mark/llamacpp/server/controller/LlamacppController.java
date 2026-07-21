@@ -172,12 +172,12 @@ public class LlamacppController implements BaseController {
 				this.proxyPostRemote(ctx, request, nodeId, "api/llamacpp/add");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			LlamaCppDataStruct reqData = JsonUtil.fromJson(content, LlamaCppDataStruct.class);
+			LlamaCppDataStruct reqData = JsonUtil.fromJson(bodyBytes, LlamaCppDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
@@ -249,12 +249,12 @@ public class LlamacppController implements BaseController {
 				this.proxyPostRemote(ctx, request, nodeId, "api/llamacpp/remove");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			LlamaCppDataStruct reqData = JsonUtil.fromJson(content, LlamaCppDataStruct.class);
+			LlamaCppDataStruct reqData = JsonUtil.fromJson(bodyBytes, LlamaCppDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
@@ -541,9 +541,8 @@ public class LlamacppController implements BaseController {
 
 	private void proxyPostRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path, int connectTimeout, int readTimeout) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			JsonObject body = content != null && !content.trim().isEmpty()
-					? JsonUtil.fromJson(content, JsonObject.class) : null;
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			JsonObject body = bodyBytes != null ? JsonUtil.fromJson(bodyBytes, JsonObject.class) : null;
 			if (body != null) {
 				body.remove("nodeId");
 				if (body.size() == 0) body = null;
@@ -579,12 +578,12 @@ public class LlamacppController implements BaseController {
 				this.proxyPostRemote(ctx, request, nodeId, "api/llamacpp/test", 5000, 15000);
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			LlamaCppDataStruct reqData = JsonUtil.fromJson(content, LlamaCppDataStruct.class);
+			LlamaCppDataStruct reqData = JsonUtil.fromJson(bodyBytes, LlamaCppDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
@@ -799,13 +798,13 @@ public class LlamacppController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
-		String content = request.content().toString(CharsetUtil.UTF_8);
-		if (content == null || content.trim().isEmpty()) {
+		byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+		if (bodyBytes == null) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 			return;
 		}
 
-		JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+		JsonObject obj = JsonUtil.fromJson(bodyBytes, JsonObject.class);
 		if (obj == null) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 			return;
@@ -852,9 +851,6 @@ public class LlamacppController implements BaseController {
 			return;
 		}
 
-		byte[] bodyBytes = new byte[request.content().readableBytes()];
-		request.content().getBytes(0, bodyBytes);
-
 		String targetUrl = String.format("http://localhost:%d/tokenize", port.intValue());
 		worker.execute(() -> proxyRawBytes(ctx, targetUrl, bodyBytes));
 	}
@@ -872,13 +868,13 @@ public class LlamacppController implements BaseController {
 		}
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
-		String content = request.content().toString(CharsetUtil.UTF_8);
-		if (content == null || content.trim().isEmpty()) {
+		byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+		if (bodyBytes == null) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 			return;
 		}
 
-		JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+		JsonObject obj = JsonUtil.fromJson(bodyBytes, JsonObject.class);
 		if (obj == null) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 			return;
@@ -921,9 +917,6 @@ public class LlamacppController implements BaseController {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, I18N_MODEL_PORT_NOT_FOUND + ": " + modelId);
 			return;
 		}
-
-		byte[] bodyBytes = new byte[request.content().readableBytes()];
-		request.content().getBytes(0, bodyBytes);
 
 		String targetUrl = String.format("http://localhost:%d/apply-template", port.intValue());
 		worker.execute(() -> proxyRawBytes(ctx, targetUrl, bodyBytes));

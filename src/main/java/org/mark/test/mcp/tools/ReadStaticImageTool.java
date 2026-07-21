@@ -1,7 +1,11 @@
 package org.mark.test.mcp.tools;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -94,14 +98,19 @@ public class ReadStaticImageTool implements IMCPTool {
 				result.addProperty("byteSize", size);
 				return result;
 			}
-			byte[] bytes = Files.readAllBytes(absolutePath);
+			// 流式 base64：边读边编码，避免整图 readAllBytes 的原始字节数组
+			ByteArrayOutputStream buf = new ByteArrayOutputStream((int) (size * 4 / 3 + 64));
+			try (InputStream in = Files.newInputStream(absolutePath);
+					OutputStream b64out = Base64.getEncoder().wrap(buf)) {
+				in.transferTo(b64out);
+			}
 			String mimeType = this.detectMimeType(absolutePath);
-			String base64 = Base64.getEncoder().encodeToString(bytes);
+			String base64 = buf.toString(StandardCharsets.UTF_8);
 			result.addProperty("success", true);
 			result.addProperty("fileName", absolutePath.getFileName().toString());
 			result.addProperty("imagePath", absolutePath.toString());
 			result.addProperty("mimeType", mimeType);
-			result.addProperty("byteSize", bytes.length);
+			result.addProperty("byteSize", size);
 			result.addProperty("base64", base64);
 			return result;
 		} catch (IOException e) {

@@ -39,7 +39,6 @@ import com.google.gson.JsonObject;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.CharsetUtil;
 
 
 
@@ -73,7 +72,7 @@ public class SystemController implements BaseController {
 	private static final String I18N_BODY_NOT_JSON = "api.error.body.not.json";
 	// param validation
 	private static final String I18N_PARAM_ENABLE_REQUIRED = "api.error.param.enable.required";
-	private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
+	//private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
 	private static final String I18N_PARAM_WEB_PORT_INVALID = "api.error.param.web.port.invalid";
 	private static final String I18N_PARAM_MODEL_ID_MISSING = "api.error.param.modelId.missing";
 	private static final String I18N_PARAM_MODEL_ID_MISSING_REQUIRED = "api.error.param.modelId.required";
@@ -1616,8 +1615,8 @@ if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] content = JsonUtil.readRequestBytes(request);
+			if (content == null || JsonUtil.isBlank(content)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
@@ -1739,8 +1738,8 @@ if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, "只支持POST请求");
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] content = JsonUtil.readRequestBytes(request);
+			if (content == null || JsonUtil.isBlank(content)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}

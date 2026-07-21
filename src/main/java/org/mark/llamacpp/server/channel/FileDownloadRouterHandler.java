@@ -39,7 +39,6 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedFile;
-import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 
 /**
@@ -179,8 +178,8 @@ public class FileDownloadRouterHandler extends SimpleChannelInboundHandler<FullH
 			return;
 		}
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] content = JsonUtil.readRequestBytes(request);
+			if (content == null || content.length == 0) {
 				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 				return;
 			}
@@ -393,7 +392,7 @@ return v.isEmpty() ? null : v;
 	 */
 	private void handleCreateDownload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
+			byte[] content = JsonUtil.readRequestBytes(request);
 
 			// Check for remote node
 			com.google.gson.JsonObject json = JsonUtil.fromJson(content, com.google.gson.JsonObject.class);
@@ -443,7 +442,7 @@ return v.isEmpty() ? null : v;
 	 */
 	private void handlePauseDownload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
+			byte[] content = JsonUtil.readRequestBytes(request);
 			com.google.gson.JsonObject json = JsonUtil.fromJson(content, com.google.gson.JsonObject.class);
 			if (json != null) {
 				String nodeId = JsonUtil.getJsonString(json, "nodeId");
@@ -484,7 +483,7 @@ return v.isEmpty() ? null : v;
 	 */
 	private void handleResumeDownload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
+			byte[] content = JsonUtil.readRequestBytes(request);
 			com.google.gson.JsonObject json = JsonUtil.fromJson(content, com.google.gson.JsonObject.class);
 			if (json != null) {
 				String nodeId = JsonUtil.getJsonString(json, "nodeId");
@@ -525,7 +524,7 @@ return v.isEmpty() ? null : v;
 	 */
 	private void handleDeleteDownload(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
+			byte[] content = JsonUtil.readRequestBytes(request);
 			com.google.gson.JsonObject json = JsonUtil.fromJson(content, com.google.gson.JsonObject.class);
 			if (json != null) {
 				String nodeId = JsonUtil.getJsonString(json, "nodeId");

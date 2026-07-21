@@ -2149,6 +2149,7 @@
   "api.error.build.cancel.failed": "取消编译任务失败",
   "api.error.build.extract.failed": "解压失败",
   "api.error.build.history.failed": "获取编译历史失败",
+  "api.error.build.output.failed": "获取编译日志失败",
   "api.error.build.toolchain.failed": "工具链检查失败",
   "api.error.model.notfound": "未找到指定模型",
   "api.error.model.alias.invalid.chars": "别名包含非法字符",

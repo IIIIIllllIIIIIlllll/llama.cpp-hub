@@ -23,7 +23,6 @@ import com.google.gson.JsonObject;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.CharsetUtil;
 
 /**
  * HTTP 代理相关的后端。问题在于，上哪找一个HTTP 代理服务呢。
@@ -66,9 +65,7 @@ public class ProxyController implements BaseController {
 
     private void proxyPostRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path, int connectTimeout, int readTimeout) {
         try {
-            String content = request.content().toString(CharsetUtil.UTF_8);
-            JsonObject body = content != null && !content.trim().isEmpty()
-                    ? JsonUtil.fromJson(content, JsonObject.class) : null;
+            JsonObject body = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
             if (body != null) {
                 body.remove("nodeId");
                 if (body.size() == 0) body = null;
@@ -143,8 +140,8 @@ public class ProxyController implements BaseController {
                 this.proxyPostRemote(ctx, request, nodeId, "api/proxy/save");
                 return;
             }
-            String content = request.content().toString(CharsetUtil.UTF_8);
-            if (content == null || content.trim().isEmpty()) {
+            byte[] content = JsonUtil.readRequestBytes(request);
+            if (content == null || JsonUtil.isBlank(content)) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
                 return;
             }
@@ -203,9 +200,9 @@ public class ProxyController implements BaseController {
                 this.proxyPostRemote(ctx, request, nodeId, "api/proxy/test", 5000, 15000);
                 return;
             }
-            String content = request.content().toString(CharsetUtil.UTF_8);
+            byte[] content = JsonUtil.readRequestBytes(request);
             ProxyConfigData reqData = null;
-            if (content != null && !content.trim().isEmpty()) {
+            if (content != null && !JsonUtil.isBlank(content)) {
                 reqData = JsonUtil.fromJson(content, ProxyConfigData.class);
             }
             if (reqData == null || reqData.getHost() == null || reqData.getHost().trim().isEmpty()) {

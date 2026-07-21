@@ -122,6 +122,7 @@ public class AutoStartManager {
         return success;
     }
 
+
     // ==================== PowerShell 工具 ====================
 
     private static boolean executePowerShell(String script) {

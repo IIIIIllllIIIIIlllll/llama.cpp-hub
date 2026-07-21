@@ -57,6 +57,37 @@ public class DownloadTaskManager implements Closeable {
 	private static final long COMPLETED_TASK_TTL_MS = 7L * 24 * 60 * 60 * 1000;
 	private static final long RETRY_INTERVAL_MS = 5_000;
 
+	/**
+	 * 失败任务自动重试上限（通常为服务商 429/限流，无限重试只会加重封禁）
+	 */
+	private static final int MAX_AUTO_RETRY_ATTEMPTS = 3;
+
+	/**
+	 * 失败任务的自动重试状态：已尝试次数 + 下次允许重试时间（指数退避）
+	 */
+	private final Map<String, RetryState> retryStates = new ConcurrentHashMap<>();
+
+	private static final class RetryState {
+		final int attempts;
+		final long nextRetryAt;
+
+		RetryState(int attempts, long nextRetryAt) {
+			this.attempts = attempts;
+			this.nextRetryAt = nextRetryAt;
+		}
+	}
+
+	private static long retryDelayMs(int attempts) {
+		switch (attempts) {
+		case 1:
+			return 30_000;
+		case 2:
+			return 120_000;
+		default:
+			return 600_000;
+		}
+	}
+
 	private DownloadTaskManager(Path cacheFile, int maxConcurrentTasks) throws IOException {
 		Objects.requireNonNull(cacheFile, "cacheFile");
 		if (maxConcurrentTasks < 1) {
@@ -87,6 +118,8 @@ public class DownloadTaskManager implements Closeable {
 	}
 
 	public DownloadTaskInfo startTask(String taskId) throws IOException {
+		// 用户手动启动/恢复时重置自动重试计数
+		this.retryStates.remove(taskId);
 		DownloadTaskInfo task = requireTask(taskId);
 		DownloadTaskStatus oldStatus;
 		synchronized (task) {
@@ -142,6 +175,7 @@ public class DownloadTaskManager implements Closeable {
 					task.setUpdatedAt(System.currentTimeMillis());
 					snapshot = task.copy();
 				}
+				this.retryStates.remove(task.getTaskId());
 				notifyStateChanged(snapshot, DownloadTaskStatus.RUNNING, DownloadTaskStatus.COMPLETED);
 				try {
 					handlePostDownloadExtraction(snapshot);
@@ -220,6 +254,7 @@ public class DownloadTaskManager implements Closeable {
 		}
 		pauseTask(taskId);
 		this.runtimeStore.remove(taskId);
+		this.retryStates.remove(taskId);
 		DownloadTaskInfo removed = this.taskStore.remove(taskId);
 		persistToCache();
 		if (removed != null) {
@@ -297,14 +332,26 @@ public class DownloadTaskManager implements Closeable {
 
 	private void retryFailedTasks() {
 		try {
+			long now = System.currentTimeMillis();
 			for (DownloadTaskInfo task : this.taskStore.values()) {
-				if (task.getStatus() == DownloadTaskStatus.FAILED) {
-					try {
-						startTask(task.getTaskId());
-					} catch (IOException e) {
-						// ignore - task may have been deleted or is already running
-					}
+				if (task.getStatus() != DownloadTaskStatus.FAILED) {
+					continue;
 				}
+				RetryState state = this.retryStates.get(task.getTaskId());
+				if (state != null && (state.attempts >= MAX_AUTO_RETRY_ATTEMPTS || now < state.nextRetryAt)) {
+					continue;
+				}
+				int attempts = state == null ? 1 : state.attempts + 1;
+				long delay = retryDelayMs(attempts);
+				try {
+					startTask(task.getTaskId());
+				} catch (IOException e) {
+					// ignore - task may have been deleted or is already running
+				}
+				// startTask 会清空重试状态，这里以递增后的计数重建
+				this.retryStates.put(task.getTaskId(), new RetryState(attempts, now + delay));
+				logger.info("自动重试下载任务 {}（第 {}/{} 次，{}ms 后可再次重试）", task.getTaskId(), attempts,
+						MAX_AUTO_RETRY_ATTEMPTS, delay);
 			}
 		} catch (Exception e) {
 			logger.warn("Failed to retry failed tasks", e);

@@ -1,6 +1,7 @@
 package org.mark.llamacpp.server.controller;
 
 import java.io.File;
+import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,11 +23,17 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonObject;
 
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.util.CharsetUtil;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.stream.ChunkedFile;
 
 public class BuildController implements BaseController {
 
@@ -57,6 +64,7 @@ public class BuildController implements BaseController {
     private static final String I18N_BUILD_CANCEL_FAILED = "api.error.build.cancel.failed";
     private static final String I18N_BUILD_EXTRACT_FAILED = "api.error.build.extract.failed";
     private static final String I18N_BUILD_HISTORY_FAILED = "api.error.build.history.failed";
+    private static final String I18N_BUILD_OUTPUT_FAILED = "api.error.build.output.failed";
     private static final String I18N_BUILD_TOOLCHAIN_FAILED = "api.error.build.toolchain.failed";
 
     private static final String PATH_BUILD_SUBMIT = "/api/build/submit";
@@ -64,7 +72,13 @@ public class BuildController implements BaseController {
     private static final String PATH_BUILD_CANCEL = "/api/build/cancel";
     private static final String PATH_BUILD_EXTRACT = "/api/build/extract";
     private static final String PATH_BUILD_HISTORY = "/api/build/history";
+    private static final String PATH_BUILD_OUTPUT = "/api/build/output";
     private static final String PATH_BUILD_CHECK_TOOLCHAIN = "/api/build/check-toolchain";
+
+    /**
+     * 输出日志下发上限：只回传日志文件尾部最多 1MB
+     */
+    private static final long MAX_LOG_SERVE_BYTES = 1024 * 1024;
 
     @Override
     public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request)
@@ -84,6 +98,9 @@ public class BuildController implements BaseController {
         } else if (uri.equals(PATH_BUILD_HISTORY)) {
             handleBuildHistory(ctx, request);
             return true;
+        } else if (uri.equals(PATH_BUILD_OUTPUT)) {
+            handleBuildOutput(ctx, request);
+            return true;
         } else if (uri.equals(PATH_BUILD_CHECK_TOOLCHAIN)) {
             handleCheckToolchain(ctx, request);
             return true;
@@ -99,7 +116,7 @@ public class BuildController implements BaseController {
         assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
-            String content = readRequestBodyOrSendError(ctx, request);
+            byte[] content = readRequestBodyOrSendError(ctx, request);
             if (content == null) {
                 return;
             }
@@ -203,7 +220,6 @@ public class BuildController implements BaseController {
             data.put("outputDir", task.outputDir);
             data.put("cmakeCommand", task.cmakeCommand);
             data.put("buildCommand", task.buildCommand);
-            data.put("output", task.output);
             data.put("exitCode", task.exitCode);
             data.put("startTime", task.startTime);
             data.put("endTime", task.endTime);
@@ -224,9 +240,9 @@ public class BuildController implements BaseController {
         assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
-            String content = request.content().toString(CharsetUtil.UTF_8);
+            byte[] content = JsonUtil.readRequestBytes(request);
             String taskId = null;
-            if (content != null && !content.trim().isEmpty()) {
+            if (content != null && content.length > 0) {
                 JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
                 if (obj != null) {
                     taskId = trimToNull(JsonUtil.getJsonString(obj, "taskId", null));
@@ -255,7 +271,7 @@ public class BuildController implements BaseController {
         assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
-            String content = readRequestBodyOrSendError(ctx, request);
+            byte[] content = readRequestBodyOrSendError(ctx, request);
             if (content == null) {
                 return;
             }
@@ -340,6 +356,71 @@ public class BuildController implements BaseController {
         }
     }
 
+    /**
+     * 以 ChunkedFile 零拷贝方式流式下发任务日志（最多尾部 1MB），避免把日志读进堆内存。
+     */
+    private void handleBuildOutput(ChannelHandlerContext ctx, FullHttpRequest request)
+            throws RequestMethodException {
+        if (handleCorsOptions(ctx, request)) {
+            return;
+        }
+        assertRequestMethod(request.method() != HttpMethod.GET, I18N_METHOD_GET_ONLY);
+
+        RandomAccessFile raf = null;
+        long offset;
+        long length;
+        try {
+            Map<String, String> params = ParamTool.getQueryParam(request.uri());
+            String taskId = params.get("taskId");
+            java.io.File logFile = taskManager.getTaskLogFile(taskId);
+            long fileLength = logFile == null ? 0 : logFile.length();
+            offset = Math.max(0, fileLength - MAX_LOG_SERVE_BYTES);
+            length = fileLength - offset;
+            if (length > 0) {
+                raf = new RandomAccessFile(logFile, "r");
+            }
+        } catch (Exception e) {
+            logger.error("获取编译日志失败", e);
+            LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BUILD_OUTPUT_FAILED + ": " + e.getMessage()));
+            return;
+        }
+
+        try {
+            DefaultHttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+            response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+            response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
+            response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+            ctx.write(response);
+
+            if (raf != null) {
+                final RandomAccessFile finalRaf = raf;
+                ctx.write(new ChunkedFile(raf, offset, length, 8192), ctx.newProgressivePromise());
+                raf = null;
+                ChannelFuture last = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
+                last.addListener(future -> {
+                    try {
+                        finalRaf.close();
+                    } catch (Exception ignore) {
+                    }
+                    ctx.close();
+                });
+            } else {
+                ChannelFuture last = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
+                last.addListener(future -> ctx.close());
+            }
+        } catch (Exception e) {
+            logger.error("下发编译日志失败", e);
+            ctx.close();
+        } finally {
+            if (raf != null) {
+                try {
+                    raf.close();
+                } catch (Exception ignore) {
+                }
+            }
+        }
+    }
+
     private void handleCheckToolchain(ChannelHandlerContext ctx, FullHttpRequest request)
             throws RequestMethodException {
         if (handleCorsOptions(ctx, request)) {
@@ -420,16 +501,16 @@ public class BuildController implements BaseController {
         return true;
     }
 
-    private static String readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
-        String content = request.content().toString(CharsetUtil.UTF_8);
-        if (content == null || content.trim().isEmpty()) {
+    private static byte[] readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
+        byte[] content = JsonUtil.readRequestBytes(request);
+        if (content == null || content.length == 0) {
             LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
             return null;
         }
         return content;
     }
 
-    private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, String content) {
+    private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, byte[] content) {
         JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
         if (obj == null) {
             LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);

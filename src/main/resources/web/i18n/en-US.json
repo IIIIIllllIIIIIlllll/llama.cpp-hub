@@ -2149,6 +2149,7 @@
   "api.error.build.cancel.failed": "Failed to cancel build task",
   "api.error.build.extract.failed": "Extraction failed",
   "api.error.build.history.failed": "Failed to get build history",
+  "api.error.build.output.failed": "Failed to get build output",
   "api.error.build.toolchain.failed": "Toolchain check failed",
   "api.error.model.notfound": "Model not found",
   "api.error.model.alias.invalid.chars": "Alias contains invalid characters",

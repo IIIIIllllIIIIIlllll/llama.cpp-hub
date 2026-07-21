@@ -8,7 +8,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +37,13 @@ public class StaticFileGzipCache {
             "html", "htm", "css", "js", "json", "xml", "svg", "txt", "webmanifest"
     );
 
-    private static final ConcurrentHashMap<String, Object> fileLocks = new ConcurrentHashMap<>();
+    /** 分片锁：固定 64 把，避免按路径持有的锁对象只增不减（参照 EasyChatService 的做法） */
+    private static final Object[] FILE_LOCKS = new Object[64];
+    static {
+        for (int i = 0; i < FILE_LOCKS.length; i++) {
+            FILE_LOCKS[i] = new Object();
+        }
+    }
 
     private StaticFileGzipCache() {
         // 工具类，禁止实例化
@@ -88,8 +93,8 @@ public class StaticFileGzipCache {
             return gzFile;
         }
 
-        // 按请求路径加锁，防止并发请求同一文件时重复压缩
-        Object lock = fileLocks.computeIfAbsent(safePath, k -> new Object());
+        // 按请求路径哈希到分片锁，防止并发请求同一文件时重复压缩
+        Object lock = FILE_LOCKS[(safePath.hashCode() & 0x7FFFFFFF) % FILE_LOCKS.length];
         synchronized (lock) {
             // 双重检查
             if (isCacheValid(gzFile, sourceFile)) {

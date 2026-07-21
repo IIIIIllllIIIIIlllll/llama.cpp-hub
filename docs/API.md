@@ -442,7 +442,6 @@
 | `download_update` | 下载状态变更 | `taskId, state, ...` |
 | `download_progress` | 下载进度 | `taskId, bytes, speed, ...` |
 | `app_update` | 应用更新进度 | `status, downloadedBytes, totalBytes, progressRatio, version, errorMessage` |
-| `systemMonitor` | 系统指标（仅 Linux） | `cpu, memory, gpu, load, processes, network` |
 
 心跳：服务器每 30 秒 ping，每 60 秒广播系统状态。
 

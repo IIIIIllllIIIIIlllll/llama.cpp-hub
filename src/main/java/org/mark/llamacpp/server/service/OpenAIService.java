@@ -1,7 +1,6 @@
 package org.mark.llamacpp.server.service;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -60,7 +59,6 @@ import io.netty.handler.codec.http.multipart.Attribute;
 import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpData;
-import io.netty.util.CharsetUtil;
 
 /**
  * 	处理openai api请求的服务。
@@ -320,14 +318,14 @@ public class OpenAIService {
 			}
 
 			// 读取请求体
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null || bodyBytes.length == 0) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "messages");
 				return;
 			}
 
 			// 解析JSON请求体
-			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject requestJson = JsonUtil.fromJson(bodyBytes, JsonObject.class);
 
 			// 获取LlamaServerManager实例
 			LlamaServerManager manager = LlamaServerManager.getInstance();
@@ -426,12 +424,12 @@ public class OpenAIService {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null || bodyBytes.length == 0) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "messages");
 				return;
 			}
-			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject requestJson = JsonUtil.fromJson(bodyBytes, JsonObject.class);
 			if (requestJson == null) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is not a valid JSON object", null);
 				return;
@@ -565,9 +563,7 @@ public class OpenAIService {
 
 				int responseCode = connection.getResponseCode();
 				ModelRequestTracker.getInstance().updatePhase(requestId, ActiveRequest.Phase.GENERATION);
-				byte[] responseBytes = this.readConnectionBodyBytes(connection, responseCode >= 200 && responseCode < 300);
-				this.recordRawProxyStats(modelName, requestId, responseBytes);
-				this.writeRawProxyResponse(ctx, responseCode, connection.getContentType(), responseBytes);
+				this.streamRawProxyResponse(ctx, connection, responseCode, modelName, requestId, true);
 			} catch (Exception e) {
 				logger.info("转发原始 JSON 请求时发生错误: endpoint={}", endpoint, e);
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
@@ -616,56 +612,7 @@ public class OpenAIService {
 				int responseCode = connection.getResponseCode();
 				ModelRequestTracker.getInstance().updatePhase(requestId, ActiveRequest.Phase.GENERATION);
 
-				String responseBody;
-				if (responseCode >= 200 && responseCode < 300) {
-					try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-						StringBuilder sb = new StringBuilder();
-						String line;
-						while ((line = br.readLine()) != null) {
-							sb.append(line);
-						}
-						responseBody = sb.toString();
-					}
-				} else {
-					try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8))) {
-						StringBuilder sb = new StringBuilder();
-						String line;
-						while ((line = br.readLine()) != null) {
-							sb.append(line);
-						}
-						responseBody = sb.toString();
-					}
-					FullHttpResponse errResp = new DefaultFullHttpResponse(
-						HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
-					errResp.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
-					byte[] errBytes = responseBody.getBytes(StandardCharsets.UTF_8);
-					errResp.headers().set(HttpHeaderNames.CONTENT_LENGTH, errBytes.length);
-					errResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-					errResp.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-					errResp.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
-					errResp.content().writeBytes(errBytes);
-					ctx.writeAndFlush(errResp).addListener(ChannelFutureListener.CLOSE);
-					return;
-				}
-
-				JsonObject parsed = JsonUtil.tryParseObject(responseBody);
-				if (parsed != null && parsed.has("timings")) {
-					try {
-						Timing timing = JsonUtil.fromJson(parsed.get("timings"), Timing.class);
-						ModelRequestTracker.getInstance().updateTiming(requestId, timing);
-					} catch (Exception ignore) {}
-				}
-				LlamaRecordService.getInstance().handleStream(modelName, responseBody, requestId);
-
-				FullHttpResponse response = new DefaultFullHttpResponse(
-					HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
-				response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json; charset=UTF-8");
-				byte[] respBytes = responseBody.getBytes(StandardCharsets.UTF_8);
-				response.headers().set(HttpHeaderNames.CONTENT_LENGTH, respBytes.length);
-				response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-				response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
-				response.content().writeBytes(respBytes);
-				ctx.writeAndFlush(response);
+				this.streamRawProxyResponse(ctx, connection, responseCode, modelName, requestId, responseCode >= 200 && responseCode < 300);
 			} catch (Exception e) {
 				logger.info("转发非流式请求到远程节点时发生错误", e);
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
@@ -882,54 +829,92 @@ public class OpenAIService {
 				!headerName.equalsIgnoreCase("X-Node-Id");
 	}
 
-	private byte[] readConnectionBodyBytes(HttpURLConnection connection, boolean success) throws IOException {
-		InputStream stream = success ? connection.getInputStream() : connection.getErrorStream();
-		if (stream == null) {
-			return new byte[0];
-		}
-		try (InputStream in = stream; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-			byte[] buffer = new byte[8192];
-			int read;
-			while ((read = in.read(buffer)) != -1) {
-				out.write(buffer, 0, read);
-			}
-			return out.toByteArray();
-		}
-	}
+	/** 边收边下发时保留的响应尾部字节数（llama.cpp/OpenAI 的 timings、usage 均在 JSON 末尾，16KB 足够覆盖） */
+	private static final int RAW_PROXY_TAIL_BYTES = 16 * 1024;
 
-	private void recordRawProxyStats(String modelName, String requestId, byte[] responseBytes) {
-		if (responseBytes == null || responseBytes.length == 0) {
-			return;
-		}
-		// 注意：responseBody 需传给 LlamaRecordService.handleStream 持久化，
-		// 此处无法避免 byte[] -> String 的完整拷贝；若要消除需改造记录服务为流式解析（后续优化项）
-		String responseBody = new String(responseBytes, StandardCharsets.UTF_8);
-		JsonObject parsed = JsonUtil.tryParseObject(responseBody);
-		if (parsed == null) {
-			return;
-		}
-		if (parsed.has("timings")) {
-			try {
-				Timing timing = JsonUtil.fromJson(parsed.get("timings"), Timing.class);
-				ModelRequestTracker.getInstance().updateTiming(requestId, timing);
-			} catch (Exception ignore) {
-			}
-		}
-		LlamaRecordService.getInstance().handleStream(modelName, responseBody, requestId);
-	}
-
-	private void writeRawProxyResponse(ChannelHandlerContext ctx, int responseCode, String contentType, byte[] bodyBytes) {
-		byte[] bytes = bodyBytes == null ? new byte[0] : bodyBytes;
-		FullHttpResponse response = new DefaultFullHttpResponse(
-			HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
+	/**
+	 * 边收边下发：将上游非流式响应以 chunked 方式流式写给客户端，
+	 * 同时只保留尾部 {@link #RAW_PROXY_TAIL_BYTES} 字节用于提取 timings/usage 统计，避免全量缓冲响应体。
+	 *
+	 * @param recordStats 是否从尾部片段提取 timings/usage 并记录
+	 */
+	private void streamRawProxyResponse(ChannelHandlerContext ctx, HttpURLConnection connection,
+			int responseCode, String modelName, String requestId, boolean recordStats) throws IOException {
+		String contentType = connection.getContentType();
+		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(responseCode));
 		response.headers().set(HttpHeaderNames.CONTENT_TYPE,
 				(contentType == null || contentType.isBlank()) ? "application/json; charset=UTF-8" : contentType);
-		response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
+		response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
 		response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
-		response.content().writeBytes(bytes);
-		ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+		if (!NettyWriteHelper.writeAndFlushBlocking(ctx, response, logger, "[OpenAIService-raw]")) {
+			return;
+		}
+		boolean success = responseCode >= 200 && responseCode < 300;
+		InputStream in = success ? connection.getInputStream() : connection.getErrorStream();
+		TailBuffer tail = recordStats ? new TailBuffer(RAW_PROXY_TAIL_BYTES) : null;
+		if (in != null) {
+			try {
+				byte[] buffer = new byte[8192];
+				int read;
+				while ((read = in.read(buffer)) != -1) {
+					if (tail != null) {
+						tail.append(buffer, read);
+					}
+					ByteBuf content = ctx.alloc().buffer(read);
+					content.writeBytes(buffer, 0, read);
+					if (!NettyWriteHelper.writeAndFlushBlocking(ctx, new DefaultHttpContent(content), logger, "[OpenAIService-raw]")) {
+						return;
+					}
+				}
+			} finally {
+				in.close();
+			}
+		}
+		if (ctx.channel().isActive()
+				&& NettyWriteHelper.writeAndFlushBlocking(ctx, LastHttpContent.EMPTY_LAST_CONTENT, logger, "[OpenAIService-raw]")) {
+			ctx.close();
+		}
+		if (tail != null) {
+			Timing timing = LlamaRecordService.getInstance().handleStreamTail(modelName, tail.toUtf8String(), requestId);
+			if (requestId != null && timing != null) {
+				ModelRequestTracker.getInstance().updateTiming(requestId, timing);
+			}
+		}
+	}
+
+	/**
+	 * 尾部环形缓冲：只保留最后写入的 N 字节，用于流式场景下提取末尾的 timings/usage。
+	 */
+	private static final class TailBuffer {
+		private final byte[] data;
+		private long count = 0;
+
+		TailBuffer(int capacity) {
+			this.data = new byte[capacity];
+		}
+
+		void append(byte[] src, int len) {
+			int cap = this.data.length;
+			int off = len > cap ? len - cap : 0; // 单次写入超过容量时只保留末尾 cap 字节
+			int n = len - off;
+			for (int i = 0; i < n; i++) {
+				this.data[(int) ((this.count + i) % cap)] = src[off + i];
+			}
+			this.count += n;
+		}
+
+		String toUtf8String() {
+			int cap = this.data.length;
+			int size = (int) Math.min(this.count, cap);
+			byte[] out = new byte[size];
+			long first = this.count - size;
+			for (int i = 0; i < size; i++) {
+				out[i] = this.data[(int) ((first + i) % cap)];
+			}
+			return new String(out, StandardCharsets.UTF_8);
+		}
 	}
 
 	private String[] resolveFromRemoteNodes(String modelName, String logTag) {
@@ -993,12 +978,12 @@ public class OpenAIService {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null || bodyBytes.length == 0) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "query");
 				return;
 			}
-			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject requestJson = JsonUtil.fromJson(bodyBytes, JsonObject.class);
 			if (requestJson == null) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is not a valid JSON object", null);
 				return;
@@ -1104,13 +1089,13 @@ public class OpenAIService {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null || bodyBytes.length == 0) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "input");
 				return;
 			}
 
-			JsonObject requestJson = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject requestJson = JsonUtil.fromJson(bodyBytes, JsonObject.class);
 			if (requestJson == null) {
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is not a valid JSON object", null);
 				return;
@@ -1432,15 +1417,7 @@ public class OpenAIService {
 				int responseCode = connection.getResponseCode();
 				ModelRequestTracker.getInstance().updatePhase(requestId, ActiveRequest.Phase.GENERATION);
 
-				String contentType = connection.getContentType();
-				byte[] responseBytes;
-				if (responseCode >= 200 && responseCode < 300) {
-					responseBytes = this.readConnectionBodyBytes(connection, true);
-					this.recordRawProxyStats(modelName, requestId, responseBytes);
-				} else {
-					responseBytes = this.readConnectionBodyBytes(connection, false);
-				}
-				this.writeRawProxyResponse(ctx, responseCode, contentType, responseBytes);
+				this.streamRawProxyResponse(ctx, connection, responseCode, modelName, requestId, responseCode >= 200 && responseCode < 300);
 			} catch (Exception e) {
 				logger.info("转发音频转录请求到远程节点时发生错误", e);
 				this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
