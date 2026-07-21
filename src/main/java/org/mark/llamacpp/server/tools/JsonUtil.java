@@ -18,9 +18,10 @@ import com.google.gson.JsonObject;
 import org.mark.llamacpp.server.LlamaServer;
 import org.mark.llamacpp.server.struct.ApiResponse;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.util.CharsetUtil;
 
 public class JsonUtil {
 
@@ -110,21 +111,78 @@ public class JsonUtil {
 	
 	public static JsonObject parseFullHttpRequestToJsonObject(FullHttpRequest request, ChannelHandlerContext ctx) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bytes = readRequestBytes(request);
+			if (bytes == null || bytes.length == 0 || isBlank(bytes)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return null;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
-			if (obj == null) {
-				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
+			try {
+				JsonElement el = gson.fromJson(
+						new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8),
+						JsonElement.class);
+				if (el == null || !el.isJsonObject()) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
+					return null;
+				}
+				return el.getAsJsonObject();
+			} catch (Exception e) {
+				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE_FAILED + ": " + e.getMessage()));
 				return null;
 			}
-			return obj;
 		} catch (Exception e) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE_FAILED + ": " + e.getMessage()));
 			return null;
 		}
+	}
+
+	/**
+	 * 	读取请求体字节数组（仅一次拷贝，不生成中间 String）；body 为空时返回 null。
+	 */
+	public static byte[] readRequestBytes(FullHttpRequest request) {
+		if (request == null) {
+			return null;
+		}
+		ByteBuf buf = request.content();
+		if (buf == null || !buf.isReadable()) {
+			return null;
+		}
+		return ByteBufUtil.getBytes(buf);
+	}
+
+	/**
+	 * 	判断字节数组是否全是 ASCII 空白字符（等价于原 String.trim().isEmpty() 判空）。
+	 */
+	public static boolean isBlank(byte[] bytes) {
+		for (byte b : bytes) {
+			if (b != ' ' && b != '\t' && b != '\r' && b != '\n') {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * 	直接按字节解析请求体为 JsonObject，避免整串 String 拷贝；body 为空或解析失败时返回 null。
+	 */
+	public static JsonObject parseRequestBody(FullHttpRequest request) {
+		return tryParseObject(readRequestBytes(request));
+	}
+
+	/**
+	 * 	直接解析 UTF-8 字节数组，避免先整体拷贝成 String。
+	 */
+	public static <T> T fromJson(byte[] bytes, Class<T> type) {
+		if (bytes == null || bytes.length == 0) {
+			return null;
+		}
+		return gson.fromJson(new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8), type);
+	}
+
+	public static <T> T fromJson(byte[] bytes, Type type) {
+		if (bytes == null || bytes.length == 0) {
+			return null;
+		}
+		return gson.fromJson(new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8), type);
 	}
 
 	public static Integer getJsonInt(JsonObject o, String key, Integer fallback) {

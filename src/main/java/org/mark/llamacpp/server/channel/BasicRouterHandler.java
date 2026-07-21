@@ -54,6 +54,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -162,7 +163,12 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 		// 3.
 		if(LlamaServer.logRequestBody) {
-			logger.info("DEBUG - 请求体：{}", request.content().toString(CharsetUtil.UTF_8));
+			// 只打印前 8KB，避免大请求体整串拷贝刷日志
+			ByteBuf body = request.content();
+			int bodySize = body.readableBytes();
+			int logLen = Math.min(bodySize, 8192);
+			logger.info("DEBUG - 请求体：{}{}", body.toString(body.readerIndex(), logLen, CharsetUtil.UTF_8),
+					bodySize > logLen ? "...(已截断，共" + bodySize + "字节)" : "");
 		}
 		
 		// 傻逼浏览器不知道为什么一直在他妈的访问/.well-known/appspecific/com.chrome.devtools.json
@@ -680,13 +686,13 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	private void handleUnloadModel(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 				return;
 			}
 
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
 			if (obj == null) {
 				LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);
 				return;

@@ -32,6 +32,7 @@ import org.mark.llamacpp.server.LlamaServerManager;
 import org.mark.llamacpp.server.io.NettyWriteHelper;
 import org.mark.llamacpp.server.tools.CommandLineRunner;
 import org.mark.llamacpp.server.tools.JsonUtil;
+import org.mark.llamacpp.server.util.TailCharBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,7 +152,8 @@ public class PerplexityService {
 		}
 
 		Process process = null;
-		StringBuilder rawOutput = new StringBuilder();
+		// 只保留尾部 64KB：llama-perplexity 的最终结果行在输出末尾，完整输出可能远超堆预算
+		TailCharBuffer rawOutput = new TailCharBuffer(64 * 1024);
 		long startTime = System.currentTimeMillis();
 		try {
 			List<String> rawCommand = buildCommand(perplexityExe, modelPath, testFile, ctxSize, ngl, pplStride,

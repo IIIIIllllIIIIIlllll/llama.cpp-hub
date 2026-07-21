@@ -1,5 +1,6 @@
 package org.mark.llamacpp.server.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -21,7 +22,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.util.CharsetUtil;
 
 /**
  * 工具控制器类，负责处理与工具执行和 MCP (Model Context Protocol) 相关的 HTTP 请求。
@@ -102,7 +102,7 @@ public class ToolController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = readRequestBodyOrSendError(ctx, request);
+			byte[] content = readRequestBodyOrSendError(ctx, request);
 			if (content == null) {
 				return;
 			}
@@ -160,9 +160,9 @@ public class ToolController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = readRequestBodyOrSendError(ctx, request);
+			byte[] content = readRequestBodyOrSendError(ctx, request);
 			if (content == null) return;
-			String body = content;
+			String body = new String(content, StandardCharsets.UTF_8);
 			ioExecutor.execute(() -> {
 				try {
 					mcpClientService.addFromConfigJson(body);
@@ -213,7 +213,7 @@ public class ToolController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = readRequestBodyOrSendError(ctx, request);
+			byte[] content = readRequestBodyOrSendError(ctx, request);
 			if (content == null) return;
 
 			JsonObject obj = parseJsonObjectOrSendError(ctx, content);
@@ -246,7 +246,7 @@ public class ToolController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = readRequestBodyOrSendError(ctx, request);
+			byte[] content = readRequestBodyOrSendError(ctx, request);
 			if (content == null) return;
 
 			JsonObject obj = parseJsonObjectOrSendError(ctx, content);
@@ -297,16 +297,16 @@ public class ToolController implements BaseController {
 	/**
 	 * 读取请求体内容，如果为空则发送错误响应。
 	 */
-	private static String readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
-		String content = request.content().toString(CharsetUtil.UTF_8);
-		if (content == null || content.trim().isEmpty()) {
+	private static byte[] readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
+		byte[] content = JsonUtil.readRequestBytes(request);
+		if (content == null || content.length == 0) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
 			return null;
 		}
 		return content;
 	}
 
-	private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, String content) {
+	private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, byte[] content) {
 		JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 		if (obj == null) {
 			LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);

@@ -134,25 +134,28 @@ public class LlamaRecordService {
 			e.setModelId(id);
 			return e;
 		});
-		entry.setTotalCacheTokens(entry.getTotalCacheTokens() + record.cacheN);
-		entry.setTotalPromptTokens(entry.getTotalPromptTokens() + record.promptN);
-		entry.setTotalPredictedTokens(entry.getTotalPredictedTokens() + record.predictedN);
-		entry.setTotalTokens(entry.getTotalPromptTokens() + entry.getTotalPredictedTokens());
-		entry.setTotalPromptMs(entry.getTotalPromptMs() + record.promptMs);
-		entry.setTotalPredictedMs(entry.getTotalPredictedMs() + record.predictedMs);
-		entry.setTotalDraftTokens(entry.getTotalDraftTokens() + record.draftN);
-		entry.setTotalDraftAccepted(entry.getTotalDraftAccepted() + record.draftNAccepted);
-		if (record.predictedN > 1 && record.draftN == 0 && record.predictedPerSecond > entry.getMaxPredictedPerSecond()) {
-			entry.setMaxPredictedPerSecond(record.predictedPerSecond);
+		// entry 内同步：多个虚拟线程并发累加时避免读-改-写丢更新（压测实测 399/400）
+		synchronized (entry) {
+			entry.setTotalCacheTokens(entry.getTotalCacheTokens() + record.cacheN);
+			entry.setTotalPromptTokens(entry.getTotalPromptTokens() + record.promptN);
+			entry.setTotalPredictedTokens(entry.getTotalPredictedTokens() + record.predictedN);
+			entry.setTotalTokens(entry.getTotalPromptTokens() + entry.getTotalPredictedTokens());
+			entry.setTotalPromptMs(entry.getTotalPromptMs() + record.promptMs);
+			entry.setTotalPredictedMs(entry.getTotalPredictedMs() + record.predictedMs);
+			entry.setTotalDraftTokens(entry.getTotalDraftTokens() + record.draftN);
+			entry.setTotalDraftAccepted(entry.getTotalDraftAccepted() + record.draftNAccepted);
+			if (record.predictedN > 1 && record.draftN == 0 && record.predictedPerSecond > entry.getMaxPredictedPerSecond()) {
+				entry.setMaxPredictedPerSecond(record.predictedPerSecond);
+			}
+			if (record.predictedN > 1 && record.draftN == 0 && record.promptPerSecond > entry.getMaxPromptPerSecond()) {
+				entry.setMaxPromptPerSecond(record.promptPerSecond);
+			}
+			if (record.predictedN > 1) {
+				entry.setTotalPredictedPerSecond(entry.getTotalPredictedPerSecond() + record.predictedPerSecond);
+				entry.setTotalPromptPerSecond(entry.getTotalPromptPerSecond() + record.promptPerSecond);
+			}
+			entry.setRecordCount(entry.getRecordCount() + 1);
 		}
-		if (record.predictedN > 1 && record.draftN == 0 && record.promptPerSecond > entry.getMaxPromptPerSecond()) {
-			entry.setMaxPromptPerSecond(record.promptPerSecond);
-		}
-		if (record.predictedN > 1) {
-			entry.setTotalPredictedPerSecond(entry.getTotalPredictedPerSecond() + record.predictedPerSecond);
-			entry.setTotalPromptPerSecond(entry.getTotalPromptPerSecond() + record.promptPerSecond);
-		}
-		entry.setRecordCount(entry.getRecordCount() + 1);
 	}
 
     /**
@@ -367,6 +370,89 @@ public class LlamaRecordService {
 			logger.error("Failed to parse stream JSON for modelId={}", modelId, e);
 		}
 		return data;
+	}
+
+	/**
+	 * 从响应尾部片段提取 timings/usage 并记录（用于边收边下发的流式代理，避免全量缓冲响应体）。
+	 * llama.cpp / OpenAI 非流式响应的 timings、usage 字段均在 JSON 末尾，尾部片段即可覆盖。
+	 *
+	 * @param modelId   模型唯一标识
+	 * @param tail      响应尾部片段（通常最后 16KB；小响应则为完整响应）
+	 * @param requestId 请求 ID（用于写入 .requests.log）
+	 * @return 解析出的本次 Timing 数据
+	 */
+	public Timing handleStreamTail(String modelId, String tail, String requestId) {
+		if (tail == null || tail.isEmpty()) {
+			return null;
+		}
+		Timing data = null;
+		try {
+			String timingsJson = extractJsonObjectValue(tail, "timings");
+			if (timingsJson != null) {
+				data = this.gson.fromJson(timingsJson, Timing.class);
+				this.recordTiming(modelId, data);
+				return data;
+			}
+			if (requestId != null) {
+				String usageJson = extractJsonObjectValue(tail, "usage");
+				if (usageJson != null) {
+					this.recordUsage(requestId, modelId, JsonParser.parseString(usageJson).getAsJsonObject());
+				}
+			}
+		} catch (Exception e) {
+			logger.error("Failed to parse stream tail for modelId={}", modelId, e);
+		}
+		return data;
+	}
+
+	/**
+	 * 在 JSON 文本（可能被截断的尾部片段）中定位 "key":{...} 并按平衡大括号提取子对象。
+	 * 从尾部向前找最后一次出现，避开生成内容中可能包含的同名字段。
+	 */
+	private static String extractJsonObjectValue(String text, String key) {
+		String quoted = "\"" + key + "\"";
+		int idx = text.lastIndexOf(quoted);
+		if (idx < 0) {
+			return null;
+		}
+		int colon = text.indexOf(':', idx + quoted.length());
+		if (colon < 0) {
+			return null;
+		}
+		int i = colon + 1;
+		while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+			i++;
+		}
+		if (i >= text.length() || text.charAt(i) != '{') {
+			return null;
+		}
+		int depth = 0;
+		boolean inStr = false;
+		boolean esc = false;
+		for (int j = i; j < text.length(); j++) {
+			char c = text.charAt(j);
+			if (inStr) {
+				if (esc) {
+					esc = false;
+				} else if (c == '\\') {
+					esc = true;
+				} else if (c == '"') {
+					inStr = false;
+				}
+			} else {
+				if (c == '"') {
+					inStr = true;
+				} else if (c == '{') {
+					depth++;
+				} else if (c == '}') {
+					depth--;
+					if (depth == 0) {
+						return text.substring(i, j + 1);
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

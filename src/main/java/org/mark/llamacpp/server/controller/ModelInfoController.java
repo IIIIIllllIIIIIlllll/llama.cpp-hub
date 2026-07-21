@@ -34,7 +34,6 @@ import com.google.gson.reflect.TypeToken;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.CharsetUtil;
 
 
 /**
@@ -306,12 +305,12 @@ public class ModelInfoController implements BaseController {
     private void handleModelCapabilitiesSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.tryParseObject(bodyBytes);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -467,12 +466,12 @@ public class ModelInfoController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.tryParseObject(bodyBytes);
 			if (json == null || !json.has("modelId") || !json.has("alias")) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_OR_ALIAS_REQUIRED));
 				return;
@@ -551,12 +550,12 @@ public class ModelInfoController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.tryParseObject(bodyBytes);
 			if (json == null || !json.has("modelId")) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_MODELID_MISSING));
 				return;
@@ -639,12 +638,12 @@ public class ModelInfoController implements BaseController {
 	private void handleModelConfigSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonElement root = JsonUtil.fromJson(content, JsonElement.class);
+			JsonElement root = JsonUtil.fromJson(bodyBytes, JsonElement.class);
 			if (root == null || !root.isJsonObject()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 				return;
@@ -735,12 +734,12 @@ public class ModelInfoController implements BaseController {
 	private void handleModelConfigDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_NOT_JSON));
 				return;
@@ -782,12 +781,12 @@ public class ModelInfoController implements BaseController {
     private void handleModelConfigSharedSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
         this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         try {
-            String content = request.content().toString(CharsetUtil.UTF_8);
-            if (content == null || content.trim().isEmpty()) {
+            byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+            if (bodyBytes == null) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
                 return;
             }
-            JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+            JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
             if (obj == null) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
                 return;
@@ -854,12 +853,12 @@ public class ModelInfoController implements BaseController {
     private void handleModelConfigSharedDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
         this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
         try {
-            String content = request.content().toString(CharsetUtil.UTF_8);
-            if (content == null || content.trim().isEmpty()) {
+            byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+            if (bodyBytes == null) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
                 return;
             }
-            JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+            JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
             if (obj == null) {
                 LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
                 return;
@@ -1020,12 +1019,12 @@ public class ModelInfoController implements BaseController {
 	private void handleModelTemplateSetRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1080,12 +1079,12 @@ public class ModelInfoController implements BaseController {
 	private void handleModelTemplateDeleteRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1216,12 +1215,12 @@ public class ModelInfoController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.tryParseObject(bodyBytes);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1257,12 +1256,12 @@ public class ModelInfoController implements BaseController {
 	private void handleChatTemplateKwargsSet(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1334,12 +1333,12 @@ public class ModelInfoController implements BaseController {
 	private void handleChatTemplateKwargsDelete(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.tryParseObject(bodyBytes);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1377,12 +1376,12 @@ public class ModelInfoController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.tryParseObject(bodyBytes);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1451,9 +1450,7 @@ public class ModelInfoController implements BaseController {
 			return;
 		}
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			JsonObject body = content != null && !content.trim().isEmpty()
-					? JsonUtil.fromJson(content, JsonObject.class) : null;
+			JsonObject body = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
 			if (body != null) {
 				body.remove("nodeId");
 				if (body.size() == 0) body = null;

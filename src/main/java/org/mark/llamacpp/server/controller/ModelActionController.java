@@ -34,6 +34,7 @@ import org.mark.llamacpp.server.struct.ApiResponse;
 import org.mark.llamacpp.server.tools.ChatTemplateFileTool;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
+import org.mark.llamacpp.server.util.TailCharBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +43,6 @@ import com.google.gson.JsonObject;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.CharsetUtil;
 
 /**
  * 	关于模型的控制器。
@@ -513,13 +513,13 @@ public class ModelActionController implements BaseController {
 	private void handleStopModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.fromJson(body, JsonObject.class);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -796,13 +796,13 @@ public class ModelActionController implements BaseController {
 			throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.fromJson(body, JsonObject.class);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -925,13 +925,13 @@ public class ModelActionController implements BaseController {
 	private void handleLoadModelRequest(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
 
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.fromJson(body, JsonObject.class);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1117,12 +1117,12 @@ public class ModelActionController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.fromJson(body, JsonObject.class);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1256,7 +1256,8 @@ public class ModelActionController implements BaseController {
 				}
 			}
 			Process process = pb.start();
-			StringBuilder output = new StringBuilder();
+			// 只保留尾部 64KB：llama-bench 的结果表格在输出末尾，完整输出可能远超堆预算
+			TailCharBuffer output = new TailCharBuffer(64 * 1024);
 			try (BufferedReader reader = new BufferedReader(
 					new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
 				String line;
@@ -1316,12 +1317,12 @@ public class ModelActionController implements BaseController {
 	private void handleModelBenchmarkV2(ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.fromJson(body, JsonObject.class);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
@@ -1471,12 +1472,12 @@ public class ModelActionController implements BaseController {
 		this.assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject json = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject json = JsonUtil.fromJson(body, JsonObject.class);
 			if (json == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;

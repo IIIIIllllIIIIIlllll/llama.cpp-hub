@@ -34,7 +34,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedFile;
-import io.netty.util.CharsetUtil;
 
 public class BuildController implements BaseController {
 
@@ -117,7 +116,7 @@ public class BuildController implements BaseController {
         assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
-            String content = readRequestBodyOrSendError(ctx, request);
+            byte[] content = readRequestBodyOrSendError(ctx, request);
             if (content == null) {
                 return;
             }
@@ -241,9 +240,9 @@ public class BuildController implements BaseController {
         assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
-            String content = request.content().toString(CharsetUtil.UTF_8);
+            byte[] content = JsonUtil.readRequestBytes(request);
             String taskId = null;
-            if (content != null && !content.trim().isEmpty()) {
+            if (content != null && content.length > 0) {
                 JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
                 if (obj != null) {
                     taskId = trimToNull(JsonUtil.getJsonString(obj, "taskId", null));
@@ -272,7 +271,7 @@ public class BuildController implements BaseController {
         assertRequestMethod(request.method() != HttpMethod.POST, I18N_METHOD_POST_ONLY);
 
         try {
-            String content = readRequestBodyOrSendError(ctx, request);
+            byte[] content = readRequestBodyOrSendError(ctx, request);
             if (content == null) {
                 return;
             }
@@ -502,16 +501,16 @@ public class BuildController implements BaseController {
         return true;
     }
 
-    private static String readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
-        String content = request.content().toString(CharsetUtil.UTF_8);
-        if (content == null || content.trim().isEmpty()) {
+    private static byte[] readRequestBodyOrSendError(ChannelHandlerContext ctx, FullHttpRequest request) {
+        byte[] content = JsonUtil.readRequestBytes(request);
+        if (content == null || content.length == 0) {
             LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_EMPTY);
             return null;
         }
         return content;
     }
 
-    private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, String content) {
+    private static JsonObject parseJsonObjectOrSendError(ChannelHandlerContext ctx, byte[] content) {
         JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
         if (obj == null) {
             LlamaServer.sendJsonErrorResponse(ctx, HttpResponseStatus.BAD_REQUEST, I18N_BODY_PARSE);

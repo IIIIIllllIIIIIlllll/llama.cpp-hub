@@ -18,7 +18,6 @@ import java.util.Map;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.CharsetUtil;
 
 public class AutoLoadPolicyController implements BaseController {
 
@@ -93,8 +92,8 @@ public class AutoLoadPolicyController implements BaseController {
 
 	private void handleSetPolicy(ChannelHandlerContext ctx, FullHttpRequest request) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] content = JsonUtil.readRequestBytes(request);
+			if (content == null || content.length == 0) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
@@ -182,8 +181,8 @@ public class AutoLoadPolicyController implements BaseController {
 
 			// 如果查询参数中没有，尝试从请求体获取
 			if (modelId == null || modelId.trim().isEmpty()) {
-				String content = request.content().toString(CharsetUtil.UTF_8);
-				if (content != null && !content.trim().isEmpty()) {
+				byte[] content = JsonUtil.readRequestBytes(request);
+				if (content != null && content.length > 0) {
 					JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
 					if (obj != null) {
 						modelId = JsonUtil.getJsonString(obj, "modelId");
@@ -272,8 +271,8 @@ public class AutoLoadPolicyController implements BaseController {
 			return;
 		}
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			JsonObject body = content != null && !content.trim().isEmpty()
+			byte[] content = JsonUtil.readRequestBytes(request);
+			JsonObject body = content != null && content.length > 0
 					? JsonUtil.fromJson(content, JsonObject.class) : null;
 			if (body != null) {
 				body.remove("nodeId");

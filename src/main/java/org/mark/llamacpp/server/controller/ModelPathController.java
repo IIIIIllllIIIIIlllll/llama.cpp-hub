@@ -26,7 +26,6 @@ import com.google.gson.JsonObject;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.CharsetUtil;
 
 /**
  * 	
@@ -60,9 +59,7 @@ public class ModelPathController implements BaseController {
 
 	private void proxyPostRemote(ChannelHandlerContext ctx, FullHttpRequest request, String nodeId, String path) {
 		try {
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			JsonObject body = content != null && !content.trim().isEmpty()
-					? JsonUtil.fromJson(content, JsonObject.class) : null;
+			JsonObject body = JsonUtil.fromJson(JsonUtil.readRequestBytes(request), JsonObject.class);
 			if (body != null) {
 				body.remove("nodeId");
 				if (body.size() == 0) body = null;
@@ -92,7 +89,6 @@ public class ModelPathController implements BaseController {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_REMOTE_CALL_FAILED + ": " + e.getMessage()));
 		}
 	}
-	
 	
 	@Override
 	public boolean handleRequest(String uri, ChannelHandlerContext ctx, FullHttpRequest request) throws RequestMethodException {
@@ -136,12 +132,12 @@ public class ModelPathController implements BaseController {
 				this.proxyPostRemote(ctx, request, nodeId, "api/model/path/add");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			ModelPathDataStruct reqData = JsonUtil.fromJson(content, ModelPathDataStruct.class);
+			ModelPathDataStruct reqData = JsonUtil.fromJson(body, ModelPathDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
@@ -240,12 +236,12 @@ public class ModelPathController implements BaseController {
 				this.proxyPostRemote(ctx, request, nodeId, "api/model/path/remove");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			ModelPathDataStruct reqData = JsonUtil.fromJson(content, ModelPathDataStruct.class);
+			ModelPathDataStruct reqData = JsonUtil.fromJson(body, ModelPathDataStruct.class);
 			if (reqData == null || reqData.getPath() == null || reqData.getPath().trim().isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_PATH_EMPTY));
 				return;
@@ -294,12 +290,12 @@ public class ModelPathController implements BaseController {
 				this.proxyPostRemote(ctx, request, nodeId, "api/model/path/update");
 				return;
 			}
-			String content = request.content().toString(CharsetUtil.UTF_8);
-			if (content == null || content.trim().isEmpty()) {
+			byte[] body = JsonUtil.readRequestBytes(request);
+			if (body == null || JsonUtil.isBlank(body)) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_EMPTY));
 				return;
 			}
-			JsonObject obj = JsonUtil.fromJson(content, JsonObject.class);
+			JsonObject obj = JsonUtil.fromJson(body, JsonObject.class);
 			if (obj == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_BODY_PARSE));
 				return;
