@@ -1726,12 +1726,27 @@ public class LlamaServer {
 			tray.addButton(btnRestart, () -> {
 				LlamaServer.restartApplication();
 			});
-			tray.addCheckBoxButton(btnAutoStart, AutoStartManager.isAutoStartEnabled(), () -> {
+			String autoStartId = "autostart-toggle";
+			tray.addCheckBoxButton(autoStartId, btnAutoStart, AutoStartManager.isAutoStartEnabled(), () -> {
 				boolean current = AutoStartManager.isAutoStartEnabled();
+				boolean success;
 				if (current) {
-					AutoStartManager.disableAutoStart();
+					success = AutoStartManager.disableAutoStart();
 				} else {
-					AutoStartManager.enableAutoStart();
+					success = AutoStartManager.enableAutoStart();
+				}
+				if (!success) {
+					tray.setCheckBoxSelected(autoStartId, current);
+					javax.swing.JOptionPane.showMessageDialog(null,
+						current ? (isChinese ? "关闭开机自启失败" : "Failed to disable auto start")
+								: (isChinese ? "设置开机自启失败，请确认 llama.cpp-hub.exe 存在"
+											: "Failed to enable auto start. Ensure llama.cpp-hub.exe exists."),
+						"llama.cpp-hub", javax.swing.JOptionPane.ERROR_MESSAGE);
+				} else {
+					javax.swing.JOptionPane.showMessageDialog(null,
+						current ? (isChinese ? "已关闭开机自启" : "Auto start disabled")
+								: (isChinese ? "已开启开机自启" : "Auto start enabled"),
+						"llama.cpp-hub", javax.swing.JOptionPane.INFORMATION_MESSAGE);
 				}
 			});
 			tray.addSeparator();
