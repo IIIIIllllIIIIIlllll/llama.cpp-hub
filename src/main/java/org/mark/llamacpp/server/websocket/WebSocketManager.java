@@ -108,6 +108,8 @@ public class WebSocketManager {
                 return true;
             }
         });
+        // 兜底清理：connections 中已不存在的 connectionStatus 条目（如握手后未发 connect 即断开的客户端）
+        connectionStatus.keySet().removeIf(id -> !connections.containsKey(id));
     }
     
     /**

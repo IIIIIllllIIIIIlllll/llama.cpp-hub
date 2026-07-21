@@ -1276,7 +1276,13 @@
                 }
 
                 const consoleEl = document.getElementById('historyConsole');
-                consoleEl.textContent = task.output || '(无输出)';
+                try {
+                    const outResp = await fetch('/api/build/output?taskId=' + encodeURIComponent(taskId));
+                    const outText = await outResp.text();
+                    consoleEl.textContent = outText || '(无输出)';
+                } catch (outErr) {
+                    consoleEl.textContent = '(无输出)';
+                }
                 document.getElementById('historyModal').classList.add('show');
             } catch (err) {
                 showToast('加载失败', err.message, 'error');
@@ -1338,8 +1344,14 @@
 
                 const consoleEl = document.getElementById('console');
                 consoleEl.textContent = '';
-                if (task.output) {
-                    appendConsole(task.output, 'info');
+                try {
+                    const outResp = await fetch('/api/build/output?taskId=' + encodeURIComponent(task.taskId));
+                    const outText = await outResp.text();
+                    if (outText) {
+                        appendConsole(outText, 'info');
+                    }
+                } catch (outErr) {
+                    // 日志加载失败不影响任务状态恢复
                 }
 
                 const status = (task.status || 'pending').toLowerCase();

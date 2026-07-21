@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
@@ -33,9 +36,30 @@ public class LlamaRecordService {
 	private static final LlamaRecordService INSTANCE = new LlamaRecordService();
 	private final Gson gson = JsonUtil.gson();
 	private static final String RECORD_DIR = "cache/record/";
-	private final Map<String, BinaryRequestLog> logMap = new ConcurrentHashMap<>();
+	private final Map<String, LogEntry> logMap = new ConcurrentHashMap<>();
 	private final AtomicLong totalRecordCount = new AtomicLong(0);
 	private final Map<String, TokenSummaryEntry> tokenSummaryCache = new ConcurrentHashMap<>();
+
+	/**
+	 * 日志句柄空闲超时：超过该时间未写入的 BinaryRequestLog 会被关闭（下次写入时自动重开）。
+	 * 解决旧实现中 FileChannel 打开后永不关闭的句柄泄漏。
+	 */
+	private static final long LOG_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+	private static final long LOG_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
+	/**
+	 * logMap 的条目：append 与 close 在同一个 entry 监视器下进行，保证无竞态。
+	 */
+	private static final class LogEntry {
+		final BinaryRequestLog log;
+		volatile long lastUsed;
+		volatile boolean closed;
+
+		LogEntry(BinaryRequestLog log) {
+			this.log = log;
+			this.lastUsed = System.currentTimeMillis();
+		}
+	}
 
 	public static LlamaRecordService getInstance() {
 		return INSTANCE;
@@ -50,6 +74,10 @@ public class LlamaRecordService {
 		} catch (IOException e) {
 			logger.error("Failed to initialize LlamaRecordService", e);
 		}
+		ScheduledExecutorService sweeper = new ScheduledThreadPoolExecutor(1,
+				Thread.ofVirtual().name("record-log-sweeper-", 0).factory());
+		sweeper.scheduleWithFixedDelay(this::sweepIdleLogs, LOG_SWEEP_INTERVAL_MS, LOG_SWEEP_INTERVAL_MS,
+				TimeUnit.MILLISECONDS);
 	}
 
     private void loadTotalRecordCount() {
@@ -127,14 +155,62 @@ public class LlamaRecordService {
 		entry.setRecordCount(entry.getRecordCount() + 1);
 	}
 
-    private BinaryRequestLog getLog(String modelId) throws IOException {
-        return this.logMap.computeIfAbsent(modelId, id -> {
-            try {
-                return new BinaryRequestLog(Paths.get(RECORD_DIR + id + ".requests.bin"));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+    /**
+     * 向指定模型的日志追加一条记录。
+     * append 与清扫器的 close 在同一个 entry 监视器下互斥；
+     * 若条目已被清扫关闭，则摘除后重建（重开文件），对调用方透明。
+     */
+    private void appendRecord(String modelId, RequestLogRecord record) throws IOException {
+        while (true) {
+            LogEntry entry = this.logMap.computeIfAbsent(modelId, id -> {
+                try {
+                    return new LogEntry(new BinaryRequestLog(Paths.get(RECORD_DIR + id + ".requests.bin")));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            synchronized (entry) {
+                if (entry.closed) {
+                    this.logMap.remove(modelId, entry);
+                    continue;
+                }
+                entry.log.append(record);
+                entry.lastUsed = System.currentTimeMillis();
+                return;
             }
-        });
+        }
+    }
+
+    /**
+     * 定时清扫：关闭空闲超过 LOG_IDLE_TIMEOUT_MS 的日志句柄。
+     */
+    private void sweepIdleLogs() {
+        try {
+            long threshold = System.currentTimeMillis() - LOG_IDLE_TIMEOUT_MS;
+            for (Map.Entry<String, LogEntry> e : this.logMap.entrySet()) {
+                LogEntry entry = e.getValue();
+                if (entry.lastUsed >= threshold) {
+                    continue;
+                }
+                synchronized (entry) {
+                    if (entry.closed || entry.lastUsed >= threshold) {
+                        continue;
+                    }
+                    // 先从 map 摘除，确保后续写入走重建路径，再关闭句柄
+                    if (!this.logMap.remove(e.getKey(), entry)) {
+                        continue;
+                    }
+                    try {
+                        entry.log.close();
+                    } catch (IOException ignore) {
+                    }
+                    entry.closed = true;
+                    logger.info("关闭空闲日志句柄: {}", e.getKey());
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("清扫空闲日志句柄失败", e);
+        }
     }
 
     private static byte toEndpointByte(String endpoint) {
@@ -309,7 +385,7 @@ public class LlamaRecordService {
 			record.cacheN = getJsonInt(usage, "prompt_cache_hit_tokens", 0);
 			record.promptN = getJsonInt(usage, "prompt_tokens", 0);
 			record.predictedN = getJsonInt(usage, "completion_tokens", 0);
-			this.getLog(modelId).append(record);
+			this.appendRecord(modelId, record);
 			this.totalRecordCount.incrementAndGet();
 			this.updateTokenSummary(modelId, record);
 		} catch (Exception e) {
@@ -381,7 +457,7 @@ public class LlamaRecordService {
 				record.draftN = timing.getDraft_n();
 				record.draftNAccepted = timing.getDraft_n_accepted();
 			}
-			getLog(request.getModelId()).append(record);
+			appendRecord(request.getModelId(), record);
 			this.totalRecordCount.incrementAndGet();
 			this.updateTokenSummary(request.getModelId(), record);
 		} catch (Exception e) {
@@ -408,12 +484,15 @@ public class LlamaRecordService {
 		Path binPath = Paths.get(RECORD_DIR + modelId + ".requests.bin");
 
 		// 从 logMap 移除并 close
-		BinaryRequestLog removed = this.logMap.remove(modelId);
+		LogEntry removed = this.logMap.remove(modelId);
 		if (removed != null) {
-			try {
-				deletedCount = removed.getRecordCount();
-				removed.close();
-			} catch (IOException ignore) {
+			synchronized (removed) {
+				removed.closed = true;
+				try {
+					deletedCount = removed.log.getRecordCount();
+					removed.log.close();
+				} catch (IOException ignore) {
+				}
 			}
 		}
 

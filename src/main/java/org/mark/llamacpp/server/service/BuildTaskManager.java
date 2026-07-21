@@ -40,12 +40,12 @@ public class BuildTaskManager {
     private static final Logger logger = LoggerFactory.getLogger(BuildTaskManager.class);
     private static final WebSocketManager wsManager = WebSocketManager.getInstance();
     private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-    private static final int MAX_OUTPUT_SIZE = 1024 * 1024;
     private static final int DEFAULT_TIMEOUT_MINUTES = 60;
     private static final long PERSIST_INTERVAL_MS = 1000;
 
     private static final String TASKS_DIR = "cache/build-tasks";
     private static final String TASK_FILE_SUFFIX = ".json";
+    private static final String LOG_FILE_SUFFIX = ".log";
 
     private static volatile BuildTaskManager instance;
 
@@ -81,7 +81,6 @@ public class BuildTaskManager {
         task.cmakeCommand = cmakeCommand;
         task.buildCommand = buildCommand;
         task.status = "PENDING";
-        task.output = "";
         task.startTime = System.currentTimeMillis();
         task.exitCode = 0;
 
@@ -221,6 +220,7 @@ public class BuildTaskManager {
             persistTask(task);
             broadcastStatus(task, "FAILED", -1, null);
         } finally {
+            closeLogWriter(task);
             building.set(false);
         }
     }
@@ -394,23 +394,69 @@ public class BuildTaskManager {
         }
     }
 
+    /**
+     * 追加一行到任务的日志文件（cache/build-tasks/<id>.log）。
+     * 输出不再进内存：替代原先在 task.output 字符串上累积（上限 1MB）的做法，
+     * 同时消除了旧实现每秒把整个任务（含输出）序列化重写一次的开销。
+     */
     private void appendOutput(BuildTask task, String line) {
         synchronized (task.outputLock) {
-            if (task.output == null) {
-                task.output = "";
-            }
-            if (task.output.length() < MAX_OUTPUT_SIZE) {
-                task.output += line + "\n";
-                if (task.output.length() > MAX_OUTPUT_SIZE) {
-                    task.output = task.output.substring(task.output.length() - MAX_OUTPUT_SIZE);
+            try {
+                if (task.logWriter == null) {
+                    Path logFile = getTaskLogPath(task.taskId);
+                    Files.createDirectories(logFile.getParent());
+                    task.logWriter = Files.newBufferedWriter(logFile, StandardCharsets.UTF_8,
+                            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
                 }
+                task.logWriter.write(line);
+                task.logWriter.newLine();
+            } catch (IOException e) {
+                logger.error("写入编译日志失败: {}", e.getMessage(), e);
             }
         }
         long now = System.currentTimeMillis();
         if (now - task.lastPersistTime > PERSIST_INTERVAL_MS) {
             task.lastPersistTime = now;
-            persistTask(task);
+            flushLog(task);
         }
+    }
+
+    private void flushLog(BuildTask task) {
+        synchronized (task.outputLock) {
+            if (task.logWriter != null) {
+                try {
+                    task.logWriter.flush();
+                } catch (IOException ignore) {
+                }
+            }
+        }
+    }
+
+    private void closeLogWriter(BuildTask task) {
+        synchronized (task.outputLock) {
+            if (task.logWriter != null) {
+                try {
+                    task.logWriter.close();
+                } catch (IOException ignore) {
+                }
+                task.logWriter = null;
+            }
+        }
+    }
+
+    private static Path getTaskLogPath(String taskId) {
+        return Paths.get(TASKS_DIR).toAbsolutePath().normalize().resolve(taskId + LOG_FILE_SUFFIX);
+    }
+
+    /**
+     * 获取任务日志文件（供控制器流式下发），不存在或 taskId 不合法时返回 null
+     */
+    public File getTaskLogFile(String taskId) {
+        if (taskId == null || !taskId.matches("[a-zA-Z0-9_-]+")) {
+            return null;
+        }
+        Path path = getTaskLogPath(taskId);
+        return Files.isRegularFile(path) ? path.toFile() : null;
     }
 
     private void broadcastOutput(BuildTask task, String phase, String line) {
@@ -478,6 +524,21 @@ public class BuildTaskManager {
     private void loadTaskFile(Path file) {
         try {
             String json = Files.readString(file, StandardCharsets.UTF_8);
+            // 旧格式迁移：output 字段从元数据 JSON 搬到独立的 .log 文件，之后 JSON 只存元数据
+            boolean migrated = false;
+            try {
+                JsonObject obj = JsonUtil.fromJson(json, JsonObject.class);
+                if (obj != null && obj.has("output") && obj.get("output").isJsonPrimitive()
+                        && obj.has("taskId")) {
+                    String legacyOutput = obj.get("output").getAsString();
+                    if (!legacyOutput.isEmpty()) {
+                        Files.writeString(getTaskLogPath(obj.get("taskId").getAsString()), legacyOutput,
+                                StandardCharsets.UTF_8);
+                    }
+                    migrated = true;
+                }
+            } catch (Exception ignore) {
+            }
             BuildTask task = JsonUtil.fromJson(json, BuildTask.class);
             if (task == null || task.taskId == null) {
                 return;
@@ -486,9 +547,11 @@ public class BuildTaskManager {
             if ("RUNNING".equals(task.status) || "PENDING".equals(task.status)) {
                 task.status = "FAILED";
                 task.exitCode = -1;
-                task.output = (task.output == null ? "" : task.output)
-                        + "\n[系统] 应用重启，编译任务中断\n";
+                appendOutput(task, "\n[系统] 应用重启，编译任务中断");
+                closeLogWriter(task);
                 task.endTime = System.currentTimeMillis();
+                persistTask(task);
+            } else if (migrated) {
                 persistTask(task);
             }
             tasks.put(task.taskId, task);
@@ -783,7 +846,6 @@ public class BuildTaskManager {
         public String cmakeCommand;
         public String buildCommand;
         public String status;
-        public String output;
         public long startTime;
         public long endTime;
         public int exitCode;
@@ -792,6 +854,7 @@ public class BuildTaskManager {
         public transient Process process;
         public transient AtomicBoolean cancelled = new AtomicBoolean(false);
         public transient long lastPersistTime;
+        public transient java.io.BufferedWriter logWriter;
 
         public BuildTask() {
             this.outputLock = new Object();
