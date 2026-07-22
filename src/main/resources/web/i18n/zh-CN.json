@@ -961,6 +961,8 @@
   "param.server.spec_draft_type_v.desc": "--spec-draft-type-v / -ctvd / --cache-type-v-draft：草稿模型 V 的 KV cache 数据类型。默认：f16。仅在投机解码启用时生效。",
   "param.server.fit.name": "自适应显存",
   "param.server.fit.desc": "--fit：是否自动调整未设置的参数以适配设备显存：on=自动调整（默认），off=不自动调整。开启后系统会根据可用显存自动调整上下文大小、批大小等参数，避免 OOM；关闭后使用用户显式设置的值，超出显存会导致失败。",
+  "param.server.fit_target.name": "Fit 预留显存",
+  "param.server.fit_target.desc": "--fit-target / -fitt：--fit 自动调整时为每个设备预留的显存余量（MiB），逗号分隔的列表，单个值会广播到所有设备。默认：1024。",
   "param.server.tensor_split.name": "张量拆分比例",
   "param.server.tensor_split.desc": "--tensor-split / -ts：每个 GPU 卸载模型的比例，逗号分隔的比例列表，例如 3,1",
   "param.server.ngl.name": "GPU 层数",

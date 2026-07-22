@@ -374,6 +374,19 @@
     "groupCollapsed": true
   },
   {
+    "name": "param.server.fit_target.name",
+    "fullName": "--fit-target",
+    "abbreviation": "-fitt",
+    "type": "STRING",
+    "defaultValue": "1024",
+    "description": "param.server.fit_target.desc",
+    "sort": 5.5,
+    "defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
     "name": "param.server.ngl.name",
     "fullName": "--gpu-layers",
     "abbreviation": "-ngl",
@@ -910,6 +923,10 @@
       {
         "value": "draft-dflash",
         "label": "dFlash 草稿模型"
+      },
+      {
+        "value": "draft-dspark",
+        "label": "dSpark 草稿模型"
       }
     ],
     "sort": 0,

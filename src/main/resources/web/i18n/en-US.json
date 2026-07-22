@@ -961,6 +961,8 @@
   "param.server.spec_draft_type_v.desc": "--spec-draft-type-v / -ctvd / --cache-type-v-draft: KV cache data type for V for the draft model. Default: f16. Applies only when speculative decoding is enabled.",
   "param.server.fit.name": "Fit to device memory",
   "param.server.fit.desc": "--fit: Whether to automatically adjust unset arguments to fit within available device memory: on = auto-adjust (default), off = do not auto-adjust. When enabled, the system adjusts context size, batch size, and other parameters based on available VRAM to avoid OOM; when disabled, it uses explicitly set values and fails if VRAM is exceeded.",
+  "param.server.fit_target.name": "Fit target margin",
+  "param.server.fit_target.desc": "--fit-target / -fitt: Target margin per device (MiB) for --fit, comma-separated list of values, single value is broadcast across all devices. Default: 1024.",
   "param.server.tensor_split.name": "Tensor split",
   "param.server.tensor_split.desc": "--tensor-split / -ts: fraction of the model to offload to each GPU, comma-separated list of proportions, e.g. 3,1",
   "param.server.ngl.name": "GPU layers",
