@@ -173,6 +173,7 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 }
 .btn:active { transform: scale(.97); opacity: .8; }
 .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.btn.primary-soft { background: var(--primary-soft); border-color: var(--border); color: var(--text); }
 .btn.danger-soft { color: var(--danger); }
 .btn.block { width: 100%; }
 .btn.mini { height: 30px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
@@ -345,17 +346,8 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .node-section.offline { opacity: .55; }
 .node-section .ns-off { font-size: 11px; color: var(--danger); }
 
-/* ================= 淡化按钮（快速启动等低风险弱入口） ================= */
-.btn.ghost {
-    border-color: transparent;
-    background: transparent;
-    color: var(--text-2);
-    height: 32px;
-    padding: 0 10px;
-    font-size: 12.5px;
-    font-weight: 500;
-}
-.btn.ghost:active { opacity: .5; }
+/* ================= 方形图标按钮 ================= */
+.btn-sq { width: 44px; padding: 0; flex-shrink: 0; }
 
 /* 详情弹窗 tab 内容区 */
 .detail-pane { display: none; }
@@ -364,10 +356,6 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .detail-kv .dk { color: var(--text-2); font-weight: 600; white-space: nowrap; }
 .detail-kv .dv { word-break: break-all; }
 .detail-kv .dv.mono { font-family: Consolas, monospace; font-size: 12.5px; }
-
-/* ================= 方形图标按钮 ================= */
-.btn-sq { width: 44px; padding: 0; flex-shrink: 0; }
-.btn.ghost.btn-sq { width: 38px; height: 38px; }
 
 /* ================= 详情弹窗美化 ================= */
 .detail-hero { display: flex; align-items: center; gap: 12px; padding: 2px 0 14px; }

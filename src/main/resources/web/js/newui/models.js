@@ -137,8 +137,8 @@ const Models = {
             : m.isLoaded
                 ? '<button class="btn primary btn-sq" onclick="Models.stop(\'' + key + '\')" title="停止"><i class="fas fa-stop"></i></button>' +
                   '<button class="btn btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置"><i class="fas fa-sliders"></i></button>'
-                : '<button class="btn primary btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置 / 启动"><i class="fas fa-sliders"></i></button>' +
-                  '<button class="btn ghost btn-sq" onclick="Models.quickStart(\'' + key + '\')" title="快速启动（按已保存配置直接启动）"><i class="fas fa-bolt"></i></button>';
+                : '<button class="btn primary-soft btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置 / 启动"><i class="fas fa-sliders"></i></button>' +
+                  '<button class="btn btn-sq" onclick="Models.quickStart(\'' + key + '\')" title="快速启动（按已保存配置直接启动）"><i class="fas fa-bolt"></i></button>';
         const cloneBtn = m.isClone
             ? '<button class="btn danger-soft" onclick="Models.deleteClone(\'' + key + '\')" title="删除克隆体"><i class="fas fa-trash"></i></button>'
             : '<button class="btn" onclick="Models.clone(\'' + key + '\')" title="创建克隆体"><i class="fas fa-clone"></i></button>';
