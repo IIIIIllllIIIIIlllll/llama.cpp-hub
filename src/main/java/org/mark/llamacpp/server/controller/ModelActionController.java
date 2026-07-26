@@ -884,7 +884,7 @@ public class ModelActionController implements BaseController {
 			String configName = JsonUtil.getJsonString(obj, "configName", null);
 
 			if (device != null) {
-				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none"));
+				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none") || d.trim().equalsIgnoreCase("all"));
 			}
 
 			Map<String, Object> launchConfig = new HashMap<>();
@@ -1041,7 +1041,7 @@ public class ModelActionController implements BaseController {
 
 		// 过滤无效设备值
 		if (device != null) {
-			device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none"));
+			device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none") || d.trim().equalsIgnoreCase("all"));
 		}
 
 		if (manager.getLoadedProcesses().containsKey(modelId)) {

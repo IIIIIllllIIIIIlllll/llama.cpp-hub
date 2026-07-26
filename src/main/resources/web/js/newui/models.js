@@ -258,7 +258,7 @@ const Models = {
                     cloneId, sourceModelId: m.id,
                     llamaBinPathSelect: cfg.llamaBinPathSelect || cfg.llamaBinPath || '',
                     cmd: cfg.cmd || '', extraParams: cfg.extraParams || '',
-                    device: Array.isArray(cfg.device) ? cfg.device : ['All'],
+                    device: Array.isArray(cfg.device) ? cfg.device : [],
                     mg: Number.isFinite(cfg.mg) ? cfg.mg : -1,
                     enableVision: typeof cfg.enableVision === 'boolean' ? cfg.enableVision : true,
                     configName: selected

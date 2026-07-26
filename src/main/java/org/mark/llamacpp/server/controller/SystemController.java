@@ -1641,7 +1641,7 @@ if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
 
 			// 过滤无效设备值
 			if (device != null) {
-				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none"));
+				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none") || d.trim().equalsIgnoreCase("all"));
 			}
 
 			if (cmd != null) cmd = cmd.trim();
@@ -1764,7 +1764,7 @@ if (downloadDirectory != null && !downloadDirectory.isEmpty()) {
 
 			// 过滤无效设备值
 			if (device != null) {
-				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none"));
+				device.removeIf(d -> d == null || d.trim().isEmpty() || d.trim().equalsIgnoreCase("none") || d.trim().equalsIgnoreCase("all"));
 			}
 
 			if (cmd != null) cmd = cmd.trim();

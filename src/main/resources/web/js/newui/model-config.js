@@ -188,9 +188,9 @@ const ModelConfig = {
     },
 
     selectedDevices() {
-        const checked = $$('#cfgDevices input[data-dev]:checked').map(cb => cb.dataset.dev);
-        if (this.devices.length && checked.length === this.devices.length) return ['All'];
-        return checked;
+        // 与旧 UI 保持一致：'All' 仅作为配置/UI 状态标记，不发送给后端；
+        // 全选时发送具体设备 key 列表，后端不认识 'All' 这个设备值
+        return $$('#cfgDevices input[data-dev]:checked').map(cb => cb.dataset.dev);
     },
 
     setDeviceChecks(devArr) {

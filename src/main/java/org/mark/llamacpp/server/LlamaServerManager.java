@@ -2261,13 +2261,24 @@ if (loadSuccess.get()) {
 			}
 		}
 
-		if (device != null && !device.isEmpty()) {
-			if (device.size() == 1) {
+		// 过滤无效设备值（'All' 是前端"全选"的标记值，不是合法设备名；旧配置中可能残留）
+		List<String> effectiveDevice = new ArrayList<>();
+		if (device != null) {
+			for (String d : device) {
+				if (d == null) continue;
+				String t = d.trim();
+				if (t.isEmpty() || t.equalsIgnoreCase("none") || t.equalsIgnoreCase("all")) continue;
+				effectiveDevice.add(t);
+			}
+		}
+
+		if (!effectiveDevice.isEmpty()) {
+			if (effectiveDevice.size() == 1) {
 				sb.append(" -sm none --device ");
-				sb.append(ParamTool.quoteIfNeeded(device.get(0)));
+				sb.append(ParamTool.quoteIfNeeded(effectiveDevice.get(0)));
 			} else {
 				sb.append(" --device ");
-				sb.append(ParamTool.quoteIfNeeded(String.join(",", device)));
+				sb.append(ParamTool.quoteIfNeeded(String.join(",", effectiveDevice)));
 			}
 			if(mg != null && mg >= 0) {
 				sb.append(" --main-gpu ");
