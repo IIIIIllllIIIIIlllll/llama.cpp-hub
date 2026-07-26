@@ -470,7 +470,7 @@ public class PerplexityController implements BaseController {
 	private void handleForwardRecord(ChannelHandlerContext ctx, String nodeId, String fileName, String method) {
 		try {
 			String remotePath = "api/perplexity/records/" + java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
-					+ "?nodeId=" + java.net.URLEncoder.encode(nodeId, StandardCharsets.UTF_8);
+					+ "?nodeId=local";
 			NodeManager.StreamResult sr = NodeManager.getInstance().callRemoteApiStreaming(
 					nodeId, method, remotePath,
 					(JsonObject) null, Collections.emptyMap(), 10000);
