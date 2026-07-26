@@ -278,6 +278,7 @@ public class LlamaServer {
 				boolean enableVision = Boolean.parseBoolean(String.valueOf(actualConfig.getOrDefault("enableVision", false)));
 				String cmd = (String) actualConfig.getOrDefault("cmd", "");
 				String extraParams = (String) actualConfig.getOrDefault("extraParams", "");
+				String envVars = (String) actualConfig.getOrDefault("envVars", "");
 				String chatTemplateFilePath = (String) actualConfig.getOrDefault("chatTemplateFile", "");
 				String mode = ParamTool.asString(actualConfig.getOrDefault("mode", actualConfig.getOrDefault("paramMode", "form")));
 
@@ -285,7 +286,7 @@ public class LlamaServer {
 					logger.error("错误：模型 '{}' 的启动配置中缺少 llamaBinPath 参数。", modelName);
 				} else {
 					// 启动模型
-					boolean started = serverManager.loadModelAsyncFromCmd(modelName, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null, mode);
+					boolean started = serverManager.loadModelAsyncFromCmd(modelName, llamaBinPath, device, mg, enableVision, cmd, extraParams, envVars, chatTemplateFilePath, null, mode);
 					if (started) {
 						logger.info("模型启动请求已提交");
 					} else {

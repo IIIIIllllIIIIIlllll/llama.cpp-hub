@@ -1403,6 +1403,7 @@ public class LlamaServerManager {
 
 			String cmd = ParamTool.asString(config.getOrDefault("cmd", ""));
 			String extraParams = ParamTool.asString(config.getOrDefault("extraParams", ""));
+			String envVars = ParamTool.asString(config.getOrDefault("envVars", ""));
 			Object evObj = config.get("enableVision");
 			boolean enableVision = evObj instanceof Boolean ? (Boolean) evObj : true;
 			List<String> device = (List<String>) config.get("device");
@@ -1412,7 +1413,7 @@ public class LlamaServerManager {
 
 			String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(modelId);
 
-			return this.buildCommandStr(model, 0, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, null, mode, new java.util.LinkedHashMap<>());
+			return this.buildCommandStr(model, 0, llamaBinPath, device, mg, enableVision, cmd, extraParams, envVars, chatTemplateFilePath, null, mode, new java.util.LinkedHashMap<>());
 		} catch (Exception e) {
 			logger.warn("[模型状态] 重建启动命令失败: modelId={}, error={}", modelId, e.getMessage());
 			return "";
@@ -1865,17 +1866,19 @@ public class LlamaServerManager {
 	 * @param enbaleVision
 	 * @param cmd
 	 * @param extraParams
+	 * @param envVars 环境变量字符串（KEY=VALUE，空格分隔），仅表单模式使用；命令行模式的环境变量从 cmd 中提取
 	 * @param chatTemplateFilePath
 	 * @param sourceModelId 克隆体的源模型 modelId，主体传 null
 	 * @return
 	 */
-	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId, String mode) {
+	public boolean loadModelAsyncFromCmd(String modelId, String llamaBinPath, List<String> device, Integer mg, boolean enbaleVision, String cmd, String extraParams, String envVars, String chatTemplateFilePath, String sourceModelId, String mode) {
 		Map<String, Object> launchConfig = new HashMap<>();
 		launchConfig.put("llamaBinPathSelect", llamaBinPath);
 		launchConfig.put("device", device);
 		launchConfig.put("mg", mg);
 		launchConfig.put("cmd", cmd);
 		launchConfig.put("extraParams", extraParams);
+		launchConfig.put("envVars", envVars == null ? "" : envVars);
 		launchConfig.put("enableVision", enbaleVision);
 		launchConfig.put("mode", mode);
 		// sourceModelId 已在 launch_config 条目顶层保存，不需要重复写入 configs.default
@@ -1914,6 +1917,7 @@ public class LlamaServerManager {
 
 		final String cmdSafe = cmd == null ? "" : cmd.trim();
 		final String extraSafe = extraParams == null ? "" : extraParams.trim();
+		final String envVarsSafe = envVars == null ? "" : envVars.trim();
 		final String binSafe = llamaBinPath.trim();
 		final List<String> devSafe = device;
 		final Integer mgSafe = mg;
@@ -1923,7 +1927,7 @@ public class LlamaServerManager {
 
 		try {
 			Future<?> future = this.executorService.submit(() -> {
-				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, chatTemplateFileSafe, sourceModelIdSafe, modeSafe);
+				this.loadModelInBackgroundFromCmd(modelId, targetModel, binSafe, devSafe, mgSafe, enbaleVision, cmdSafe, extraSafe, envVarsSafe, chatTemplateFileSafe, sourceModelIdSafe, modeSafe);
 			});
 			synchronized (this.processLock) {
 				this.loadingTasks.put(modelId, future);
@@ -1951,12 +1955,13 @@ public class LlamaServerManager {
 	 * @param enableVision
 	 * @param cmd
 	 * @param extraParams
+	 * @param envVars 环境变量字符串（KEY=VALUE，空格分隔），仅表单模式使用
 	 * @param chatTemplateFilePath
 	 * @param sourceModelId 克隆体的源模型 modelId，主体传 null
 	 * @param mode 参数模式：form 或 cmd
 	 */
 	private void loadModelInBackgroundFromCmd(String modelId, GGUFModel targetModel, String llamaBinPath, List<String> device,
-			Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String sourceModelId, String mode) {
+			Integer mg, boolean enableVision, String cmd, String extraParams, String envVars, String chatTemplateFilePath, String sourceModelId, String mode) {
 		String canonicalId = modelId;
 		String sanitizedId = sanitizeModelId(canonicalId);
 		try (var loadCtx = CloseableThreadContext.put("modelId", sanitizedId)) {
@@ -1978,12 +1983,12 @@ public class LlamaServerManager {
 				String cloneAlias = configManager.loadAliasMap().get(modelId);
 				aliasModelId = (cloneAlias != null && !cloneAlias.trim().isEmpty()) ? cloneAlias.trim() : modelId;
 			}
-			Map<String, String> envVars = new LinkedHashMap<>();
-			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, aliasModelId, mode, envVars);
+			Map<String, String> envVarsMap = new LinkedHashMap<>();
+			String commandStr = this.buildCommandStr(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, envVars, chatTemplateFilePath, aliasModelId, mode, envVarsMap);
 			String processName = "llama-server-" + canonicalId;
 			LlamaCppProcess process = new LlamaCppProcess(processName, commandStr, llamaBinPath, canonicalId, sourceModelId);
-			if (!envVars.isEmpty()) {
-				process.setEnvVars(envVars);
+			if (!envVarsMap.isEmpty()) {
+				process.setEnvVars(envVarsMap);
 			}
 
 			logger.info("启动命令：{}", commandStr);
@@ -2214,18 +2219,39 @@ if (loadSuccess.get()) {
 	 * @param mg
 	 * @param cmd
 	 * @param extraParams
+	 * @param envVars 表单模式下的环境变量字符串（KEY=VALUE，空格分隔）
 	 * @param chatTemplateFilePath
 	 * @param aliasModelId
 	 * @param mode 参数模式：form 或 cmd
-	 * @param envVarsOut 命令行模式下提取出的环境变量会写入此 Map
+	 * @param envVarsOut 提取出的环境变量会写入此 Map
 	 * @return
 	 */
-	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String chatTemplateFilePath, String aliasModelId, String mode, Map<String, String> envVarsOut) {
+	private String buildCommandStr(GGUFModel targetModel, int port, String llamaBinPath, List<String> device, Integer mg, boolean enableVision, String cmd, String extraParams, String envVars, String chatTemplateFilePath, String aliasModelId, String mode, Map<String, String> envVarsOut) {
 		boolean isCmdMode = "cmd".equalsIgnoreCase(mode);
 		if (isCmdMode) {
 			return buildCommandStrFromCmd(targetModel, port, llamaBinPath, cmd, aliasModelId, envVarsOut);
 		}
+		parseEnvVarsString(envVars, envVarsOut);
 		return buildCommandStrFromForm(targetModel, port, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, aliasModelId);
+	}
+
+	/**
+	 * 解析形如 {@code KEY=VALUE KEY2="V 2"} 的环境变量字符串并写入 out，非法 token 忽略。
+	 * 与命令行模式前导环境变量的解析规则保持一致。
+	 */
+	private static void parseEnvVarsString(String text, Map<String, String> out) {
+		if (text == null || text.trim().isEmpty() || out == null) return;
+		List<String> tokens = LlamaCppProcess.splitCommandLineArgs(text.trim());
+		for (String token : tokens) {
+			int eq = token.indexOf('=');
+			if (eq <= 0) continue;
+			String key = token.substring(0, eq);
+			if (!isValidEnvVarKey(key)) {
+				logger.warn("忽略非法环境变量名: {}", key);
+				continue;
+			}
+			out.put(key, token.substring(eq + 1));
+		}
 	}
 
 	/**
@@ -3309,6 +3335,7 @@ if (loadSuccess.get()) {
 
 		String cmd = (String) selectedConfig.getOrDefault("cmd", "");
 		String extraParams = (String) selectedConfig.getOrDefault("extraParams", "");
+		String envVars = (String) selectedConfig.getOrDefault("envVars", "");
 		List<String> device = (List<String>) selectedConfig.get("device");
 		Object mgObj = selectedConfig.get("mg");
 		Integer mg = (mgObj instanceof Number) ? ((Number) mgObj).intValue() : null;
@@ -3328,7 +3355,7 @@ if (loadSuccess.get()) {
 		// 8. 提交加载任务（如果尚未在加载中）
 		if (!this.isLoading(modelId)) {
 			String mode = ParamTool.asString(selectedConfig.getOrDefault("mode", selectedConfig.getOrDefault("paramMode", "form")));
-			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId, mode);
+			boolean submitted = this.loadModelAsyncFromCmd(modelId, llamaBinPath, device, mg, enableVision, cmd, extraParams, envVars, chatTemplateFilePath, sourceModelId, mode);
 			if (!submitted) {
 				// 可能已经被其他请求提交了，检查是否已加载
 				if (this.getLoadedProcesses().containsKey(modelId)) {

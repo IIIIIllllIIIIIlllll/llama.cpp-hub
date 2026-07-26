@@ -862,8 +862,10 @@ public class ModelActionController implements BaseController {
 
 			String cmd = JsonUtil.getJsonString(obj, "cmd", "");
 			String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
+			String envVars = JsonUtil.getJsonString(obj, "envVars", "");
 			if (cmd != null) cmd = cmd.trim();
 			if (extraParams != null) extraParams = extraParams.trim();
+			if (envVars != null) envVars = envVars.trim();
 			if (cmd.isEmpty() && extraParams.isEmpty()) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_CLONE_NO_LAUNCH_PARAMS));
 				return;
@@ -891,6 +893,7 @@ public class ModelActionController implements BaseController {
 			launchConfig.put("llamaBinPathSelect", llamaBinPathSelect.trim());
 			launchConfig.put("cmd", cmd);
 			launchConfig.put("extraParams", extraParams);
+			launchConfig.put("envVars", envVars);
 			launchConfig.put("device", device);
 			launchConfig.put("mg", mg);
 			launchConfig.put("enableVision", enableVision);
@@ -1017,9 +1020,11 @@ public class ModelActionController implements BaseController {
 	private void loadLocalModel(ChannelHandlerContext ctx, JsonObject obj, LlamaServerManager manager) {
 		String cmd = JsonUtil.getJsonString(obj, "cmd", "");
 		String extraParams = JsonUtil.getJsonString(obj, "extraParams", "");
+		String envVars = JsonUtil.getJsonString(obj, "envVars", "");
 		String mode = JsonUtil.getJsonString(obj, "mode", "form");
 		if (cmd != null) cmd = cmd.trim();
 		if (extraParams != null) extraParams = extraParams.trim();
+		if (envVars != null) envVars = envVars.trim();
 		if (mode == null || mode.trim().isEmpty()) mode = "form";
 		if ((cmd == null || cmd.isEmpty()) && (extraParams == null || extraParams.isEmpty())) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOADED_CMD_MISSING));
@@ -1059,7 +1064,7 @@ public class ModelActionController implements BaseController {
 		// 克隆体的 chat template 文件从源模型查找（克隆体自身无磁盘目录）
 		String chatTemplateLookupId = sourceModelId != null ? sourceModelId : modelId;
 		String chatTemplateFilePath = ChatTemplateFileTool.getChatTemplateCacheFilePathIfExists(chatTemplateLookupId);
-		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, chatTemplateFilePath, sourceModelId, mode);
+		boolean started = manager.loadModelAsyncFromCmd(modelId, llamaBinPathSelect, device, mg, enableVision, cmd, extraParams, envVars, chatTemplateFilePath, sourceModelId, mode);
 		if (!started) {
 			LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_MODEL_LOAD_FAILED));
 			return;
@@ -1078,6 +1083,7 @@ public class ModelActionController implements BaseController {
 		data.put("mode", mode);
 		data.put("cmd", cmd);
 		data.put("extraParams", extraParams);
+		data.put("envVars", envVars);
 		data.put("enableVision", enableVision);
 		LlamaServer.sendJsonResponse(ctx, ApiResponse.success(data));
 	}

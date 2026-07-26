@@ -5687,6 +5687,13 @@ llama.cpp-hub</textarea>
             html += `<small class="form-text">${t('page.params.extra_params_desc', '输入额外的命令行参数，用空格分隔')}</small>`;
             html += '</div>';
 
+            // 添加环境变量输入框（表单模式专用，与命令行模式的前导 KEY=VALUE 语法一致）
+            html += '<div class="form-group" style="margin-top: 1rem;">';
+            html += `<label class="form-label" for="envVars">${t('page.params.env_vars', '环境变量')}</label>`;
+            html += `<textarea class="form-control" id="envVars" name="envVars" rows="2" spellcheck="false" placeholder="${t('page.params.env_vars_placeholder', '例如: CUDA_SCALE_LAUNCH_QUEUES=4 MY_VAR=&quot;hello world&quot;')}"></textarea>`;
+            html += `<small class="form-text">${t('page.params.env_vars_desc', '输入环境变量，格式为 KEY=VALUE，多个用空格分隔')}</small>`;
+            html += '</div>';
+
             container.innerHTML = html;
             initOrderedMultiSelects(container);
         }

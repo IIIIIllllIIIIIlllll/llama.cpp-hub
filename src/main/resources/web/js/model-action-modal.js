@@ -604,6 +604,7 @@ function buildPersistableLaunchConfig(modal) {
         mg: base && base.mg !== undefined ? base.mg : -1,
         cmd: base && base.cmd ? base.cmd : '',
         extraParams: base && base.extraParams ? base.extraParams : '',
+        envVars: base && base.envVars ? base.envVars : '',
         enableVision: base && base.enableVision !== undefined ? !!base.enableVision : true,
         device: base && Array.isArray(base.device) ? base.device : ['All'],
         mode: window.__paramMode === 'cmd' ? 'cmd' : 'form',
@@ -688,6 +689,7 @@ function applyLaunchConfigToModal(modal, config) {
                 } else if (cfg.extraParams !== undefined) {
                     setFieldValue(modal, ['extraParams'], cfg.extraParams || '');
                 }
+                setFieldValue(modal, ['envVars'], cfg.envVars !== undefined && cfg.envVars !== null ? String(cfg.envVars) : '');
             }
             return;
         }
@@ -1497,6 +1499,7 @@ function buildLoadModelPayload(modal) {
 
     let cmd = '';
     let extraParams = '';
+    let envVars = '';
 
     if (window.__paramMode === 'cmd') {
         const textarea = findById(modal, 'commandLineInput');
@@ -1571,6 +1574,7 @@ function buildLoadModelPayload(modal) {
 
         cmd = cmdParts.join(' ').trim();
         extraParams = getFieldString(modal, ['extraParams']).trim();
+        envVars = getFieldString(modal, ['envVars']).trim();
     }
 
     const payload = {
@@ -1582,7 +1586,8 @@ function buildLoadModelPayload(modal) {
         mg: getSelectedMainGpu(),
         mode: window.__paramMode === 'cmd' ? 'cmd' : 'form',
         cmd: cmd,
-        extraParams
+        extraParams,
+        envVars
     };
 
     // 克隆体加载需要带上 sourceModelId；优先使用 modal 上保存的，兜底查 currentModelsData
