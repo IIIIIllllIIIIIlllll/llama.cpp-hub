@@ -175,8 +175,11 @@
             </div>
         </div>
         <!-- 高级：能力 + 自动加载 -->
+        <!-- 2025-07: 隐藏「模型能力」区域 — 仅为标签标记，不影响模型实际行为，容易让用户困惑。
+             后端仍会在刷新时自动检测并更新 audio/vision，聊天页音频输入不受影响。
+             如需恢复，删除 style="display:none" 即可。 -->
         <div class="config-col" data-ccol="more">
-            <div class="field">
+            <div class="field" style="display:none">
                 <label>模型能力</label>
                 <div class="cap-grid" id="capGrid">
                     <label class="check-line"><input type="checkbox" data-cap="thinking"> Thinking</label>

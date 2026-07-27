@@ -4151,7 +4151,10 @@ llama.cpp-hub</textarea>
                                 <select class="form-control" id="llamaBinPathSelect" name="llamaBinPathSelect"></select>
                             </div>
 
-                            <div class="capabilities-section" id="modelCapabilitiesGroup">
+                            <!-- 2025-07: 隐藏「能力」区域 — 该功能仅为标签标记，不影响模型实际行为，
+                                 容易让用户困惑。后端仍会在刷新时自动检测并更新 audio/vision 能力，
+                                 聊天页的音频输入功能不受影响。如需恢复，删除 style="display:none" 即可。 -->
+                            <div class="capabilities-section" id="modelCapabilitiesGroup" style="display:none">
                                 <div class="capabilities-header" onclick="this.parentElement.classList.toggle('open')">
                                     <span class="capabilities-chevron"><i class="fas fa-chevron-down"></i></span>
                                     <span
