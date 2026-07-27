@@ -69,6 +69,8 @@ const Downloads = {
 
 const SysInfo = {
     nodeId: '',
+    timer: null,
+
     load() {
         // 渲染节点 TAB（本地 + 各远程节点）
         api('/api/node/list').then(r => {
@@ -86,39 +88,228 @@ const SysInfo = {
             }));
         }).catch(() => {});
         this.loadBody();
+        this.startTimer();
     },
-    loadBody() {
-        $('#sysinfoBody').innerHTML = '<div class="skeleton" style="margin-bottom:10px"></div>'.repeat(3);
+
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    },
+
+    startTimer() {
+        this.stop();
+        this.timer = setInterval(() => {
+            if (App.currentPage === 'sysinfo') this.silent();
+        }, 1000);
+    },
+
+    silent() {
         const q = this.nodeId ? '?nodeId=' + encodeURIComponent(this.nodeId) : '';
-        const gpuQ = this.nodeId ? '?nodeId=' + encodeURIComponent(this.nodeId) : '';
-        Promise.all([api('/api/sys/sysinfo' + q), api('/api/sys/gpu/info' + gpuQ).catch(() => null)]).then(([r, gpu]) => {
+        api('/api/sys/sysinfo' + q).then(r => {
+            if (r.success && r.data) this.render(r.data);
+        }).catch(() => {});
+    },
+
+    loadBody() {
+        $('#sysinfoBody').innerHTML = '<div class="skeleton" style="margin-bottom:10px;height:120px"></div>' +
+            '<div class="skeleton" style="margin-bottom:10px;height:200px"></div>' +
+            '<div class="skeleton" style="height:200px"></div>';
+        const q = this.nodeId ? '?nodeId=' + encodeURIComponent(this.nodeId) : '';
+        api('/api/sys/sysinfo' + q).then(r => {
             if (!r.success) throw new Error(r.error || '加载失败');
-            const sys = (r.data && (r.data.data && r.data.data.system || r.data.system)) || {};
-            const jvm = r.data && r.data.jvm;
-            let html = '';
-            if (sys.os) html += this.card('fa-server', '操作系统', [
-                ['名称', sys.os.name], ['版本', sys.os.version], ['主机名', sys.os.hostname],
-                ['运行时长', sys.os.uptime_seconds ? Math.floor(sys.os.uptime_seconds / 3600) + ' 小时' : '—']]);
-            if (sys.cpu) html += this.card('fa-microchip', 'CPU', [
-                ['型号', sys.cpu.name], ['核心', (sys.cpu.cores || '?') + ' 核 / ' + (sys.cpu.threads || '?') + ' 线程']]);
-            if (sys.memory) html += this.card('fa-memory', '内存', [
-                ['总量', fmtSize(sys.memory.total_bytes)], ['已用', fmtSize(sys.memory.used_bytes)],
-                ['使用率', sys.memory.total_bytes ? Math.round(sys.memory.used_bytes / sys.memory.total_bytes * 100) + '%' : '—']]);
-            const gpus = gpu && gpu.success && gpu.data && (gpu.data.gpus || gpu.data.list || (Array.isArray(gpu.data) ? gpu.data : null));
-            if (gpus && gpus.length) gpus.forEach((g, i) => {
-                html += this.card('fa-display', 'GPU' + (gpus.length > 1 ? ' ' + i : ''), [
-                    ['型号', g.name || g.model || '—'],
-                    ['显存', g.memory_total_bytes ? fmtSize(g.memory_used_bytes || 0) + ' / ' + fmtSize(g.memory_total_bytes) : (g.vram || '—')],
-                    ['利用率', g.utilization_percent != null ? g.utilization_percent + '%' : '—']]);
-            });
-            if (jvm) html += this.card('fa-mug-hot', '服务进程 (JVM)', [
-                ['版本', jvm.name + ' ' + jvm.version], ['内存', jvm.usedMemoryMB + ' / ' + jvm.maxMemoryMB + ' MB']]);
-            $('#sysinfoBody').innerHTML = html || '<div class="empty"><i class="fas fa-circle-info"></i>暂无数据</div>';
+            if (!r.data) throw new Error('暂无数据');
+            this.render(r.data);
         }).catch(e => { $('#sysinfoBody').innerHTML = '<div class="empty"><i class="fas fa-triangle-exclamation"></i>' + esc(e.message) + '</div>'; });
     },
-    card(icon, title, rows) {
-        return '<div class="card"><h3><i class="fas ' + icon + '"></i> ' + title + '</h3>' +
-            rows.filter(r => r[1] != null).map(r => '<div class="kv"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + '</span></div>').join('') + '</div>';
+
+    render(data) {
+        const sys = (data.data && data.data.system) || data.system || {};
+        const os = sys.os || {};
+        const cpu = sys.cpu || {};
+        const mem = sys.memory || {};
+        const disks = sys.disks || [];
+        const devices = (data.data && data.data.devices) || data.devices || [];
+        const jvm = data.jvm;
+
+        const memPct = mem.total_bytes > 0 ? Math.round(mem.used_bytes / mem.total_bytes * 100) : 0;
+
+        let totalVram = 0, usedVram = 0;
+        devices.forEach(gpu => {
+            const sensors = gpu.sensors || {};
+            const gmem = gpu.memory || {};
+            const gpuTotal = sensors.memory_total_bytes || gmem.dedicated_vram_bytes || 0;
+            const gpuUsed = sensors.memory_used_bytes || 0;
+            if (gpuTotal > 0) { totalVram += gpuTotal; usedVram += gpuUsed; }
+        });
+        const vramPct = totalVram > 0 ? Math.round(usedVram / totalVram * 100) : 0;
+
+        let html = '';
+
+        // ===== 顶部：主机标识 + 环形用量仪表 =====
+        const swapPct = mem.swap_total_bytes > 0 ? Math.round((mem.swap_used_bytes || 0) / mem.swap_total_bytes * 100) : 0;
+        let diskTotal = 0, diskUsed = 0;
+        disks.forEach(d => { if (d.total_bytes > 0) { diskTotal += d.total_bytes; diskUsed += d.used_bytes; } });
+        const diskPctTotal = diskTotal > 0 ? Math.round(diskUsed / diskTotal * 100) : 0;
+
+        const cpuLine = (cpu.name || '--') + ' · ' + (cpu.cores || '?') + '核/' + (cpu.threads || '?') + '线程' +
+            (cpu.freq_max_mhz > 0 ? ' @ ' + (cpu.freq_max_mhz / 1000).toFixed(2) + ' GHz' : '');
+        const osLine = [os.hostname, os.arch].filter(Boolean).join(' · ') +
+            (os.uptime_seconds ? ' · 已运行 ' + this.formatUptime(os.uptime_seconds) : '');
+
+        html += '<div class="card si-hero">';
+        html += '<div class="si-host">' +
+            '<div class="si-host-icon"><i class="fas fa-desktop"></i></div>' +
+            '<div class="si-host-t">' +
+            '<div class="si-host-name">' + esc(os.name || '--') + '</div>' +
+            '<div class="si-host-sub" title="' + esc(osLine) + '">' + esc(osLine || '--') + '</div>' +
+            '<div class="si-host-sub" title="' + esc(cpuLine) + '">' + esc(cpuLine) + '</div>' +
+            '</div></div>';
+        html += '<div class="si-gauges">';
+        html += this.donut('内存', memPct, fmtSize(mem.used_bytes) + ' / ' + fmtSize(mem.total_bytes));
+        if (totalVram > 0) html += this.donut('显存', vramPct, fmtSize(usedVram) + ' / ' + fmtSize(totalVram));
+        if (mem.swap_total_bytes > 0) html += this.donut('Swap', swapPct, fmtSize(mem.swap_used_bytes) + ' / ' + fmtSize(mem.swap_total_bytes));
+        if (diskTotal > 0) html += this.donut('磁盘', diskPctTotal, fmtSize(diskUsed) + ' / ' + fmtSize(diskTotal));
+        html += '</div></div>';
+
+        // ===== 详细卡片：自适应网格，宽屏多列、窄屏自动堆叠 =====
+        html += '<div class="si-grid">';
+
+        // CPU 卡片
+        html += '<div class="card">' + this.cardHead('fa-microchip', 'violet', 'CPU', (cpu.cores || '?') + ' 核 / ' + (cpu.threads || '?') + ' 线程');
+        html += this.kv('型号', cpu.name);
+        html += this.kv('核心', cpu.cores);
+        html += this.kv('线程', cpu.threads);
+        html += this.kv('最大频率', cpu.freq_max_mhz > 0 ? (cpu.freq_max_mhz / 1000).toFixed(2) + ' GHz' : '--');
+        html += '</div>';
+
+        // 内存卡片
+        html += '<div class="card">' + this.cardHead('fa-memory', 'green', '内存', '总量 ' + fmtSize(mem.total_bytes));
+        html += this.barRow('已用 ' + fmtSize(mem.used_bytes), memPct);
+        if (mem.swap_total_bytes > 0) {
+            html += this.barRow('Swap ' + fmtSize(mem.swap_used_bytes) + ' / ' + fmtSize(mem.swap_total_bytes), swapPct);
+        }
+        html += '</div>';
+
+        // GPU 卡片
+        html += '<div class="card">' + this.cardHead('fa-plug', 'orange', 'GPU', devices.length ? devices.length + ' 个设备' : '');
+        if (!devices.length) {
+            html += '<div class="empty" style="padding:12px">未检测到 GPU 设备</div>';
+        } else {
+            devices.forEach(gpu => {
+                const sensors = gpu.sensors || {};
+                const gmem = gpu.memory || {};
+                const gpuTotal = sensors.memory_total_bytes || gmem.dedicated_vram_bytes || 0;
+                const gpuUsed = sensors.memory_used_bytes || 0;
+                const gpuVramPct = gpuTotal > 0 ? Math.round(gpuUsed / gpuTotal * 100) : 0;
+
+                html += '<div class="si-gpu">';
+                html += '<div class="si-gpu-name">' + esc(gpu.name) + ' <span>' + esc(gpu.vendor || '') +
+                    (gpu.type ? ' · ' + esc(gpu.type) : '') + '</span></div>';
+                if (gpuTotal > 0) html += this.barRow('显存 ' + fmtSize(gpuUsed) + ' / ' + fmtSize(gpuTotal), gpuVramPct);
+                html += '<div class="si-gpu-stats">';
+                html += this.gpuStat('温度', sensors.temperature_celsius != null ? sensors.temperature_celsius + '°C' : '--');
+                html += this.gpuStat('利用率', sensors.utilization_gpu_pct != null ? sensors.utilization_gpu_pct + '%' : '--');
+                html += this.gpuStat('功耗', sensors.power_watts != null ? sensors.power_watts + 'W' : '--');
+                if (sensors.power_limit_watts != null) html += this.gpuStat('功耗限制', sensors.power_limit_watts + 'W');
+                html += this.gpuStat('风扇', sensors.fan_speed_pct != null ? sensors.fan_speed_pct + '%' : '--');
+                html += this.gpuStat('驱动', sensors.driver_version_str || '--');
+                html += '</div></div>';
+            });
+        }
+        html += '</div>';
+
+        // 磁盘卡片
+        html += '<div class="card">' + this.cardHead('fa-hdd', 'cyan', '磁盘', disks.length ? disks.length + ' 块' : '');
+        if (!disks.length) {
+            html += '<div class="empty" style="padding:12px">暂无磁盘信息</div>';
+        } else {
+            disks.forEach(disk => {
+                const diskPct = disk.total_bytes > 0 ? Math.round(disk.used_bytes / disk.total_bytes * 100) : 0;
+                html += '<div class="si-disk">';
+                html += '<div class="t"><span class="n">' + esc(disk.name) + ' (' + esc(disk.filesystem || '') + ')</span><span>' +
+                    fmtSize(disk.used_bytes) + ' / ' + fmtSize(disk.total_bytes) + '</span></div>';
+                html += '<div class="s">' + esc(disk.mount || '') + (disk.is_external ? ' [外部]' : '') + ' · ' + diskPct + '%</div>';
+                html += '<div class="si-bar"><div style="width:' + diskPct + '%;background:' + this.barColor(diskPct) + '"></div></div>';
+                html += '</div>';
+            });
+        }
+        html += '</div>';
+
+        // OS 卡片
+        html += '<div class="card">' + this.cardHead('fa-info-circle', 'blue', '操作系统', os.hostname || '');
+        html += this.kv('名称', os.name);
+        html += this.kv('版本', os.version);
+        html += this.kv('内核', os.kernel);
+        html += this.kv('架构', os.arch);
+        html += this.kv('主机名', os.hostname);
+        html += this.kv('运行时长', this.formatUptime(os.uptime_seconds));
+        html += '</div>';
+
+        // JVM 卡片
+        if (jvm) {
+            html += '<div class="card">' + this.cardHead('fa-mug-hot', 'rose', '服务进程 (JVM)', 'Java ' + (jvm.javaVersion || '--'));
+            html += this.kv('版本', jvm.name + ' ' + jvm.version);
+            html += this.kv('Java版本', jvm.javaVersion || '--');
+            html += this.kv('内存', jvm.usedMemoryMB + ' / ' + jvm.maxMemoryMB + ' MB');
+            html += this.kv('CPU核心', jvm.availableProcessors || '--');
+            html += '</div>';
+        }
+
+        html += '</div>';
+
+        $('#sysinfoBody').innerHTML = html;
+    },
+
+    barColor(pct) {
+        return pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981';
+    },
+
+    donut(label, pct, sub) {
+        const r = 24, c = 2 * Math.PI * r;
+        const off = c * (1 - Math.min(Math.max(pct, 0), 100) / 100);
+        return '<div class="si-gauge">' +
+            '<svg viewBox="0 0 56 56">' +
+            '<circle class="bg" cx="28" cy="28" r="' + r + '"/>' +
+            '<circle class="fg" cx="28" cy="28" r="' + r + '" style="stroke:' + this.barColor(pct) +
+                ';stroke-dasharray:' + c.toFixed(2) + ';stroke-dashoffset:' + off.toFixed(2) + '"/>' +
+            '<text x="28" y="32">' + pct + '%</text>' +
+            '</svg>' +
+            '<div class="g-l">' + esc(label) + '</div>' +
+            '<div class="g-s">' + esc(sub) + '</div></div>';
+    },
+
+    cardHead(icon, color, title, sub) {
+        return '<div class="si-ch"><div class="si-ic ' + color + '"><i class="fas ' + icon + '"></i></div>' +
+            '<div><div class="t">' + esc(title) + '</div>' +
+            (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div></div>';
+    },
+
+    kv(label, value) {
+        return '<div class="kv"><span class="k">' + esc(label) + '</span>' +
+            '<span class="v">' + esc(String(value == null || value === '' ? '--' : value)) + '</span></div>';
+    },
+
+    barRow(text, pct) {
+        return '<div class="si-barrow"><div class="t"><span>' + esc(text) + '</span><span>' + pct + '%</span></div>' +
+            '<div class="si-bar"><div style="width:' + pct + '%;background:' + this.barColor(pct) + '"></div></div></div>';
+    },
+
+    gpuStat(label, value) {
+        return '<div><span class="k">' + esc(label) + ' </span><span>' + esc(String(value)) + '</span></div>';
+    },
+
+    formatUptime(seconds) {
+        if (!seconds || seconds <= 0) return '--';
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const parts = [];
+        if (d > 0) parts.push(d + '天');
+        if (h > 0) parts.push(h + '小时');
+        if (m > 0) parts.push(m + '分钟');
+        return parts.join(' ') || '0分钟';
     }
 };
 

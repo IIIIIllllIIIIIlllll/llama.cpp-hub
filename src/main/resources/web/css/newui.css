@@ -189,6 +189,66 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .progress-track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 8px; }
 .progress-fill { height: 100%; border-radius: 3px; background: var(--primary); transition: width .4s; }
 
+/* ================= 系统信息页 ================= */
+/* 顶部：主机标识 + 环形仪表盘 */
+.si-hero { display: flex; align-items: center; gap: 14px 32px; flex-wrap: wrap; padding: 16px 18px; }
+.si-host { display: flex; align-items: center; gap: 14px; flex: 1 1 280px; min-width: 0; }
+.si-host-icon { width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #3b82f6; background: rgba(59,130,246,.13); }
+.si-host-t { min-width: 0; }
+.si-host-name { font-size: 16.5px; font-weight: 700; }
+.si-host-sub { font-size: 12px; color: var(--text-2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-gauges { display: flex; gap: 16px; flex-wrap: wrap; min-width: 0; }
+.si-gauge { width: 92px; text-align: center; }
+.si-gauge svg { width: 56px; height: 56px; display: block; margin: 0 auto 4px; }
+.si-gauge circle { fill: none; stroke-width: 6; }
+.si-gauge circle.bg { stroke: var(--surface-2); }
+.si-gauge circle.fg { stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; transition: stroke-dashoffset .5s, stroke .5s; }
+.si-gauge text { fill: var(--text); font-size: 12.5px; font-weight: 700; text-anchor: middle; }
+.si-gauge .g-l { font-size: 12px; font-weight: 600; }
+.si-gauge .g-s { font-size: 10.5px; color: var(--text-2); white-space: nowrap; }
+/* 卡片头：着色图标 + 标题 */
+.si-ch { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.si-ch .t { font-size: 13px; font-weight: 600; }
+.si-ch .s { font-size: 11px; color: var(--text-2); }
+.si-ic { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.si-ic.blue { color: #3b82f6; background: rgba(59,130,246,.13); }
+.si-ic.violet { color: #8b5cf6; background: rgba(139,92,246,.13); }
+.si-ic.green { color: #10b981; background: rgba(16,185,129,.13); }
+.si-ic.orange { color: #f97316; background: rgba(249,115,22,.13); }
+.si-ic.cyan { color: #06b6d4; background: rgba(6,182,212,.13); }
+.si-ic.rose { color: #f43f5e; background: rgba(244,63,94,.13); }
+/* 详细卡片自适应网格：宽屏多列、窄屏堆叠 */
+.si-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; align-items: start; }
+.si-grid .card { margin-bottom: 0; }
+.si-grid .kv { font-size: 12.5px; padding: 4px 0; }
+.si-grid .kv .v { font-weight: 500; }
+/* 细进度条 */
+.si-bar { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.si-bar > div { height: 100%; border-radius: 3px; transition: width .4s; }
+.si-barrow { margin: 8px 0 2px; }
+.si-barrow .t { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--text-2); margin-bottom: 4px; }
+/* 磁盘条目 */
+.si-disk { padding: 6px 0; }
+.si-disk:first-of-type { padding-top: 0; }
+.si-disk + .si-disk { border-top: 1px dashed var(--border); }
+.si-disk .t { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; margin-bottom: 2px; }
+.si-disk .t .n { font-weight: 600; }
+.si-disk .s { font-size: 11px; color: var(--text-2); margin-bottom: 4px; }
+/* GPU 条目 */
+.si-gpu + .si-gpu { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+.si-gpu-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.si-gpu-name span { font-weight: 400; font-size: 11px; color: var(--text-2); }
+.si-gpu-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 2px 12px; font-size: 12px; margin-top: 6px; }
+.si-gpu-stats .k { color: var(--text-2); }
+/* 窄屏：仪表盘缩小并均分一行 */
+@media (max-width: 560px) {
+    .si-hero { gap: 12px; padding: 14px; }
+    .si-gauges { width: 100%; justify-content: space-around; gap: 6px; }
+    .si-gauge { width: 74px; }
+    .si-gauge svg { width: 48px; height: 48px; }
+    .si-gauge .g-s { font-size: 9.5px; white-space: normal; }
+}
+
 /* ================= 弹层（移动端底部 / 桌面居中） ================= */
 .sheet-mask {
     position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200;
