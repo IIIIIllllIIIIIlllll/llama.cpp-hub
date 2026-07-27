@@ -145,118 +145,95 @@ const SysInfo = {
         });
         const vramPct = totalVram > 0 ? Math.round(usedVram / totalVram * 100) : 0;
 
-        let html = '';
-
-        // ===== 顶部：主机标识 + 环形用量仪表 =====
         const swapPct = mem.swap_total_bytes > 0 ? Math.round((mem.swap_used_bytes || 0) / mem.swap_total_bytes * 100) : 0;
         let diskTotal = 0, diskUsed = 0;
         disks.forEach(d => { if (d.total_bytes > 0) { diskTotal += d.total_bytes; diskUsed += d.used_bytes; } });
         const diskPctTotal = diskTotal > 0 ? Math.round(diskUsed / diskTotal * 100) : 0;
 
-        const cpuLine = (cpu.name || '--') + ' · ' + (cpu.cores || '?') + '核/' + (cpu.threads || '?') + '线程' +
-            (cpu.freq_max_mhz > 0 ? ' @ ' + (cpu.freq_max_mhz / 1000).toFixed(2) + ' GHz' : '');
-        const osLine = [os.hostname, os.arch].filter(Boolean).join(' · ') +
-            (os.uptime_seconds ? ' · 已运行 ' + this.formatUptime(os.uptime_seconds) : '');
+        let html = '';
 
-        html += '<div class="card si-hero">';
-        html += '<div class="si-host">' +
-            '<div class="si-host-icon"><i class="fas fa-desktop"></i></div>' +
-            '<div class="si-host-t">' +
-            '<div class="si-host-name">' + esc(os.name || '--') + '</div>' +
-            '<div class="si-host-sub" title="' + esc(osLine) + '">' + esc(osLine || '--') + '</div>' +
-            '<div class="si-host-sub" title="' + esc(cpuLine) + '">' + esc(cpuLine) + '</div>' +
-            '</div></div>';
-        html += '<div class="si-gauges">';
-        html += this.donut('内存', memPct, fmtSize(mem.used_bytes) + ' / ' + fmtSize(mem.total_bytes));
-        if (totalVram > 0) html += this.donut('显存', vramPct, fmtSize(usedVram) + ' / ' + fmtSize(totalVram));
-        if (mem.swap_total_bytes > 0) html += this.donut('Swap', swapPct, fmtSize(mem.swap_used_bytes) + ' / ' + fmtSize(mem.swap_total_bytes));
-        if (diskTotal > 0) html += this.donut('磁盘', diskPctTotal, fmtSize(diskUsed) + ' / ' + fmtSize(diskTotal));
-        html += '</div></div>';
+        // ===== 概览卡：系统信息表 + 资源用量条 =====
+        html += '<div class="card">' + this.cardHead('fa-circle-info', 'blue', '系统概览',
+            (os.hostname || '') + (os.uptime_seconds ? ' · 已运行 ' + this.formatUptime(os.uptime_seconds) : ''));
 
-        // ===== 详细卡片：自适应网格，宽屏多列、窄屏自动堆叠 =====
-        html += '<div class="si-grid">';
-
-        // CPU 卡片
-        html += '<div class="card">' + this.cardHead('fa-microchip', 'violet', 'CPU', (cpu.cores || '?') + ' 核 / ' + (cpu.threads || '?') + ' 线程');
-        html += this.kv('型号', cpu.name);
-        html += this.kv('核心', cpu.cores);
-        html += this.kv('线程', cpu.threads);
+        html += '<div class="si-info">';
+        html += this.kv('操作系统', os.name);
+        html += this.kv('版本', os.version);
+        html += this.kv('内核', os.kernel);
+        html += this.kv('架构', os.arch);
+        html += this.kv('主机名', os.hostname);
+        html += this.kv('运行时长', this.formatUptime(os.uptime_seconds));
+        html += this.kv('CPU 型号', cpu.name);
+        html += this.kv('核心 / 线程', (cpu.cores || '?') + ' / ' + (cpu.threads || '?'));
         html += this.kv('最大频率', cpu.freq_max_mhz > 0 ? (cpu.freq_max_mhz / 1000).toFixed(2) + ' GHz' : '--');
-        html += '</div>';
-
-        // 内存卡片
-        html += '<div class="card">' + this.cardHead('fa-memory', 'green', '内存', '总量 ' + fmtSize(mem.total_bytes));
-        html += this.barRow('已用 ' + fmtSize(mem.used_bytes), memPct);
-        if (mem.swap_total_bytes > 0) {
-            html += this.barRow('Swap ' + fmtSize(mem.swap_used_bytes) + ' / ' + fmtSize(mem.swap_total_bytes), swapPct);
+        if (jvm) {
+            html += this.kv('服务进程', jvm.name + ' ' + jvm.version);
+            html += this.kv('Java 版本', jvm.javaVersion || '--');
+            html += this.kv('JVM 内存', jvm.usedMemoryMB + ' / ' + jvm.maxMemoryMB + ' MB');
         }
         html += '</div>';
 
-        // GPU 卡片
+        html += '<div class="si-sec">';
+        html += this.useRow('内存', memPct, fmtSize(mem.used_bytes) + ' / ' + fmtSize(mem.total_bytes));
+        if (totalVram > 0) html += this.useRow('显存', vramPct, fmtSize(usedVram) + ' / ' + fmtSize(totalVram));
+        if (mem.swap_total_bytes > 0) html += this.useRow('Swap', swapPct, fmtSize(mem.swap_used_bytes) + ' / ' + fmtSize(mem.swap_total_bytes));
+        if (diskTotal > 0) html += this.useRow('磁盘', diskPctTotal, fmtSize(diskUsed) + ' / ' + fmtSize(diskTotal));
+        html += '</div></div>';
+
+        // ===== GPU 表：每行一个设备 =====
         html += '<div class="card">' + this.cardHead('fa-plug', 'orange', 'GPU', devices.length ? devices.length + ' 个设备' : '');
         if (!devices.length) {
             html += '<div class="empty" style="padding:12px">未检测到 GPU 设备</div>';
         } else {
+            html += '<table class="si-table"><thead><tr>' +
+                '<th>名称</th><th>显存</th>' +
+                '<th class="num">温度</th><th class="num">利用率</th><th class="num">功耗</th><th class="num">风扇</th><th>驱动</th>' +
+                '</tr></thead><tbody>';
             devices.forEach(gpu => {
                 const sensors = gpu.sensors || {};
                 const gmem = gpu.memory || {};
                 const gpuTotal = sensors.memory_total_bytes || gmem.dedicated_vram_bytes || 0;
                 const gpuUsed = sensors.memory_used_bytes || 0;
                 const gpuVramPct = gpuTotal > 0 ? Math.round(gpuUsed / gpuTotal * 100) : 0;
+                const power = sensors.power_watts != null ? sensors.power_watts + 'W' +
+                    (sensors.power_limit_watts != null ? ' / ' + sensors.power_limit_watts + 'W' : '') : '--';
 
-                html += '<div class="si-gpu">';
-                html += '<div class="si-gpu-name">' + esc(gpu.name) + ' <span>' + esc(gpu.vendor || '') +
-                    (gpu.type ? ' · ' + esc(gpu.type) : '') + '</span></div>';
-                if (gpuTotal > 0) html += this.barRow('显存 ' + fmtSize(gpuUsed) + ' / ' + fmtSize(gpuTotal), gpuVramPct);
-                html += '<div class="si-gpu-stats">';
-                html += this.gpuStat('温度', sensors.temperature_celsius != null ? sensors.temperature_celsius + '°C' : '--');
-                html += this.gpuStat('利用率', sensors.utilization_gpu_pct != null ? sensors.utilization_gpu_pct + '%' : '--');
-                html += this.gpuStat('功耗', sensors.power_watts != null ? sensors.power_watts + 'W' : '--');
-                if (sensors.power_limit_watts != null) html += this.gpuStat('功耗限制', sensors.power_limit_watts + 'W');
-                html += this.gpuStat('风扇', sensors.fan_speed_pct != null ? sensors.fan_speed_pct + '%' : '--');
-                html += this.gpuStat('驱动', sensors.driver_version_str || '--');
-                html += '</div></div>';
+                html += '<tr>' +
+                    '<td class="rh"><span class="si-name">' + esc(gpu.name) + '</span> <span class="si-dim">' + esc(gpu.vendor || '') + '</span></td>' +
+                    '<td class="num" data-th="显存">' + (gpuTotal > 0 ? fmtSize(gpuUsed) + ' / ' + fmtSize(gpuTotal) + ' (' + gpuVramPct + '%)' : '--') + '</td>' +
+                    '<td class="num" data-th="温度">' + (sensors.temperature_celsius != null ? sensors.temperature_celsius + '°C' : '--') + '</td>' +
+                    '<td class="num" data-th="利用率">' + (sensors.utilization_gpu_pct != null ? sensors.utilization_gpu_pct + '%' : '--') + '</td>' +
+                    '<td class="num" data-th="功耗">' + power + '</td>' +
+                    '<td class="num" data-th="风扇">' + (sensors.fan_speed_pct != null ? sensors.fan_speed_pct + '%' : '--') + '</td>' +
+                    '<td data-th="驱动">' + esc(sensors.driver_version_str || '--') + '</td>' +
+                    '</tr>';
             });
+            html += '</tbody></table>';
         }
         html += '</div>';
 
-        // 磁盘卡片
+        // ===== 磁盘表：每行一个分区 =====
         html += '<div class="card">' + this.cardHead('fa-hdd', 'cyan', '磁盘', disks.length ? disks.length + ' 块' : '');
         if (!disks.length) {
             html += '<div class="empty" style="padding:12px">暂无磁盘信息</div>';
         } else {
+            html += '<table class="si-table"><thead><tr>' +
+                '<th>名称</th><th>文件系统</th><th>挂载点</th><th class="num">已用 / 总量</th><th class="bar-cell">用量</th>' +
+                '</tr></thead><tbody>';
             disks.forEach(disk => {
                 const diskPct = disk.total_bytes > 0 ? Math.round(disk.used_bytes / disk.total_bytes * 100) : 0;
-                html += '<div class="si-disk">';
-                html += '<div class="t"><span class="n">' + esc(disk.name) + ' (' + esc(disk.filesystem || '') + ')</span><span>' +
-                    fmtSize(disk.used_bytes) + ' / ' + fmtSize(disk.total_bytes) + '</span></div>';
-                html += '<div class="s">' + esc(disk.mount || '') + (disk.is_external ? ' [外部]' : '') + ' · ' + diskPct + '%</div>';
-                html += '<div class="si-bar"><div style="width:' + diskPct + '%;background:' + this.barColor(diskPct) + '"></div></div>';
-                html += '</div>';
+                html += '<tr>' +
+                    '<td class="rh"><span class="si-name">' + esc(disk.name) + '</span></td>' +
+                    '<td data-th="文件系统">' + esc(disk.filesystem || '--') + '</td>' +
+                    '<td data-th="挂载点">' + esc(disk.mount || '--') + (disk.is_external ? ' <span class="si-dim">[外部]</span>' : '') + '</td>' +
+                    '<td class="num" data-th="已用 / 总量">' + fmtSize(disk.used_bytes) + ' / ' + fmtSize(disk.total_bytes) + '</td>' +
+                    '<td class="bar-cell" data-th="用量"><div class="si-cellbar">' +
+                        '<div class="si-bar"><div style="width:' + diskPct + '%;background:' + this.barColor(diskPct) + '"></div></div>' +
+                        '<span>' + diskPct + '%</span></div></td>' +
+                    '</tr>';
             });
+            html += '</tbody></table>';
         }
-        html += '</div>';
-
-        // OS 卡片
-        html += '<div class="card">' + this.cardHead('fa-info-circle', 'blue', '操作系统', os.hostname || '');
-        html += this.kv('名称', os.name);
-        html += this.kv('版本', os.version);
-        html += this.kv('内核', os.kernel);
-        html += this.kv('架构', os.arch);
-        html += this.kv('主机名', os.hostname);
-        html += this.kv('运行时长', this.formatUptime(os.uptime_seconds));
-        html += '</div>';
-
-        // JVM 卡片
-        if (jvm) {
-            html += '<div class="card">' + this.cardHead('fa-mug-hot', 'rose', '服务进程 (JVM)', 'Java ' + (jvm.javaVersion || '--'));
-            html += this.kv('版本', jvm.name + ' ' + jvm.version);
-            html += this.kv('Java版本', jvm.javaVersion || '--');
-            html += this.kv('内存', jvm.usedMemoryMB + ' / ' + jvm.maxMemoryMB + ' MB');
-            html += this.kv('CPU核心', jvm.availableProcessors || '--');
-            html += '</div>';
-        }
-
         html += '</div>';
 
         $('#sysinfoBody').innerHTML = html;
@@ -266,38 +243,21 @@ const SysInfo = {
         return pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#10b981';
     },
 
-    donut(label, pct, sub) {
-        const r = 24, c = 2 * Math.PI * r;
-        const off = c * (1 - Math.min(Math.max(pct, 0), 100) / 100);
-        return '<div class="si-gauge">' +
-            '<svg viewBox="0 0 56 56">' +
-            '<circle class="bg" cx="28" cy="28" r="' + r + '"/>' +
-            '<circle class="fg" cx="28" cy="28" r="' + r + '" style="stroke:' + this.barColor(pct) +
-                ';stroke-dasharray:' + c.toFixed(2) + ';stroke-dashoffset:' + off.toFixed(2) + '"/>' +
-            '<text x="28" y="32">' + pct + '%</text>' +
-            '</svg>' +
-            '<div class="g-l">' + esc(label) + '</div>' +
-            '<div class="g-s">' + esc(sub) + '</div></div>';
-    },
-
     cardHead(icon, color, title, sub) {
         return '<div class="si-ch"><div class="si-ic ' + color + '"><i class="fas ' + icon + '"></i></div>' +
             '<div><div class="t">' + esc(title) + '</div>' +
             (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div></div>';
     },
 
+    useRow(label, pct, text) {
+        return '<div class="si-use"><span class="k">' + esc(label) + '</span>' +
+            '<div class="si-bar"><div style="width:' + pct + '%;background:' + this.barColor(pct) + '"></div></div>' +
+            '<span class="v"><b>' + pct + '%</b> ' + esc(text) + '</span></div>';
+    },
+
     kv(label, value) {
         return '<div class="kv"><span class="k">' + esc(label) + '</span>' +
             '<span class="v">' + esc(String(value == null || value === '' ? '--' : value)) + '</span></div>';
-    },
-
-    barRow(text, pct) {
-        return '<div class="si-barrow"><div class="t"><span>' + esc(text) + '</span><span>' + pct + '%</span></div>' +
-            '<div class="si-bar"><div style="width:' + pct + '%;background:' + this.barColor(pct) + '"></div></div></div>';
-    },
-
-    gpuStat(label, value) {
-        return '<div><span class="k">' + esc(label) + ' </span><span>' + esc(String(value)) + '</span></div>';
     },
 
     formatUptime(seconds) {
