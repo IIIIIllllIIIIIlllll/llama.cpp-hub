@@ -191,6 +191,11 @@ public class SystemController implements BaseController {
 			this.handleSysSettingGetRequest(ctx, request);
 			return true;
 		}
+		// 验证 API Key（登录页用，只返回 200/401）
+		if (uri.equals("/api/auth/verify") && request.method() == HttpMethod.GET) {
+			LlamaServer.sendJsonResponse(ctx, ApiResponse.success(null));
+			return true;
+		}
 		// 保存系统设置
 		if (uri.equals("/api/sys/setting")) {
 			this.handleSysSettingRequest(ctx, request);
@@ -394,7 +399,19 @@ public class SystemController implements BaseController {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_NOT_DIR));
 				return;
 			}
-			
+
+			// 路径白名单校验：只允许浏览模型目录、下载目录、llamacpp目录，防止遍历整个文件系统
+			{
+				Path baseNorm = base.toAbsolutePath().normalize();
+				Path modelsDir = Paths.get(LlamaServer.getDefaultModelsPath()).toAbsolutePath().normalize();
+				Path downloadDir = Paths.get(LlamaServer.getDownloadDirectory()).toAbsolutePath().normalize();
+				Path llamacppDir = Paths.get(LlamaServer.getDefaultLlamaCppPath()).toAbsolutePath().normalize();
+				if (!baseNorm.startsWith(modelsDir) && !baseNorm.startsWith(downloadDir) && !baseNorm.startsWith(llamacppDir)) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PATH_INVALID));
+					return;
+				}
+			}
+
 			final List<Map<String, Object>> dirs = new ArrayList<>();
 			final List<Map<String, Object>> files = new ArrayList<>();
 			final boolean onlyDirectories = dirOnly;
@@ -797,8 +814,7 @@ public class SystemController implements BaseController {
 			
 			Map<String, Object> security = new HashMap<>();
 			security.put("apiKeyEnabled", LlamaServer.isApiKeyValidationEnabled());
-			String key = LlamaServer.getApiKey();
-			security.put("apiKey", key != null ? key : "");
+			security.put("apiKeyConfigured", LlamaServer.getApiKey() != null && !LlamaServer.getApiKey().isBlank());
 			data.put("security", security);
 			
 			Map<String, Object> compat = new HashMap<>();
@@ -817,7 +833,7 @@ public class SystemController implements BaseController {
 Map<String, Object> https = new HashMap<>();
 		https.put("enabled", LlamaServer.isHttpsEnabled());
 		https.put("keystorePath", LlamaServer.getHttpsCertPath());
-		https.put("keystorePassword", LlamaServer.getHttpsPassword());
+		https.put("keystoreConfigured", LlamaServer.getHttpsPassword() != null && !LlamaServer.getHttpsPassword().isBlank());
 		data.put("https", https);
 
 		String nodeRole = LlamaServer.getNodeRole();

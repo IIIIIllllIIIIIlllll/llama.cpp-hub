@@ -236,7 +236,9 @@ public class NodeManager {
     private void startWebSocketClient(String nodeId, String baseUrl) {
         if (nodeId == null || baseUrl == null) return;
         stopWebSocketClient(nodeId);
-        RemoteWebSocketClient client = new RemoteWebSocketClient(nodeId, baseUrl);
+        LlamaHubNode node = nodes.get(nodeId);
+        String apiKey = node != null ? node.apiKey : null;
+        RemoteWebSocketClient client = new RemoteWebSocketClient(nodeId, baseUrl, apiKey);
         wsClients.put(nodeId, client);
         client.start();
         logger.info("已启动远程节点 WebSocket 客户端: {} ({})", nodeId, baseUrl);
@@ -245,7 +247,9 @@ public class NodeManager {
     private void startAndWaitWebSocketClient(String nodeId, String baseUrl) {
         if (nodeId == null || baseUrl == null) return;
         stopWebSocketClient(nodeId);
-        RemoteWebSocketClient client = new RemoteWebSocketClient(nodeId, baseUrl);
+        LlamaHubNode node = nodes.get(nodeId);
+        String apiKey = node != null ? node.apiKey : null;
+        RemoteWebSocketClient client = new RemoteWebSocketClient(nodeId, baseUrl, apiKey);
         wsClients.put(nodeId, client);
         client.startAndWait(2);
         logger.info("远程节点 WebSocket 初始化完成: {} ({})", nodeId, baseUrl);

@@ -15,6 +15,7 @@ import org.mark.llamacpp.server.NodeManager;
 import org.mark.llamacpp.server.service.AnthropicService;
 import org.mark.llamacpp.server.service.OpenAIService;
 import org.mark.llamacpp.server.struct.ApiResponse;
+import org.mark.llamacpp.server.security.ApiKeyValidator;
 import org.mark.llamacpp.server.tools.JsonUtil;
 import org.mark.llamacpp.server.tools.ParamTool;
 import org.slf4j.Logger;
@@ -99,13 +100,14 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 	 */
     private void handleApiRequest(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
 		try {
-			// 验证key
-			if (uri.startsWith("/v1") && request.method() != HttpMethod.OPTIONS) {
-				if (!this.validateApiKey(request)) {
-					LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.UNAUTHORIZED, "invalid api key");
-					return;
-				}
+		// 验证key
+		if (uri.startsWith("/v1") && request.method() != HttpMethod.OPTIONS) {
+			String clientIp = ApiKeyValidator.getClientIp(ctx, request);
+			if (!ApiKeyValidator.validate(request, clientIp)) {
+				ApiKeyValidator.sendUnauthorized(ctx, request);
+				return;
 			}
+		}
 			
 			// OpenAI API 端点
 			// 获取模型列表
@@ -224,34 +226,6 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		logger.info("处理请求时发生异常", cause);
 		ctx.close();
 	}
-	
-	/**
-	 * 	做判断
-	 * @param request
-	 * @return
-	 */
-	private boolean validateApiKey(FullHttpRequest request) {
-		if (!LlamaServer.isApiKeyValidationEnabled()) {
-			return true;
-		}
-		String expected = LlamaServer.getApiKey();
-		if (expected == null || expected.isBlank()) {
-			return false;
-		}
-
-		String auth = request.headers().get(HttpHeaderNames.AUTHORIZATION);
-		if (auth != null) {
-			auth = auth.replace("Bearer ", "");
-			return auth.equals(expected);
-		}
-
-		String apiKey = request.headers().get("x-api-key");
-		if (apiKey != null && !apiKey.isBlank()) {
-			return apiKey.equals(expected);
-		}
-
-		return false;
-	}
 
 	private boolean isAnthropicClient(FullHttpRequest request) {
 		String anthropicVersion = request.headers().get("anthropic-version");
@@ -351,16 +325,16 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 
 		logger.info("[Control路由] 本地模型未加载，开始搜索远程节点: model={}", modelName);
-		String targetUrl = this.resolveControlRemoteUrl(modelName);
-		if (targetUrl != null) {
-			this.forwardControlToRemote(ctx, request, content, targetUrl);
+		String[] remoteTarget = this.resolveControlRemoteUrl(modelName);
+		if (remoteTarget != null) {
+			this.forwardControlToRemote(ctx, request, content, remoteTarget[0], remoteTarget[1]);
 			return;
 		}
 
 		this.sendJsonResponse(ctx, ApiResponse.error("Model not found: " + modelName));
 	}
 
-	private String resolveControlRemoteUrl(String modelName) {
+	private String[] resolveControlRemoteUrl(String modelName) {
 		for (LlamaHubNode node : NodeManager.getInstance().listEnabledNodes()) {
 			NodeManager.HttpResult result = NodeManager.getInstance().callRemoteApi(node.getNodeId(), "GET", "v1/models", null);
 			if (!result.isSuccess()) continue;
@@ -385,7 +359,7 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				}
 				if (found) {
 					logger.info("[Control路由] 远程节点匹配成功: model={}, nodeId={}", modelName, node.getNodeId());
-					return node.getBaseUrl() + "/v1/chat/completions/control";
+					return new String[]{node.getBaseUrl() + "/v1/chat/completions/control", node.getApiKey()};
 				}
 			} catch (Exception ignore) {
 			}
@@ -410,7 +384,11 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 						|| "Connection".equalsIgnoreCase(key)
 						|| "Content-Length".equalsIgnoreCase(key)
 						|| "Transfer-Encoding".equalsIgnoreCase(key)
-						|| "X-Node-Id".equalsIgnoreCase(key)) {
+						|| "X-Node-Id".equalsIgnoreCase(key)
+						|| "Authorization".equalsIgnoreCase(key)
+						|| "Cookie".equalsIgnoreCase(key)
+						|| "X-Forwarded-For".equalsIgnoreCase(key)
+						|| "X-Real-Ip".equalsIgnoreCase(key)) {
 					continue;
 				}
 				connection.setRequestProperty(key, entry.getValue());
@@ -458,7 +436,7 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 		}
 	}
 
-	private void forwardControlToRemote(ChannelHandlerContext ctx, FullHttpRequest request, String content, String targetUrl) {
+	private void forwardControlToRemote(ChannelHandlerContext ctx, FullHttpRequest request, String content, String targetUrl, String nodeApiKey) {
 		HttpURLConnection connection = null;
 		try {
 			connection = (HttpURLConnection) URI.create(targetUrl).toURL().openConnection();
@@ -481,10 +459,19 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 						|| "Connection".equalsIgnoreCase(key)
 						|| "Content-Length".equalsIgnoreCase(key)
 						|| "Transfer-Encoding".equalsIgnoreCase(key)
-						|| "X-Node-Id".equalsIgnoreCase(key)) {
+						|| "X-Node-Id".equalsIgnoreCase(key)
+						|| "Authorization".equalsIgnoreCase(key)
+						|| "Cookie".equalsIgnoreCase(key)
+						|| "X-Forwarded-For".equalsIgnoreCase(key)
+						|| "X-Real-Ip".equalsIgnoreCase(key)) {
 					continue;
 				}
 				connection.setRequestProperty(key, entry.getValue());
+			}
+
+			// 添加远程节点的 API Key 认证
+			if (nodeApiKey != null && !nodeApiKey.isBlank()) {
+				connection.setRequestProperty("Authorization", "Bearer " + nodeApiKey);
 			}
 
 			byte[] outBytes = content.getBytes(StandardCharsets.UTF_8);

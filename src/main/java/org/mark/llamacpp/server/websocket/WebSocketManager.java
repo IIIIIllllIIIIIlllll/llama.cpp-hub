@@ -32,7 +32,7 @@ public class WebSocketManager {
     private final ConcurrentMap<String, Boolean> connectionStatus = new ConcurrentHashMap<>();
     
     // 连接计数器
-    private int connectionCounter = 0;
+    private final java.util.concurrent.atomic.AtomicInteger connectionCounter = new java.util.concurrent.atomic.AtomicInteger(0);
     
     // 定时任务执行器，用于发送心跳和定期消息
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
@@ -63,8 +63,8 @@ public class WebSocketManager {
      * 添加新的WebSocket连接
      */
     public String addConnection(ChannelHandlerContext ctx) {
-        connectionCounter++;
-        String connectionId = "conn-" + connectionCounter;
+        int id = connectionCounter.incrementAndGet();
+        String connectionId = "conn-" + id;
         connections.put(connectionId, ctx);
         connectionStatus.put(connectionId, false);
         return connectionId;

@@ -39,6 +39,7 @@ import org.mark.llamacpp.server.controller.SystemController;
 import org.mark.llamacpp.server.controller.CertController;
 import org.mark.llamacpp.server.controller.ToolController;
 import org.mark.llamacpp.server.controller.UsageReportController;
+import org.mark.llamacpp.server.security.ApiKeyValidator;
 import org.mark.test.mcp.DefaultMcpServiceImpl;
 import org.mark.test.mcp.IMCPTool;
 import org.mark.test.mcp.struct.McpToolInputSchema;
@@ -180,6 +181,18 @@ public class BasicRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 			LlamaServer.sendCorsResponse(ctx);
 			return;
 		}
+
+		// 安全验证：如果启用了 API Key，所有路径都需要验证
+		// /v1 路径由 LlamaRouterHandler 验证（Bearer/x-api-key）
+		// 其他路径（WebUI、/api/*、管理接口）同样验证，浏览器返回登录页
+		if (LlamaServer.isApiKeyValidationEnabled() && !routingUri.startsWith("/v1")) {
+			String clientIp = ApiKeyValidator.getClientIp(ctx, request);
+			if (!ApiKeyValidator.validate(request, clientIp)) {
+				ApiKeyValidator.sendUnauthorized(ctx, request);
+				return;
+			}
+		}
+
 		try {
 			// 处理模型API请求
 			if (this.isApiRequest(routingUri)) {

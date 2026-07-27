@@ -87,13 +87,10 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<WebSocke
                         break;
                 }
             } else {
-                // 非JSON格式消息或没有type字段，简单回显
-                ctx.channel().writeAndFlush(new TextWebSocketFrame("服务器收到: " + request));
+                // 非JSON格式消息或没有type字段，忽略
             }
         } catch (JsonSyntaxException e) {
-            
-            // 简单的回显功能
-            ctx.channel().writeAndFlush(new TextWebSocketFrame("服务器收到: " + request));
+            // JSON 解析失败，忽略
         } catch (Exception e) {
             
             ctx.channel().writeAndFlush(new TextWebSocketFrame("服务器处理消息时发生错误"));

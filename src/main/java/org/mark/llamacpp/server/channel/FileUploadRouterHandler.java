@@ -13,6 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
 import org.mark.llamacpp.server.LlamaServer;
+import org.mark.llamacpp.server.security.ApiKeyValidator;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -56,6 +57,16 @@ public class FileUploadRouterHandler extends ChannelInboundHandlerAdapter {
             if (method == HttpMethod.OPTIONS) {
                 ctx.fireChannelRead(msg);
                 return;
+            }
+
+            // 认证检查：拦截 /api/uploads 开头的请求，未通过验证则返回 401
+            if (uri.startsWith("/api/uploads")) {
+                String clientIp = ApiKeyValidator.getClientIp(ctx, request);
+                if (!ApiKeyValidator.validate(request, clientIp)) {
+                    ApiKeyValidator.sendUnauthorized(ctx, request);
+                    ReferenceCountUtil.release(msg);
+                    return;
+                }
             }
 
             if (uri.startsWith("/api/uploads") && method == HttpMethod.POST) {

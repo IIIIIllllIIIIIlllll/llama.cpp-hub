@@ -883,6 +883,14 @@ return v.isEmpty() ? null : v;
 		try {
 			Path filePath = Paths.get(decodedPath).toAbsolutePath().normalize();
 
+			// 路径白名单校验：只允许访问下载目录和模型目录下的文件，防止任意文件读取
+			Path downloadDir = Paths.get(LlamaServer.getDownloadDirectory()).toAbsolutePath().normalize();
+			Path modelsDir = Paths.get(LlamaServer.getDefaultModelsPath()).toAbsolutePath().normalize();
+			if (!filePath.startsWith(downloadDir) && !filePath.startsWith(modelsDir)) {
+				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.FORBIDDEN, I18N_DOWNLOAD_PARAM_PATH_INVALID);
+				return;
+			}
+
 			if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
 				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.NOT_FOUND, I18N_FILE_NOT_FOUND + ": " + filePath);
 				return;
@@ -898,9 +906,8 @@ return v.isEmpty() ? null : v;
 			response.headers().set(HttpHeaderNames.CONTENT_LENGTH, fileLength);
 			response.headers().set(HttpHeaderNames.CONTENT_TYPE, contentType);
 			response.headers().set(HttpHeaderNames.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
-			response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-			response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type");
-			response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS");
+			// 使用统一的CORS设置，不在此处硬编码
+			LlamaServer.setCorsHeaders(response.headers());
 
 			ctx.write(response);
 			ctx.write(new ChunkedFile(raf, 0, fileLength, 8192), ctx.newProgressivePromise());

@@ -4,6 +4,7 @@ import java.util.List;
 
 import javax.net.ssl.SSLEngine;
 
+import org.mark.llamacpp.server.security.WebSocketAuthHandler;
 import org.mark.llamacpp.server.websocket.WebSocketServerHandler;
 
 import io.netty.buffer.ByteBuf;
@@ -152,6 +153,7 @@ public class HttpHttpsUnificationHandler extends ByteToMessageDecoder {
         pipeline.addLast(HttpContentLimitHandler.forMainServer());
         pipeline.addLast(new HttpObjectAggregator(maxHttpContentLength));
         pipeline.addLast(new ChunkedWriteHandler());
+        pipeline.addLast(new WebSocketAuthHandler());  // WebSocket 握手认证，必须在 WebSocketServerProtocolHandler 之前
         pipeline.addLast(new WebSocketServerProtocolHandler(websocketPath, null, true, 32768));
         pipeline.addLast(new WebSocketServerHandler());
         pipeline.addLast(new BasicRouterHandler());

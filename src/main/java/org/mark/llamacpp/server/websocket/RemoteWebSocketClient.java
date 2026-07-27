@@ -36,6 +36,7 @@ public class RemoteWebSocketClient {
 
     private final String nodeId;
     private final String baseUrl;
+    private final String apiKey;
     private final ScheduledExecutorService scheduler;
     private final AtomicBoolean connecting = new AtomicBoolean(false);
     private volatile long connectingSince = 0;
@@ -49,9 +50,10 @@ public class RemoteWebSocketClient {
     private volatile ScheduledFuture<?> watchdogTask;
     private volatile ScheduledFuture<?> reconnectTask;
 
-    public RemoteWebSocketClient(String nodeId, String baseUrl) {
+    public RemoteWebSocketClient(String nodeId, String baseUrl, String apiKey) {
         this.nodeId = nodeId;
         this.baseUrl = baseUrl;
+        this.apiKey = apiKey;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "ws-remote-" + nodeId);
             t.setDaemon(true);
@@ -171,8 +173,11 @@ public class RemoteWebSocketClient {
                 return;
             }
 
-            client.newWebSocketBuilder()
-                    .buildAsync(wsUri, new WebSocketListener())
+            java.net.http.WebSocket.Builder wsBuilder = client.newWebSocketBuilder();
+            if (apiKey != null && !apiKey.isBlank()) {
+                wsBuilder.header("Authorization", "Bearer " + apiKey);
+            }
+            wsBuilder.buildAsync(wsUri, new WebSocketListener())
                     .whenComplete((ws, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = throwable;

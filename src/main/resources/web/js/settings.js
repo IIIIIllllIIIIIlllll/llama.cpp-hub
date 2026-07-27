@@ -358,8 +358,12 @@
         if (sec) {
             const apiKeyToggle = byId('toggleApiKeyEnabled');
             if (apiKeyToggle) apiKeyToggle.checked = !!sec.apiKeyEnabled;
-            const apiKey = byId('apiKeyInput');
-            if (apiKey && sec.apiKey) apiKey.value = sec.apiKey;
+            // 不再从服务端读取明文 apiKey，只显示是否已配置
+            const apiKeyInput = byId('apiKeyInput');
+            if (apiKeyInput) {
+                apiKeyInput.placeholder = sec.apiKeyConfigured ? '****** (已配置，留空保持不变)' : 'Enter API Key';
+                apiKeyInput.value = '';
+            }
             updateApiKeyInputState();
         }
 
@@ -440,7 +444,7 @@
         const downloadBtn = byId('httpsCertDownloadBtn');
         if (!infoEl) return;
         const path = escapeHtml(status.path || '');
-        const password = escapeHtml(status.password || '');
+        const passwordConfigured = !!status.passwordConfigured;
         const sizeText = formatBytes(status.size);
         if (downloadBtn && status.path) {
             const fileName = status.path.replace(/\\/g, '/').split('/').pop() || 'keystore.p12';
@@ -448,7 +452,7 @@
         }
         infoEl.innerHTML =
             '<div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border-color);"><span style="color:var(--text-secondary);">' + t('page.settings.https.cert_path', '文件路径') + '</span><code style="word-break:break-all;">' + path + '</code></div>' +
-            '<div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border-color);"><span style="color:var(--text-secondary);">' + t('page.settings.https.password', '密码') + '</span><code style="word-break:break-all;">' + password + '</code></div>' +
+            '<div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border-color);"><span style="color:var(--text-secondary);">' + t('page.settings.https.password', '密码') + '</span><code>' + (passwordConfigured ? '******' : '-') + '</code></div>' +
             '<div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.35rem 0;"><span style="color:var(--text-secondary);">' + t('page.settings.https.cert_size', '文件大小') + '</span><span>' + sizeText + '</span></div>';
         if (guideEl) {
             guideEl.innerHTML =

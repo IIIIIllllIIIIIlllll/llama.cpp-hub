@@ -80,7 +80,7 @@ public class CertController implements BaseController {
             Map<String, Object> data = new HashMap<>();
             data.put("exists", exists);
             data.put("path", keystorePath);
-            data.put("password", LlamaServer.getHttpsPassword());
+            data.put("passwordConfigured", LlamaServer.getHttpsPassword() != null && !LlamaServer.getHttpsPassword().isBlank());
             data.put("caCertPath", caCertPath.toString());
             data.put("caCertExists", caExists);
             if (exists) {
@@ -171,6 +171,11 @@ public class CertController implements BaseController {
 
             List<String> ips = JsonUtil.getJsonStringList(body.get("ips"));
             List<String> hostnames = JsonUtil.getJsonStringList(body.get("hostnames"));
+
+            // 参数校验：只允许合法的域名和 IP 格式
+            if (hostnames != null) hostnames.removeIf(h -> h == null || !h.trim().matches("^[a-zA-Z0-9.\\-]+$"));
+            if (ips != null) ips.removeIf(ip -> ip == null || !ip.trim().matches("^[0-9a-fA-F.:]+$"));
+
             int validity = JsonUtil.getJsonInt(body, "validity", 3650);
             if (validity < 1)
                 validity = 3650;

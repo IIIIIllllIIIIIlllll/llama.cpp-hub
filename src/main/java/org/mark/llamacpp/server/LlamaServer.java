@@ -1253,9 +1253,13 @@ public class LlamaServer {
 	
 	public static void setCorsHeaders(HttpHeaders headers) {
 		headers.set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-		headers.set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+		headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type, x-api-key, anthropic-version");
 		headers.set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS");
 		headers.set(HttpHeaderNames.ACCESS_CONTROL_MAX_AGE, "86400");
+		// 安全响应头
+		headers.set("X-Content-Type-Options", "nosniff");
+		headers.set("X-Frame-Options", "SAMEORIGIN");
+		headers.set("Referrer-Policy", "no-referrer");
 	}
 	
 	/**

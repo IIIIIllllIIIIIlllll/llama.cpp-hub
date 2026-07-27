@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.mark.llamacpp.server.LlamaServer;
+import org.mark.llamacpp.server.security.ApiKeyValidator;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -64,6 +65,15 @@ public class EasyChatStreamingHandler extends ChannelInboundHandlerAdapter {
 			// Only intercept POST — GET/OPTIONS pass through
 			if (request.method() != HttpMethod.POST) {
 				ctx.fireChannelRead(msg);
+				return;
+			}
+
+			// 认证检查：未通过验证则返回 401，不写临时文件
+			String clientIp = ApiKeyValidator.getClientIp(ctx, request);
+			if (!ApiKeyValidator.validate(request, clientIp)) {
+				logger.warn("[EasyChat][Streaming] 认证失败，拒绝请求: uri={}, ip={}", request.uri(), clientIp);
+				ApiKeyValidator.sendUnauthorized(ctx, request);
+				ReferenceCountUtil.release(msg);
 				return;
 			}
 

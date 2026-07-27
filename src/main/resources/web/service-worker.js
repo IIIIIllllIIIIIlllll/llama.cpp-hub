@@ -63,6 +63,9 @@ self.addEventListener('fetch', e => {
 
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/v1/')) return;
 
+  // 只缓存静态资源
+  if (!url.pathname.match(/\.(html|js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|webp|manifest)$/i)) return;
+
   e.respondWith(
     fetch(request)
       .then(res => {

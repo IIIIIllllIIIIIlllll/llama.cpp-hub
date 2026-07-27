@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.mark.llamacpp.server.LlamaServer;
+import org.mark.llamacpp.server.security.ApiKeyValidator;
 import org.mark.llamacpp.server.service.AnthropicService;
 import org.mark.llamacpp.server.service.ChatStreamSession;
 import org.mark.llamacpp.server.service.OpenAIService;
@@ -86,13 +86,16 @@ public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 			if (normUri.startsWith("/llama.cpp/v1/")) {
 				normUri = "/v1" + normUri.substring("/llama.cpp/v1/".length());
 			}
-			// 判断是不是v1的API，再判断有无密钥，实际上密钥压根没用过。
-			if (normUri.startsWith("/v1") && !this.validateApiKey(request)) {
-				// OpenAI 兼容前缀下先做鉴权，失败时立即终止当前会话。
-				LlamaServer.sendErrorResponse(ctx, HttpResponseStatus.UNAUTHORIZED, "invalid api key");
-				ReferenceCountUtil.release(msg);
-				this.resetSession();
-				return;
+			// 判断是不是v1的API，统一走 ApiKeyValidator 鉴权（含 Bearer / x-api-key / Cookie，常量时间比较 + IP 限速）。
+			if (normUri.startsWith("/v1")) {
+				String clientIp = ApiKeyValidator.getClientIp(ctx, request);
+				if (!ApiKeyValidator.validate(request, clientIp)) {
+					// 鉴权失败时返回统一的 401 响应（浏览器返回登录页，API 返回 JSON）。
+					ApiKeyValidator.sendUnauthorized(ctx, request);
+					ReferenceCountUtil.release(msg);
+					this.resetSession();
+					return;
+				}
 			}
 
 			// 会话启动后会在独立线程中读取 requestBodyStream，并在识别出 model 后连接目标 llama.cpp 进程。
@@ -198,27 +201,6 @@ public class OpenAIChatStreamingHandler extends ChannelInboundHandlerAdapter {
 		return headers;
 	}
 	
-	/**
-	 * 	验证API的密钥，但是实际没啥用。
-	 * @param request
-	 * @return
-	 */
-	private boolean validateApiKey(HttpRequest request) {
-		if (!LlamaServer.isApiKeyValidationEnabled()) {
-			return true;
-		}
-		String expected = LlamaServer.getApiKey();
-		if (expected == null || expected.isBlank()) {
-			return false;
-		}
-		String auth = request.headers().get(HttpHeaderNames.AUTHORIZATION);
-		if (auth == null) {
-			return false;
-		}
-		auth = auth.replace("Bearer ", "");
-		return expected.equals(auth);
-	}
-
 	private void sendCorsPreflight(ChannelHandlerContext ctx) {
 		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
 		response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
