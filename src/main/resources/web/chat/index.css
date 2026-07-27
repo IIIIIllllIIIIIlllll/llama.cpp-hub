@@ -4417,9 +4417,6 @@ body.sidebar-collapsed .sidebar {
   min-height: 28px;
 }
 
-#autoReplyModal .auto-reply-content {
-}
-
 .auto-reply-content:empty {
   display: none;
 }

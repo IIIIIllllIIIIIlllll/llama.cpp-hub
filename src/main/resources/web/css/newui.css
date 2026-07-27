@@ -189,6 +189,62 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .progress-track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 8px; }
 .progress-fill { height: 100%; border-radius: 3px; background: var(--primary); transition: width .4s; }
 
+/* ================= 系统信息页 ================= */
+/* 卡片头：着色图标 + 标题 */
+.si-ch { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.si-ch .t { font-size: 13px; font-weight: 600; }
+.si-ch .s { font-size: 11px; color: var(--text-2); }
+.si-ic { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.si-ic.blue { color: #3b82f6; background: rgba(59,130,246,.13); }
+.si-ic.violet { color: #8b5cf6; background: rgba(139,92,246,.13); }
+.si-ic.green { color: #10b981; background: rgba(16,185,129,.13); }
+.si-ic.orange { color: #f97316; background: rgba(249,115,22,.13); }
+.si-ic.cyan { color: #06b6d4; background: rgba(6,182,212,.13); }
+.si-ic.rose { color: #f43f5e; background: rgba(244,63,94,.13); }
+/* 细进度条 */
+.si-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.si-bar > div { height: 100%; border-radius: 3px; transition: width .4s; }
+/* 资源用量行：标签 + 进度条 + 数值 */
+.si-use { display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 12.5px; }
+.si-use .k { width: 42px; flex-shrink: 0; color: var(--text-2); }
+.si-use .si-bar { flex: 1; }
+.si-use .v { flex-shrink: 0; min-width: 190px; text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.si-use .v b { color: var(--text); font-weight: 600; margin-right: 6px; }
+/* 分区 */
+.si-sec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+/* 信息表：宽屏双列、窄屏单列 */
+.si-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 0 28px; }
+.si-info .kv { font-size: 12.5px; padding: 5px 0; }
+.si-info .kv .v { font-weight: 500; }
+/* 数据表格（GPU / 磁盘），内容允许换行，不出横向滚动条 */
+.si-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.si-table th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--text-2); padding: 2px 14px 8px 0; border-bottom: 1px solid var(--border); }
+.si-table td { padding: 8px 14px 8px 0; border-bottom: 1px dashed var(--border); vertical-align: middle; }
+.si-table tr:last-child td { border-bottom: none; }
+.si-table th:last-child, .si-table td:last-child { padding-right: 0; }
+.si-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.si-table .bar-cell { width: 22%; min-width: 150px; }
+.si-name { font-weight: 600; }
+.si-dim { font-size: 11px; color: var(--text-2); }
+.si-cellbar { display: flex; align-items: center; gap: 10px; }
+.si-cellbar .si-bar { flex: 1; }
+.si-cellbar span { min-width: 36px; text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* 窄屏：用量行数值允许换行；表格转为纵向布局（每行变成 标签-值 列表） */
+@media (max-width: 560px) {
+    .si-use { flex-wrap: wrap; gap: 4px 10px; }
+    .si-use .si-bar { flex-basis: 100%; order: 3; }
+    .si-use .v { min-width: 0; margin-left: auto; }
+    .si-table thead { display: none; }
+    .si-table tr { display: block; padding: 8px 0; }
+    .si-table tbody tr + tr { border-top: 1px solid var(--border); }
+    .si-table td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: none; padding: 3px 0; text-align: right; }
+    .si-table td::before { content: attr(data-th); flex-shrink: 0; color: var(--text-2); text-align: left; }
+    .si-table td.rh { font-size: 13px; }
+    .si-table td.rh::before { content: none; }
+    .si-table td.bar-cell { min-width: 0; width: auto; }
+    .si-table td.bar-cell .si-cellbar { flex: 1; }
+}
+
 /* ================= 弹层（移动端底部 / 桌面居中） ================= */
 .sheet-mask {
     position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200;

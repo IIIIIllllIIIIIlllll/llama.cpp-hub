@@ -124,6 +124,7 @@ const App = {
     },
 
     switchPage(name) {
+        if (this.currentPage === 'sysinfo' && name !== 'sysinfo') SysInfo.stop();
         this.currentPage = name;
         $$('.bottom-nav button, .sb-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === name));
         $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
