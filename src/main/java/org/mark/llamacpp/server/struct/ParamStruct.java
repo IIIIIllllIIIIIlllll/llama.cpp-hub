@@ -3,7 +3,7 @@ package org.mark.llamacpp.server.struct;
 import java.util.List;
 
 /**
- * 	定义参数的结构体。由于要搭配UI使用，因此不要用-c、--no-mmap、mlock等参数
+ * 定义参数的结构体。由于要搭配UI使用，因此不要用 -c、--load-mode、mlock 等参数
  */
 public class ParamStruct implements Comparable<ParamStruct> {
 	

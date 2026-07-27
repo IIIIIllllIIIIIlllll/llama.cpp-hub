@@ -31,13 +31,20 @@
     "groupCollapsed": true
   },
   {
-    "name": "param.server.no_mmap.name",
-    "fullName": "--no-mmap",
-    "abbreviation": "--no-mmap",
-    "type": "LOGIC",
-    "defaultValue": "1",
-    "description": "param.server.no_mmap.desc",
-    "sort": 2,
+    "name": "param.server.load_mode.name",
+    "fullName": "--load-mode",
+    "abbreviation": "-lm",
+    "type": "STRING",
+    "defaultValue": "dio",
+    "description": "param.server.load_mode.desc",
+    "values": [
+      "none",
+      "mmap",
+      "mlock",
+      "mmap+mlock",
+      "dio"
+    ],
+    "sort": 2.5,
 	"defaultEnabled": true,
     "group": "page.params.group.performance",
     "groupOrder": 30,
@@ -540,24 +547,6 @@
     "description": "param.server.seed.desc",
     "sort": 24,
 	"defaultEnabled": false,
-    "group": "page.params.group.basic",
-    "groupOrder": 10,
-    "groupCollapsed": false
-  },
-  {
-    "name": "param.server.directio.name",
-    "fullName": "",
-    "abbreviation": "",
-    "type": "STRING",
-    "defaultValue": "-dio",
-    "description": "param.server.directio.desc",
-    "values": [
-      "default",
-      "-ndio",
-      "-dio"
-    ],
-    "sort": 25,
-	"defaultEnabled": true,
     "group": "page.params.group.basic",
     "groupOrder": 10,
     "groupCollapsed": false

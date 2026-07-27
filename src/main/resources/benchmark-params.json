@@ -335,19 +335,6 @@
     "groupCollapsed": true
   },
   {
-    "name": "param.benchmark.direct_io.name",
-    "fullName": "--direct-io",
-    "abbreviation": "-dio",
-    "type": "STRING",
-    "defaultValue": "0",
-    "description": "param.benchmark.direct_io.desc",
-    "values": ["0","1"],
-    "sort": 31,
-    "group": "page.params.group.cache_storage",
-    "groupOrder": 40,
-    "groupCollapsed": true
-  },
-  {
     "name": "param.benchmark.split_mode.name",
     "fullName": "--split-mode",
     "abbreviation": "-sm",
@@ -437,13 +424,13 @@
     "groupCollapsed": true
   },
   {
-    "name": "param.benchmark.mmap.name",
-    "fullName": "--mmap",
-    "abbreviation": "-mmp",
+    "name": "param.benchmark.load_mode.name",
+    "fullName": "--load-mode",
+    "abbreviation": "-lm",
     "type": "STRING",
-    "defaultValue": "1",
-    "description": "param.benchmark.mmap.desc",
-    "values": ["0","1"],
+    "defaultValue": "dio",
+    "description": "param.benchmark.load_mode.desc",
+    "values": ["none","mmap","mlock","mmap+mlock","dio"],
     "sort": 3,
     "group": "page.params.group.basic",
     "groupOrder": 10,

@@ -12,8 +12,8 @@
 | `-mg, --main-gpu INDEX` | 主 GPU 索引（用于 KV 缓存或单卡） | `-mg 0` |
 | `-ctk, --cache-type-k TYPE` | KV 缓存 K 的数据类型（节省显存） | `-ctk q4_0`（推荐）或 `f16`（精度高） |
 | `-ctv, --cache-type-v TYPE` | KV 缓存 V 的数据类型 | `-ctv q4_0`（与 K 一致） |
-| `--mlock` | **强烈推荐**：锁定模型到物理内存，防止交换 | `--mlock` |
-| `--no-mmap` | 禁用内存映射（适合 SSD 不稳定或内存充足环境） | `--no-mmap`（可选，推荐在 mmap 可能崩溃时使用） |
+| `--mlock` | 锁定模型到物理内存，防止交换（已并入 `--load-mode` 的 `mlock` / `mmap+mlock`） | `--load-mode mlock`（或 `--load-mode mmap+mlock`） |
+| `--load-mode` | 模型加载模式：none / mmap / mlock / mmap+mlock / dio | `--load-mode mmap`（默认；异常时尝试 `none` 或 `dio`） |
 | `-t, --threads N` | CPU 推理线程数（建议设为物理核数） | `-t 8`（8核CPU） |
 | `-tb, --threads-batch N` | 批处理/提示处理线程数（可与 `--threads` 相同） | `-tb 8` |
 | `-np, --parallel N` | 并发请求数（同时服务的对话数） | `-np 4`（根据显存调整） |
