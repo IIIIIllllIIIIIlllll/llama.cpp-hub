@@ -29,7 +29,7 @@ if(WIN32)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/win32
     )
-    target_link_libraries(llama.cpp-hub PRIVATE user32)
+    target_link_libraries(llama.cpp-hub PRIVATE user32 advapi32 shell32)
     if(MSVC)
         target_link_options(llama.cpp-hub PRIVATE "/MANIFEST:NO")
     endif()
