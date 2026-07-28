@@ -370,7 +370,7 @@ public class ModelActionController implements BaseController {
 			}
 			modelInfo.put("architecture", architecture);
 			modelInfo.put("quantization", quantization);
-			modelInfo.put("hasMtp", primaryModel != null && primaryModel.getMtpInfo().hasMtp());
+			modelInfo.put("hasMtp", (primaryModel != null && primaryModel.getMtpInfo().hasMtp()) || model.hasDraftModel());
 			modelInfo.put("nodeId", "local");
 			modelInfo.put("nodeName", "page.model.filter.local");
 
@@ -427,7 +427,7 @@ public class ModelActionController implements BaseController {
 				modelInfo.put("architecture", architecture);
 				modelInfo.put("quantization",
 						primaryModel != null ? primaryModel.getQuantizationType() : "");
-				modelInfo.put("hasMtp", primaryModel != null && primaryModel.getMtpInfo().hasMtp());
+				modelInfo.put("hasMtp", (primaryModel != null && primaryModel.getMtpInfo().hasMtp()) || manager.hasDraftModelFromConfig(cloneId));
 				modelInfo.put("nodeId", "local");
 				modelInfo.put("nodeName", "page.model.filter.local");
 				modelInfo.put("isClone", true);

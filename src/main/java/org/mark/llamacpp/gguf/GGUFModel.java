@@ -56,8 +56,13 @@ public class GGUFModel {
 	 * 	是否为偏好模型
 	 */
 	private boolean favourite = false;
-	
-	
+
+	/**
+	 * 	是否通过启动配置关联了草稿模型（--spec-type / --spec-draft-model）
+	 */
+	private boolean hasDraftModel = false;
+
+
 	public GGUFModel(String name, String path) {
 		this.path = path;
 		this.name = name;
@@ -103,6 +108,14 @@ public class GGUFModel {
 	
 	public void setFavourite(boolean favourite) {
 		this.favourite = favourite;
+	}
+
+	public boolean hasDraftModel() {
+		return hasDraftModel;
+	}
+
+	public void setHasDraftModel(boolean hasDraftModel) {
+		this.hasDraftModel = hasDraftModel;
 	}
 
 	/**
