@@ -427,6 +427,26 @@ public class LlamaServerManager {
                         m.setFavourite(fav);
                     }
                 }
+                // 回退检测：目录扫描未找到 mmproj 时，尝试从启动配置的 --mmproj 参数中获取
+                for (GGUFModel m : this.list) {
+                    if (m.getMmproj() != null) continue;
+                    try {
+                        String mmprojPath = this.extractMmprojPathFromLaunchConfig(m.getModelId());
+                        if (mmprojPath != null) {
+                            File mmprojFile = new File(mmprojPath);
+                            if (mmprojFile.exists() && mmprojFile.isFile()) {
+                                GGUFMetaData md = GGUFMetaData.readFile(mmprojFile);
+                                if (md != null) {
+                                    m.setMmproj(md);
+                                    m.addMetaData(md);
+                                    logger.info("[模型扫描] 从启动配置检测到 mmproj: {} -> {}", m.getModelId(), mmprojPath);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.warn("[模型扫描] 启动配置 mmproj 回退检测失败: modelId={}, error={}", m.getModelId(), e.getMessage());
+                    }
+                }
                this.ensureCapabilitiesFilesExistForCurrentList();
                 // 重建自动加载缓存
                 if (!this.list.isEmpty()) {
@@ -1353,6 +1373,50 @@ public class LlamaServerManager {
 			logger.warn("[自动加载缓存] 提取 ctx-size 失败: modelId={}, error={}", modelId, e.getMessage());
 		}
 		return 0;
+	}
+
+	/**
+	 * 从启动配置中提取 --mmproj 参数指定的 mmproj 文件绝对路径。
+	 * 如果配置中包含 --no-mmproj，返回 null（尊重用户显式禁用）。
+	 * 仅支持绝对路径，相对路径忽略。
+	 *
+	 * @param modelId 模型 ID
+	 * @return mmproj 文件的绝对路径字符串，未找到或无效返回 null
+	 */
+	private String extractMmprojPathFromLaunchConfig(String modelId) {
+		try {
+			Map<String, Object> bundle = configManager.getModelLaunchConfigBundle(modelId);
+			if (bundle == null) return null;
+
+			String selectedConfigName = ParamTool.asString(bundle.get("selectedConfig"));
+			if (selectedConfigName.trim().isEmpty()) return null;
+
+			Map<String, Object> configs = ParamTool.asConfigMap(bundle.get("configs"));
+			if (configs == null) return null;
+
+			Map<String, Object> config = ParamTool.asConfigMap(configs.get(selectedConfigName));
+			if (config == null) return null;
+
+			String cmd = ParamTool.asString(config.getOrDefault("cmd", ""));
+			String extraParams = ParamTool.asString(config.getOrDefault("extraParams", ""));
+
+			List<String> args = ParamTool.splitCmdArgs(cmd + " " + extraParams);
+			for (int i = 0; i < args.size(); i++) {
+				if ("--no-mmproj".equals(args.get(i))) {
+					return null;
+				}
+				if ("--mmproj".equals(args.get(i)) && i + 1 < args.size()) {
+					String path = args.get(i + 1);
+					if (path != null && !path.isEmpty() && Paths.get(path).isAbsolute()) {
+						return path;
+					}
+					return null;
+				}
+			}
+		} catch (Exception e) {
+			logger.info("[模型扫描] 提取 mmproj 路径失败: modelId={}, error={}", modelId, e.getMessage());
+		}
+		return null;
 	}
 
 	/**
