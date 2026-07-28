@@ -19,6 +19,7 @@
   #include <libgen.h>
   #include <unistd.h>
   #include <sys/stat.h>
+  #include <glob.h>
   #define PATH_SEP ':'
   #define PATH_SEP_STR ":"
   #define DIR_SEP '/'
@@ -176,6 +177,111 @@ static void *load_jvm_library(const char *jvm_path, const char *bin_dir) {
 }
 #endif
 
+#ifdef _WIN32
+static void expand_classpath(const char *classpath, char *result, size_t result_size) {
+    result[0] = '\0';
+    char buf[MAX_PATH_LEN];
+    strncpy(buf, classpath, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+
+    char *token = buf;
+    while (token) {
+        char *next = strchr(token, PATH_SEP);
+        if (next) *next = '\0';
+
+        int len = (int)strlen(token);
+        if (len > 0 && token[len - 1] == '*') {
+            token[len - 1] = '\0';
+            int dlen = (int)strlen(token);
+            while (dlen > 0 && (token[dlen - 1] == '\\' || token[dlen - 1] == '/')) {
+                token[--dlen] = '\0';
+            }
+            const char *dir = (dlen > 0) ? token : ".";
+
+            char pattern[MAX_PATH_LEN];
+            snprintf(pattern, sizeof(pattern), "%s\\*.jar", dir);
+
+            WIN32_FIND_DATAA fd;
+            HANDLE h = FindFirstFileA(pattern, &fd);
+            if (h != INVALID_HANDLE_VALUE) {
+                do {
+                    if (result[0] != '\0')
+                        strncat(result, PATH_SEP_STR, result_size - strlen(result) - 1);
+                    char entry[MAX_PATH_LEN];
+                    snprintf(entry, sizeof(entry), "%s\\%s", dir, fd.cFileName);
+                    strncat(result, entry, result_size - strlen(result) - 1);
+                } while (FindNextFileA(h, &fd));
+                FindClose(h);
+            }
+        } else {
+            if (result[0] != '\0')
+                strncat(result, PATH_SEP_STR, result_size - strlen(result) - 1);
+            strncat(result, token, result_size - strlen(result) - 1);
+        }
+
+        token = next ? next + 1 : NULL;
+    }
+}
+#else
+static void expand_classpath(const char *classpath, char *result, size_t result_size) {
+    result[0] = '\0';
+    char buf[MAX_PATH_LEN];
+    strncpy(buf, classpath, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+
+    char *token = buf;
+    while (token) {
+        char *next = strchr(token, PATH_SEP);
+        if (next) *next = '\0';
+
+        int len = (int)strlen(token);
+        if (len > 0 && token[len - 1] == '*') {
+            token[len - 1] = '\0';
+            int dlen = (int)strlen(token);
+            while (dlen > 0 && token[dlen - 1] == '/') {
+                token[--dlen] = '\0';
+            }
+            const char *dir = (dlen > 0) ? token : ".";
+
+            char pattern[MAX_PATH_LEN];
+            snprintf(pattern, sizeof(pattern), "%s/*.jar", dir);
+
+            glob_t g;
+            if (glob(pattern, 0, NULL, &g) == 0) {
+                for (size_t i = 0; i < g.gl_pathc; i++) {
+                    if (result[0] != '\0')
+                        strncat(result, PATH_SEP_STR, result_size - strlen(result) - 1);
+                    strncat(result, g.gl_pathv[i], result_size - strlen(result) - 1);
+                }
+            }
+            globfree(&g);
+        } else {
+            if (result[0] != '\0')
+                strncat(result, PATH_SEP_STR, result_size - strlen(result) - 1);
+            strncat(result, token, result_size - strlen(result) - 1);
+        }
+
+        token = next ? next + 1 : NULL;
+    }
+}
+#endif
+
+static char *process_classpath_option(const char *option) {
+    static const char prefix[] = "-Djava.class.path=";
+    const size_t prefix_len = sizeof(prefix) - 1;
+    if (strncmp(option, prefix, prefix_len) == 0) {
+        char expanded[MAX_PATH_LEN];
+        expand_classpath(option + prefix_len, expanded, sizeof(expanded));
+        char *result = malloc(prefix_len + strlen(expanded) + 1);
+        if (result) {
+            memcpy(result, prefix, prefix_len);
+            strcpy(result + prefix_len, expanded);
+        }
+        return result;
+    }
+    return strdup(option);
+}
+
 static int read_config(const char *conf_path, const char **options, int *opt_count,
                        char *main_class, size_t main_class_size) {
     FILE *f = fopen(conf_path, "r");
@@ -209,14 +315,14 @@ static int read_config(const char *conf_path, const char **options, int *opt_cou
             const char *value = strchr(line, '=') + 1;
             char classpath_opt[MAX_LINE_LEN];
             snprintf(classpath_opt, sizeof(classpath_opt), "-Djava.class.path=%s", value);
-            char *option = strdup(classpath_opt);
+            char *option = process_classpath_option(classpath_opt);
             if (option) {
                 options[(*opt_count)++] = option;
             }
             continue;
         }
 
-        char *option = strdup(line);
+        char *option = process_classpath_option(line);
         if (option) {
             options[(*opt_count)++] = option;
         }
@@ -291,7 +397,8 @@ static int launch_jvm(const char **options, int opt_count) {
             "[launcher] config not found, using built-in defaults");
         log_error(msg_buffer);
         for (int i = 0; DEFAULT_JVM_OPTS[i] != NULL && n < MAX_OPTIONS; i++) {
-            opts[n++] = DEFAULT_JVM_OPTS[i];
+            char *opt = process_classpath_option(DEFAULT_JVM_OPTS[i]);
+            if (opt) opts[n++] = opt;
         }
     }
 
@@ -323,10 +430,8 @@ static int launch_jvm(const char **options, int opt_count) {
 #endif
 
     free(vmOptions);
-    if (from_config) {
-        for (int i = 0; i < n; i++) {
-            free((char *)opts[i]);
-        }
+    for (int i = 0; i < n; i++) {
+        free((char *)opts[i]);
     }
 
     if (res != JNI_OK) {
