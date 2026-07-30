@@ -275,7 +275,7 @@ static char *process_classpath_option(const char *option) {
         char *result = malloc(prefix_len + strlen(expanded) + 1);
         if (result) {
             memcpy(result, prefix, prefix_len);
-            strcpy(result + prefix_len, expanded);
+            memcpy(result + prefix_len, expanded, strlen(expanded) + 1);
         }
         return result;
     }
