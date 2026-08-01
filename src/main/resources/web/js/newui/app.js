@@ -85,7 +85,7 @@ const UI = {
 /* ================= 应用壳 ================= */
 const App = {
     currentPage: 'models',
-    PAGE_TITLES: { models: '模型', downloads: '下载', sysinfo: '系统信息', settings: '设置' },
+    PAGE_TITLES: { models: '模型', downloads: '下载', sysinfo: '系统信息', logs: '系统日志', settings: '设置' },
 
     async start() {
         await I18n.load();
@@ -95,7 +95,9 @@ const App = {
         Models.init();
         ModelConfig.init();
         ModelDetail.init();
+        Logs.init();
         MiscPages.init();
+        Settings.init();
         WS.connect();
         Models.load();
         api('/api/sys/version').then(r => {
@@ -120,6 +122,8 @@ const App = {
             if (this.currentPage === 'models') Models.load(true);
             else if (this.currentPage === 'downloads') Downloads.load();
             else if (this.currentPage === 'sysinfo') SysInfo.load();
+            else if (this.currentPage === 'logs') Logs.refresh();
+            else if (this.currentPage === 'settings') Settings.load();
         });
     },
 
@@ -132,7 +136,9 @@ const App = {
         document.body.classList.remove('drawer-open');
         if (name === 'downloads') Downloads.load();
         if (name === 'sysinfo') SysInfo.load();
+        if (name === 'logs') Logs.load();
         if (name === 'models') Models.renderCount();
+        if (name === 'settings') Settings.load();
     }
 };
 
@@ -167,6 +173,7 @@ const WS = {
                     toast('模型 ' + label + ' 加载失败', 'error');
                     Models.patch(d.modelId, { isLoaded: false, status: 'stopped', port: null }, d.nodeId);
                 }
+                Logs.onModelsChanged();
                 break;
             }
             case 'modelStop': {
@@ -175,6 +182,7 @@ const WS = {
                 if (d.success) toast('模型 ' + label + ' 已停止', 'success');
                 else toast('模型 ' + label + ' 停止失败', 'error');
                 Models.patch(d.modelId, { isLoaded: false, status: 'stopped', port: null, busy: false }, d.nodeId);
+                Logs.onModelsChanged();
                 break;
             }
             case 'model_status':
@@ -192,6 +200,13 @@ const WS = {
             case 'download_progress':
             case 'download_update':
                 if (App.currentPage === 'downloads') Downloads.silent();
+                SettingsUpdate.onLlamaProgress(d);
+                break;
+            case 'app_update':
+                SettingsUpdate.onAppUpdate(d);
+                break;
+            case 'console':
+                Logs.onConsoleMsg(d);
                 break;
         }
     }

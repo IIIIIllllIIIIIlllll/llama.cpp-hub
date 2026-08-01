@@ -475,3 +475,104 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 
 /* 输入对话框须始终位于其他弹窗之上 */
 .prompt-sheet { z-index: 210; }
+
+/* ================= 系统日志页 ================= */
+/* 页面整体高度固定,日志视图内部滚动(覆盖 .page 默认的整页滚动) */
+#page-logs.active { display: flex; flex-direction: column; overflow: hidden; }
+.logs-wrap { flex: 1; min-height: 0; display: flex; gap: 12px; }
+
+/* 桌面端左侧日志源竖排列表 */
+.log-sources {
+    width: 200px; flex-shrink: 0; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 6px;
+}
+.log-src-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 8px; font-size: 13px; cursor: pointer;
+}
+.log-src-item:hover { background: var(--surface-2); }
+.log-src-item.active { background: var(--primary-soft); font-weight: 600; }
+.log-src-item.offline { color: var(--text-2); }
+.log-src-item .ls-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+.log-src-item .ls-name { word-break: break-all; line-height: 1.3; }
+
+.log-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.log-src-chips { display: none; } /* 移动端才显示,见下方媒体查询 */
+
+/* 深色终端视图 */
+.log-view {
+    flex: 1; min-height: 0; overflow: auto;
+    background: #0f172a; color: #e5e7eb; border-radius: var(--radius);
+    padding: 12px 14px; font-size: 12.5px;
+    font-family: Consolas, 'Courier New', monospace;
+}
+.log-view pre { margin: 0; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; line-height: 1.55; }
+.log-status { flex-shrink: 0; margin-top: 8px; font-size: 12px; color: var(--text-2); }
+
+@media (max-width: 900px) {
+    .log-sources { display: none; }
+    .log-src-chips { display: flex; }
+}
+
+/* ================= 设置页（系统设置） ================= */
+/* .field 的密码输入框（补 .field 控件家族） */
+.field input[type="password"] {
+    width: 100%; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); color: var(--text); padding: 10px 12px; outline: none; font-size: 14px;
+}
+.field input[type="password"]:disabled { opacity: .6; }
+/* 设置列表：路径 / 节点 / 目录项通用行 */
+.set-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.set-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.set-item > i { color: var(--text-2); flex-shrink: 0; }
+.set-item .ns-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.set-main { flex: 1; min-width: 0; }
+.set-name { font-size: 13.5px; font-weight: 600; word-break: break-all; }
+.set-sub { font-size: 12px; color: var(--text-2); word-break: break-all; margin-top: 2px; }
+.set-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.set-link { cursor: pointer; }
+.set-link:hover { border-color: var(--primary); }
+/* 小徽标（来源 / 状态 / 标签） */
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: var(--surface); border: 1px solid var(--border); color: var(--text-2); }
+/* 通用文本结果弹层 */
+#msgPre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12.5px; font-family: Consolas, 'Courier New', monospace; line-height: 1.55; }
+@media (max-width: 560px) {
+    .set-item { flex-wrap: wrap; }
+    .set-actions { margin-left: auto; }
+}
+
+/* 更新卡：加速地址下拉（非 .field 容器内，单独补样式） */
+#updProxy { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); padding: 8px 10px; font-size: 13px; }
+
+/* ================= 设置页：桌面端锚点侧栏 + 双列卡片（移动端不变） ================= */
+/* 移动端：锚点侧栏隐藏，卡片平铺滚动（默认形态） */
+.set-anchor { display: none; }
+@media (min-width: 901px) {
+    .set-layout { display: flex; gap: 16px; align-items: flex-start; }
+    .set-anchor {
+        display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; width: 150px;
+        position: sticky; top: 4px; padding: 6px;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+    }
+    .set-anchor button {
+        text-align: left; padding: 7px 10px; border: none; background: none; border-radius: 8px;
+        color: var(--text-2); font-size: 13px; cursor: pointer; white-space: nowrap;
+    }
+    .set-anchor button:hover { background: var(--surface-2); color: var(--text); }
+    .set-anchor button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+    .set-main { flex: 1; min-width: 0; max-width: 860px; }
+}
+/* 宽屏（≥1200px）：小卡两列、大卡（span2）通栏 */
+@media (min-width: 1200px) {
+    .set-main { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; max-width: none; }
+    .set-main > .card { margin-bottom: 0; }
+    .set-main > .card.span2 { grid-column: 1 / -1; }
+}
+/* 桌面端：节点/路径/证书弹层表单双列（.wide 通栏），移动端保持单列 */
+@media (min-width: 901px) {
+    #nodeSheet .sheet-body, #pathSheet .sheet-body, #certSheet .sheet-body {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-content: start;
+    }
+    #nodeSheet .sheet-body > .wide, #pathSheet .sheet-body > .wide, #certSheet .sheet-body > .wide { grid-column: 1 / -1; }
+}

@@ -23,6 +23,7 @@
         <button class="active" data-page="models"><i class="fas fa-cubes"></i><span>模型</span></button>
         <button data-page="downloads"><i class="fas fa-download"></i><span>下载</span></button>
         <button data-page="sysinfo"><i class="fas fa-microchip"></i><span>系统信息</span></button>
+        <button data-page="logs"><i class="fas fa-terminal"></i><span>日志</span></button>
         <button data-page="settings"><i class="fas fa-gear"></i><span>设置</span></button>
     </nav>
     <div class="sb-foot">
@@ -78,19 +79,191 @@
             <div id="sysinfoBody"></div>
         </section>
 
+        <!-- ============ 系统日志页 ============ -->
+        <section class="page" id="page-logs">
+            <div class="chip-row" id="logNodes" style="display:none"></div>
+            <div class="logs-wrap">
+                <!-- 桌面端左侧日志源竖排列表（移动端隐藏，用下方 chips 代替） -->
+                <div class="log-sources" id="logSources"></div>
+                <div class="log-main">
+                    <div class="chip-row log-src-chips" id="logSrcChips"></div>
+                    <div class="log-view" id="logView"><pre id="logPre"></pre></div>
+                    <div class="log-status" id="logStatus"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- ============ 设置页 ============ -->
         <section class="page" id="page-settings">
-            <div class="card">
+            <div class="set-layout">
+            <!-- 桌面端锚点侧栏（≤900px 隐藏，移动端整页平铺滚动） -->
+            <nav class="set-anchor" id="setAnchor">
+                <button class="active" data-anchor="set-appearance">外观</button>
+                <button data-anchor="set-server">服务器</button>
+                <button data-anchor="set-security">安全</button>
+                <button data-anchor="set-https">HTTPS</button>
+                <button data-anchor="set-logging">请求日志</button>
+                <button data-anchor="set-download">下载</button>
+                <button data-anchor="set-proxy">HTTP 代理</button>
+                <button data-anchor="set-llamacpp">Llama.cpp 路径</button>
+                <button data-anchor="set-modelpath">模型路径</button>
+                <button data-anchor="set-nodes">节点</button>
+                <button data-anchor="set-update">更新</button>
+                <button data-anchor="set-about">关于</button>
+            </nav>
+            <div class="set-main">
+            <div class="card" id="set-appearance">
                 <h3><i class="fas fa-palette"></i> 外观</h3>
                 <div class="kv"><span class="k">夜间模式</span>
                     <span class="v"><button class="btn" id="themeToggle">跟随系统</button></span></div>
                 <div class="kv"><span class="k">语言 / Language</span>
                     <span class="v"><button class="btn" id="langToggle">中文</button></span></div>
             </div>
-            <div class="card">
+            <div class="card" id="set-server">
+                <h3><i class="fas fa-server"></i> 服务器</h3>
+                <div class="field"><label>Web 端口（修改后需重启生效）</label>
+                    <div class="row-gap">
+                        <input type="number" id="sysWebPort" class="grow" min="1" max="65535" placeholder="8080">
+                        <button class="btn" id="sysWebPortSave">保存</button>
+                    </div>
+                </div>
+                <label class="check-line"><input type="checkbox" id="sysMcpEnable"> 启用 MCP Server</label>
+            </div>
+            <div class="card" id="set-security">
+                <h3><i class="fas fa-shield-halved"></i> 安全</h3>
+                <label class="check-line"><input type="checkbox" id="sysApiKeyEnable"> 启用 API Key 验证</label>
+                <div class="field"><label>API Key</label>
+                    <div class="row-gap">
+                        <input type="password" id="sysApiKey" class="grow" autocomplete="off" placeholder="未设置">
+                        <button class="btn" id="sysApiKeySave">保存</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card" id="set-https">
+                <h3><i class="fas fa-lock"></i> HTTPS</h3>
+                <label class="check-line"><input type="checkbox" id="sysHttpsEnable"> 启用 HTTPS（修改后需重启生效）</label>
+                <div class="muted" id="certNone" style="display:none;margin:6px 0">尚未生成证书</div>
+                <div id="certInfo" style="display:none">
+                    <div class="kv"><span class="k">证书文件</span><span class="v" id="certPath"></span></div>
+                    <div class="kv"><span class="k">证书密码</span>
+                        <span class="v row-gap" style="justify-content:flex-end">
+                            <span id="certPwdMask"></span>
+                            <button class="btn mini" id="certCopyPwd">复制</button>
+                        </span></div>
+                    <div class="kv"><span class="k">文件大小</span><span class="v" id="certSize"></span></div>
+                </div>
+                <div class="row-gap" style="flex-wrap:wrap;margin-top:6px">
+                    <button class="btn" id="certGenBtn"><i class="fas fa-certificate"></i> 生成证书</button>
+                    <a class="btn" id="certDlBtn" href="/api/cert/download" style="display:none"><i class="fas fa-download"></i> 下载证书</a>
+                </div>
+                <div class="muted" style="margin-top:8px;font-size:12px">安装证书到系统并重启浏览器后，再启用 HTTPS 并重启服务，否则浏览器会拦截访问。</div>
+            </div>
+            <div class="card" id="set-logging">
+                <h3><i class="fas fa-list-check"></i> 请求日志</h3>
+                <label class="check-line"><input type="checkbox" id="sysLogUrl"> 记录请求 URL</label>
+                <label class="check-line"><input type="checkbox" id="sysLogHeader"> 记录请求头</label>
+                <label class="check-line"><input type="checkbox" id="sysLogBody"> 记录请求体</label>
+                <button class="btn" id="sysLogSave"><i class="fas fa-floppy-disk"></i> 保存</button>
+            </div>
+            <div class="card" id="set-download">
+                <h3><i class="fas fa-download"></i> 下载</h3>
+                <div class="field"><label>下载目录</label>
+                    <div class="row-gap">
+                        <input type="text" id="sysDlDir" class="grow" spellcheck="false" placeholder="默认目录">
+                        <button class="icon-btn" id="sysDlDirBrowse" title="浏览"><i class="fas fa-folder-open"></i></button>
+                        <button class="btn" id="sysDlDirSave">保存</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card" id="set-proxy">
+                <h3><i class="fas fa-globe"></i> HTTP 代理</h3>
+                <div class="field"><label>节点</label><select id="proxyNode"><option value="local">本地</option></select></div>
+                <label class="check-line"><input type="checkbox" id="proxyEnabled"> 启用代理</label>
+                <div class="row-gap">
+                    <div class="field grow"><label>主机</label><input type="text" id="proxyHost" spellcheck="false"></div>
+                    <div class="field" style="width:120px"><label>端口</label><input type="number" id="proxyPort" min="1" max="65535"></div>
+                </div>
+                <div class="row-gap">
+                    <div class="field grow"><label>用户名（可选）</label><input type="text" id="proxyUser" autocomplete="off"></div>
+                    <div class="field grow"><label>密码（可选）</label><input type="password" id="proxyPass" autocomplete="new-password"></div>
+                </div>
+                <div class="row-gap">
+                    <button class="btn" id="proxySave"><i class="fas fa-floppy-disk"></i> 保存</button>
+                    <button class="btn" id="proxyTest"><i class="fas fa-plug"></i> 测试连接</button>
+                </div>
+            </div>
+            <div class="card span2" id="set-llamacpp">
+                <h3><i class="fas fa-microchip"></i> Llama.cpp 路径</h3>
+                <div class="field"><label>节点</label><select id="lcNode"><option value="local">本地</option></select></div>
+                <div id="lcPathList" class="set-list"></div>
+                <button class="btn" id="lcAdd"><i class="fas fa-plus"></i> 添加路径</button>
+            </div>
+            <div class="card span2" id="set-modelpath">
+                <h3><i class="fas fa-folder-tree"></i> 模型路径</h3>
+                <div class="field"><label>节点</label><select id="mpNode"><option value="local">本地</option></select></div>
+                <div id="mpPathList" class="set-list"></div>
+                <button class="btn" id="mpAdd"><i class="fas fa-plus"></i> 添加路径</button>
+            </div>
+            <div class="card span2" id="set-nodes">
+                <h3><i class="fas fa-network-wired"></i> 节点</h3>
+                <div class="field"><label>本节点角色（修改后需重启生效）</label>
+                    <select id="sysNodeRole">
+                        <option value="slave">普通节点（slave）</option>
+                        <option value="master">主节点（master）</option>
+                    </select>
+                </div>
+                <div class="muted" id="nodeMasterHint" style="display:none;margin-bottom:8px">当前不是主节点，仅主节点（master）可管理远程节点</div>
+                <div id="nodeList" class="set-list"></div>
+                <button class="btn" id="nodeAdd"><i class="fas fa-plus"></i> 添加远程节点</button>
+            </div>
+            <div class="card span2" id="set-update">
+                <h3><i class="fas fa-circle-up"></i> 更新</h3>
+                <div class="kv"><span class="k">当前版本</span><span class="v" id="updCurrent">…</span></div>
+                <div class="row-gap" style="flex-wrap:wrap;margin:8px 0">
+                    <button class="btn" id="updCheck"><i class="fas fa-rotate"></i> 检查更新</button>
+                    <select id="updProxy" title="GitHub 加速地址" style="max-width:220px">
+                        <option value="">直连（无加速）</option>
+                        <option value="https://gh.llkk.cc/">加速：gh.llkk.cc</option>
+                        <option value="https://v4.gh-proxy.org/">加速：v4.gh-proxy.org</option>
+                        <option value="https://v6.gh-proxy.org/">加速：v6.gh-proxy.org</option>
+                        <option value="https://cdn.gh-proxy.org/">加速：cdn.gh-proxy.org</option>
+                    </select>
+                </div>
+                <div id="updBox" style="display:none">
+                    <div class="kv"><span class="k">最新版本</span><span class="v" id="updLatest"></span></div>
+                    <div class="kv"><span class="k">发布时间</span><span class="v" id="updTime"></span></div>
+                    <div class="kv"><span class="k">状态</span><span class="v" id="updBadge"></span></div>
+                    <div class="muted" id="updBody" style="font-size:12px;white-space:pre-wrap;max-height:160px;overflow:auto;margin:6px 0"></div>
+                    <a class="link" id="updUrl" target="_blank" rel="noopener" style="display:none">查看 Release</a>
+                </div>
+                <div id="updProg" style="display:none;margin-top:6px">
+                    <div class="row-gap" style="justify-content:space-between">
+                        <span class="muted" id="updProgText">下载更新包…</span>
+                        <span class="muted"><span id="updProgPct">0%</span> <span id="updProgSize"></span></span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="updBar" style="width:0%"></div></div>
+                    <button class="btn mini" id="updCancel" style="margin-top:8px">取消下载</button>
+                </div>
+                <div id="updErr" style="display:none;color:var(--danger);font-size:12.5px;margin:6px 0"></div>
+                <div class="row-gap" style="margin-top:8px;flex-wrap:wrap">
+                    <button class="btn primary" id="updDownload" style="display:none"></button>
+                    <button class="btn primary" id="updApply" style="display:none"></button>
+                </div>
+                <div class="si-sec" style="margin-top:14px">
+                    <div class="kv" style="border:none;padding-top:0">
+                        <span class="k" style="font-weight:600;color:var(--text)">llama.cpp 下载</span>
+                        <span class="v"><button class="btn mini" id="lcRelLoad"><i class="fas fa-rotate"></i> 获取最新版本</button></span>
+                    </div>
+                    <div class="muted" id="lcRelInfo" style="font-size:12.5px;margin-bottom:8px"></div>
+                    <div id="lcAssets" class="set-list" style="margin-bottom:0"></div>
+                </div>
+            </div>
+            <div class="card" id="set-about">
                 <h3><i class="fas fa-circle-info"></i> 关于</h3>
                 <div class="kv"><span class="k">服务版本</span><span class="v" id="versionVal">…</span></div>
                 <div class="kv"><span class="k">完整功能</span><span class="v"><a href="index.html" class="link">打开旧版页面</a></span></div>
+            </div>
+            </div>
             </div>
         </section>
     </div>
@@ -101,6 +274,7 @@
     <button class="active" data-page="models"><i class="fas fa-cubes"></i>模型</button>
     <button data-page="downloads"><i class="fas fa-download"></i>下载</button>
     <button data-page="sysinfo"><i class="fas fa-microchip"></i>系统</button>
+    <button data-page="logs"><i class="fas fa-terminal"></i>日志</button>
     <button data-page="settings"><i class="fas fa-gear"></i>设置</button>
 </nav>
 
@@ -289,6 +463,101 @@
     </div>
 </div>
 
+<!-- ===== 节点表单弹层 ===== -->
+<div class="sheet" id="nodeSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2 id="nfTitle">添加节点</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="field"><label>节点 ID（必填，唯一）</label><input type="text" id="nfId" spellcheck="false"></div>
+        <div class="field"><label>名称</label><input type="text" id="nfName"></div>
+        <div class="field wide"><label>地址（http:// 或 https:// 开头）</label><input type="url" id="nfUrl" spellcheck="false" placeholder="http://192.168.1.10:8080"></div>
+        <div class="field"><label>API Key（可选）</label><input type="password" id="nfKey" autocomplete="new-password"></div>
+        <div class="field"><label>标签（逗号分隔）</label><input type="text" id="nfTags" placeholder="gpu, 4090"></div>
+        <label class="check-line wide"><input type="checkbox" id="nfEnabled" checked> 启用</label>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn primary grow" id="nfSave"><i class="fas fa-check"></i> 保存</button>
+    </div>
+</div>
+
+<!-- ===== 路径添加/编辑弹层（Llama.cpp / 模型路径共用） ===== -->
+<div class="sheet" id="pathSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2 id="pfTitle">添加路径</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="field wide"><label>路径</label>
+            <div class="row-gap">
+                <input type="text" id="pfPath" class="grow" spellcheck="false">
+                <button class="icon-btn" id="pfBrowse" title="浏览"><i class="fas fa-folder-open"></i></button>
+            </div>
+        </div>
+        <div class="field"><label>名称（可选）</label><input type="text" id="pfName"></div>
+        <div class="field"><label>描述（可选）</label><input type="text" id="pfDesc"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn primary grow" id="pfSave"><i class="fas fa-check"></i> 保存</button>
+    </div>
+</div>
+
+<!-- ===== 目录浏览弹层（简化版） ===== -->
+<div class="sheet" id="dirSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>选择目录</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="row-gap" style="margin-bottom:10px">
+            <button class="btn mini" id="dbUp"><i class="fas fa-arrow-up"></i> 上级</button>
+            <span class="muted" id="dbCur" style="word-break:break-all"></span>
+        </div>
+        <div id="dbList" class="set-list"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn primary grow" id="dbPick"><i class="fas fa-check"></i> 选择此目录</button>
+    </div>
+</div>
+
+<!-- ===== HTTPS 证书生成弹层 ===== -->
+<div class="sheet" id="certSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>生成 HTTPS 证书</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="field"><label>IP 地址（每行一个；IP 与主机名至少填一项）</label>
+            <textarea id="cfIps" rows="3" spellcheck="false" placeholder="192.168.1.10"></textarea></div>
+        <div class="field"><label>主机名（每行一个）</label>
+            <textarea id="cfHosts" rows="3" spellcheck="false" placeholder="my-server.local"></textarea></div>
+        <details class="wide">
+            <summary class="muted" style="cursor:pointer;margin-bottom:10px">高级选项</summary>
+            <div class="field"><label>通用名称（CN）</label><input type="text" id="cfCn" value="llama.cpp-hub"></div>
+            <div class="row-gap">
+                <div class="field grow"><label>有效期（天）</label><input type="number" id="cfDays" value="3650"></div>
+                <div class="field grow"><label>密钥长度</label>
+                    <select id="cfKeySize"><option value="2048">2048</option><option value="4096">4096</option></select></div>
+            </div>
+            <div class="field"><label>证书密码（留空自动生成）</label><input type="text" id="cfPwd" autocomplete="off"></div>
+        </details>
+        <div class="muted wide" id="cfStatus" style="font-size:12.5px"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" onclick="UI.closeSheet()">取消</button>
+        <button class="btn primary grow" id="cfGen"><i class="fas fa-certificate"></i> 生成并下载</button>
+    </div>
+</div>
+
+<!-- ===== 通用文本结果弹层 ===== -->
+<div class="sheet" id="msgSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2 id="msgTitle">结果</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body"><pre id="msgPre"></pre></div>
+    <div class="sheet-foot"><button class="btn grow" onclick="UI.closeSheet()">关闭</button></div>
+</div>
+
 <div class="toasts" id="toasts"></div>
 
 <script src="js/model-icon.js"></script>
@@ -296,7 +565,11 @@
 <script src="js/newui/models.js"></script>
 <script src="js/newui/model-config.js"></script>
 <script src="js/newui/model-detail.js"></script>
+<script src="js/newui/logs.js"></script>
 <script src="js/newui/misc-pages.js"></script>
+<script src="js/newui/settings.js"></script>
+<script src="js/newui/settings-nodes.js"></script>
+<script src="js/newui/settings-update.js"></script>
 <script>App.start();</script>
 </body>
 </html>
