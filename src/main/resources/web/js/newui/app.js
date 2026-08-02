@@ -85,7 +85,7 @@ const UI = {
 /* ================= 应用壳 ================= */
 const App = {
     currentPage: 'models',
-    PAGE_TITLES: { models: '模型', downloads: '下载', sysinfo: '系统信息', logs: '系统日志', settings: '设置' },
+    PAGE_TITLES: { models: '模型', hf: '模型搜索', downloads: '下载', sysinfo: '系统信息', logs: '系统日志', settings: '设置' },
 
     async start() {
         await I18n.load();
@@ -95,6 +95,7 @@ const App = {
         Models.init();
         ModelConfig.init();
         ModelDetail.init();
+        HfSearch.init();
         Logs.init();
         MiscPages.init();
         Settings.init();
@@ -120,6 +121,7 @@ const App = {
         $('#chatBtn').addEventListener('click', () => location.href = 'chat/index.html');
         $('#refreshBtn').addEventListener('click', () => {
             if (this.currentPage === 'models') Models.load(true);
+            else if (this.currentPage === 'hf') HfSearch.refresh();
             else if (this.currentPage === 'downloads') Downloads.load();
             else if (this.currentPage === 'sysinfo') SysInfo.load();
             else if (this.currentPage === 'logs') Logs.refresh();
@@ -129,6 +131,7 @@ const App = {
 
     switchPage(name) {
         if (this.currentPage === 'sysinfo' && name !== 'sysinfo') SysInfo.stop();
+        if (this.currentPage === 'hf' && name !== 'hf') HfSearch.cancelDetail();
         this.currentPage = name;
         $$('.bottom-nav button, .sb-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === name));
         $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));

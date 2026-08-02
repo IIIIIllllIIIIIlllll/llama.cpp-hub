@@ -70,6 +70,7 @@ const Downloads = {
 const SysInfo = {
     nodeId: '',
     timer: null,
+    reqSeq: 0, // 请求序号：响应返回时序号已过期则丢弃，避免切换节点时旧请求覆盖新内容
 
     load() {
         // 渲染节点 TAB（本地 + 各远程节点）
@@ -106,22 +107,26 @@ const SysInfo = {
     },
 
     silent() {
+        const seq = ++this.reqSeq;
         const q = this.nodeId ? '?nodeId=' + encodeURIComponent(this.nodeId) : '';
         api('/api/sys/sysinfo' + q).then(r => {
+            if (seq !== this.reqSeq) return;
             if (r.success && r.data) this.render(r.data);
         }).catch(() => {});
     },
 
     loadBody() {
+        const seq = ++this.reqSeq;
         $('#sysinfoBody').innerHTML = '<div class="skeleton" style="margin-bottom:10px;height:120px"></div>' +
             '<div class="skeleton" style="margin-bottom:10px;height:200px"></div>' +
             '<div class="skeleton" style="height:200px"></div>';
         const q = this.nodeId ? '?nodeId=' + encodeURIComponent(this.nodeId) : '';
         api('/api/sys/sysinfo' + q).then(r => {
+            if (seq !== this.reqSeq) return;
             if (!r.success) throw new Error(r.error || '加载失败');
             if (!r.data) throw new Error('暂无数据');
             this.render(r.data);
-        }).catch(e => { $('#sysinfoBody').innerHTML = '<div class="empty"><i class="fas fa-triangle-exclamation"></i>' + esc(e.message) + '</div>'; });
+        }).catch(e => { if (seq !== this.reqSeq) return; $('#sysinfoBody').innerHTML = '<div class="empty"><i class="fas fa-triangle-exclamation"></i>' + esc(e.message) + '</div>'; });
     },
 
     render(data) {

@@ -21,6 +21,7 @@
     </div>
     <nav class="sb-nav">
         <button class="active" data-page="models"><i class="fas fa-cubes"></i><span>模型</span></button>
+        <button data-page="hf"><i class="fas fa-magnifying-glass"></i><span>模型搜索</span></button>
         <button data-page="downloads"><i class="fas fa-download"></i><span>下载</span></button>
         <button data-page="sysinfo"><i class="fas fa-microchip"></i><span>系统信息</span></button>
         <button data-page="logs"><i class="fas fa-terminal"></i><span>日志</span></button>
@@ -71,6 +72,67 @@
                 <button class="btn primary block" id="newDownloadBtn"><i class="fas fa-plus"></i> 新建下载任务</button>
             </div>
             <div id="downloadList"></div>
+        </section>
+
+        <!-- ============ 模型搜索页（HF 在线搜索） ============ -->
+        <section class="page" id="page-hf">
+            <div class="toolbar">
+                <div class="search-wrap">
+                    <i class="fas fa-search"></i>
+                    <input type="search" id="hfQuery" placeholder="输入模型名称进行搜索">
+                </div>
+                <select id="hfBase" class="select-inline" title="搜索源">
+                    <option value="mirror" selected>hf-mirror.com</option>
+                    <option value="official">huggingface.co</option>
+                </select>
+                <select id="hfLimit" class="select-inline" title="每次获取条数">
+                    <option value="30" selected>30 条</option>
+                    <option value="50">50 条</option>
+                    <option value="100">100 条</option>
+                </select>
+                <button class="btn primary" id="hfSearchBtn"><i class="fas fa-search"></i><span class="hf-btn-text"> 搜索</span></button>
+            </div>
+            <div class="hf-note" id="hfNote" style="display:none">
+                <i class="fas fa-circle-info"></i>
+                <div class="hf-note-body">
+                    受网络环境影响该功能可能不稳定：中国大陆用户未使用 VPN 时请优先选择 hf-mirror.com；两个站点都存在访问频率限制，超出后可能返回 403 并被暂时屏蔽；hf-mirror.com 偶尔无法访问，多次失败请重试或改用 huggingface.co。
+                </div>
+                <button class="icon-btn" id="hfNoteClose" title="不再提示"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="hf-split" id="hfSplit">
+                <!-- 左栏：搜索结果列表 -->
+                <div class="hf-hits">
+                    <div id="hfHitsList">
+                        <div class="empty"><i class="fas fa-magnifying-glass"></i>输入关键字，搜索 HuggingFace 上的 GGUF 模型</div>
+                    </div>
+                    <div class="hf-hits-footer" id="hfHitsFooter" style="display:none">
+                        <button class="btn block" id="hfLoadMoreBtn">加载更多</button>
+                    </div>
+                </div>
+                <!-- 右栏：仓库详情 -->
+                <div class="hf-detail" id="hfDetail">
+                    <div class="empty" id="hfDetailEmpty"><i class="fas fa-arrow-left"></i>选择左侧的模型查看详情</div>
+                    <div class="hf-detail-body" id="hfDetailBody" style="display:none">
+                        <div class="hf-detail-head">
+                            <button class="icon-btn hf-back" id="hfBackBtn" title="返回列表"><i class="fas fa-arrow-left"></i></button>
+                            <div class="hf-detail-name" id="hfDetailName"></div>
+                            <a class="btn mini" id="hfHomeLink" target="_blank" rel="noopener noreferrer" style="display:none"><i class="fas fa-house"></i> 主页</a>
+                        </div>
+                        <div class="hf-detail-stats" id="hfDetailStats"></div>
+                        <div class="hf-sec-head">
+                            <span class="hf-sec-title"><i class="fas fa-file-zipper"></i> GGUF 文件</span>
+                            <span class="muted" id="hfGgufSummary"></span>
+                            <button class="btn mini" id="hfGgufToggle" style="display:none">展开</button>
+                        </div>
+                        <div id="hfGgufList"></div>
+                        <div class="hf-sec-head">
+                            <span class="hf-sec-title"><i class="fas fa-book-open"></i> README</span>
+                            <a class="link" id="hfReadmeLink" target="_blank" rel="noopener noreferrer" style="display:none;font-size:12.5px">打开原文 <i class="fas fa-arrow-up-right-from-square"></i></a>
+                        </div>
+                        <div id="hfReadmeBody"></div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- ============ 系统页 ============ -->
@@ -272,6 +334,7 @@
 <!-- ===== 移动端底部导航 ===== -->
 <nav class="bottom-nav">
     <button class="active" data-page="models"><i class="fas fa-cubes"></i>模型</button>
+    <button data-page="hf"><i class="fas fa-magnifying-glass"></i>搜索</button>
     <button data-page="downloads"><i class="fas fa-download"></i>下载</button>
     <button data-page="sysinfo"><i class="fas fa-microchip"></i>系统</button>
     <button data-page="logs"><i class="fas fa-terminal"></i>日志</button>
@@ -561,10 +624,12 @@
 <div class="toasts" id="toasts"></div>
 
 <script src="js/model-icon.js"></script>
+<script src="js/marked.umd.js"></script>
 <script src="js/newui/app.js"></script>
 <script src="js/newui/models.js"></script>
 <script src="js/newui/model-config.js"></script>
 <script src="js/newui/model-detail.js"></script>
+<script src="js/newui/hf.js"></script>
 <script src="js/newui/logs.js"></script>
 <script src="js/newui/misc-pages.js"></script>
 <script src="js/newui/settings.js"></script>

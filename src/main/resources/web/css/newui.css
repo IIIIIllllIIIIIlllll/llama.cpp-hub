@@ -576,3 +576,105 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
     }
     #nodeSheet .sheet-body > .wide, #pathSheet .sheet-body > .wide, #certSheet .sheet-body > .wide { grid-column: 1 / -1; }
 }
+
+/* ================= 模型搜索页（HF 在线搜索） ================= */
+/* 提示条：可关闭，关闭状态存 localStorage */
+.hf-note {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; font-size: 12.5px; color: var(--text-2); line-height: 1.6;
+}
+.hf-note > i { margin-top: 2px; flex-shrink: 0; }
+.hf-note-body { flex: 1; min-width: 0; }
+.hf-note .icon-btn { width: 28px; height: 28px; border-radius: 8px; font-size: 12px; }
+
+/* 结果列表项 */
+.hf-hit {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 14px; cursor: pointer; box-shadow: var(--shadow);
+}
+.hf-hit:hover { border-color: var(--text-2); }
+.hf-hit.active { border-color: var(--primary); }
+.hh-name { font-family: Consolas, monospace; font-size: 13px; font-weight: 600; word-break: break-all; line-height: 1.4; }
+.hh-meta, .hf-detail-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-size: 12px; color: var(--text-2); }
+.hh-meta i, .hf-detail-stats i { margin-right: 4px; font-size: 11px; }
+
+/* 详情面板 */
+.hf-detail-head { display: flex; align-items: center; gap: 10px; }
+.hf-detail-name { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; font-family: Consolas, monospace; word-break: break-all; line-height: 1.4; }
+.hf-detail-stats { margin: 10px 0 2px; font-size: 12.5px; }
+.hf-back { display: none; } /* 仅移动端显示（媒体查询见下） */
+.hf-sec-head { display: flex; align-items: center; gap: 10px; margin: 18px 0 8px; }
+.hf-sec-title { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.hf-sec-title i { margin-right: 6px; }
+.hf-sec-head .muted { flex: 1; font-size: 12px; }
+.hf-sec-head .link { margin-left: auto; }
+
+/* GGUF 文件行 */
+.hf-gguf-item { display: flex; align-items: center; gap: 10px; padding: 10px 2px; flex-wrap: wrap; }
+.hf-gguf-item + .hf-gguf-item { border-top: 1px dashed var(--border); }
+.hf-gguf-main { flex: 1; min-width: 220px; }
+.hf-gguf-name { font-family: Consolas, monospace; font-size: 12.5px; word-break: break-all; cursor: pointer; line-height: 1.5; }
+.hf-gguf-name:hover { color: var(--primary); text-decoration: underline; }
+.hf-gguf-badges { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: 1px; }
+.hf-gguf-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.hf-placeholder { color: var(--text-2); font-size: 13px; padding: 14px 2px; }
+
+/* README markdown 排版（内容来自第三方，样式全部限定在容器内） */
+#hfReadmeBody { font-size: 13.5px; line-height: 1.7; min-width: 0; }
+#hfReadmeBody .hf-md > :first-child { margin-top: 0; }
+#hfReadmeBody .hf-md > :last-child { margin-bottom: 0; }
+#hfReadmeBody .hf-md h1, #hfReadmeBody .hf-md h2, #hfReadmeBody .hf-md h3,
+#hfReadmeBody .hf-md h4, #hfReadmeBody .hf-md h5, #hfReadmeBody .hf-md h6 { margin: 18px 0 8px; line-height: 1.4; }
+#hfReadmeBody .hf-md h1 { font-size: 1.6em; } #hfReadmeBody .hf-md h2 { font-size: 1.35em; }
+#hfReadmeBody .hf-md h3 { font-size: 1.15em; } #hfReadmeBody .hf-md h4 { font-size: 1em; }
+#hfReadmeBody .hf-md p, #hfReadmeBody .hf-md ul, #hfReadmeBody .hf-md ol,
+#hfReadmeBody .hf-md blockquote, #hfReadmeBody .hf-md table { margin: 8px 0; }
+#hfReadmeBody .hf-md ul, #hfReadmeBody .hf-md ol { padding-left: 22px; }
+#hfReadmeBody .hf-md a { color: var(--primary); }
+#hfReadmeBody .hf-md img { max-width: 100%; height: auto; }
+#hfReadmeBody .hf-md hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+#hfReadmeBody .hf-md blockquote { border-left: 3px solid var(--border); padding: 2px 12px; color: var(--text-2); }
+#hfReadmeBody .hf-md code { font-family: Consolas, monospace; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
+#hfReadmeBody .hf-md pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; overflow-x: auto; margin: 8px 0; }
+#hfReadmeBody .hf-md pre code { background: none; border: none; padding: 0; font-size: 12px; }
+#hfReadmeBody .hf-md table { border-collapse: collapse; display: block; overflow-x: auto; }
+#hfReadmeBody .hf-md th, #hfReadmeBody .hf-md td { border: 1px solid var(--border); padding: 5px 10px; font-size: 12.5px; }
+#hfReadmeBody .hf-readme-plain { white-space: pre-wrap; word-break: break-word; font-family: Consolas, monospace; font-size: 12.5px; }
+
+/* 桌面端：页面定高，左右分栏各自内部滚动（同日志页模式） */
+@media (min-width: 901px) {
+    #page-hf.active { display: flex; flex-direction: column; overflow: hidden; }
+    .hf-split { flex: 1; min-height: 0; display: flex; gap: 12px; }
+    .hf-hits {
+        width: 400px; flex-shrink: 0; min-height: 0; display: flex; flex-direction: column;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        box-shadow: var(--shadow); padding: 8px;
+    }
+    #hfHitsList { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+    /* 容器已有卡片底色，列表项退化为行：hover/选中用底色区分 */
+    .hf-hit { background: none; border: none; box-shadow: none; border-radius: 10px; }
+    .hf-hit:hover { background: var(--surface-2); }
+    .hf-hit.active { background: var(--primary-soft); }
+    .hf-hits-footer { flex-shrink: 0; padding-top: 8px; }
+    .hf-detail {
+        flex: 1; min-width: 0; min-height: 0; overflow-y: auto;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 16px 20px; box-shadow: var(--shadow);
+    }
+}
+
+/* 移动端：主从视图，选中后详情覆盖列表，顶部返回键 */
+@media (max-width: 900px) {
+    .hf-detail { display: none; }
+    .hf-split.show-detail .hf-hits { display: none; }
+    .hf-split.show-detail .hf-detail { display: block; }
+    .hf-split.show-detail .hf-back { display: inline-flex; }
+    .hf-hits-footer { margin-top: 8px; }
+    #hfHitsList { display: flex; flex-direction: column; gap: 8px; }
+}
+/* 超窄屏：搜索按钮只留图标 */
+@media (max-width: 560px) {
+    .hf-btn-text { display: none; }
+    #page-hf .select-inline { padding: 0 6px; font-size: 12.5px; }
+}
