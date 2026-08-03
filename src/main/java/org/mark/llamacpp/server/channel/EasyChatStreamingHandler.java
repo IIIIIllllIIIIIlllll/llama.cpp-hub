@@ -13,6 +13,7 @@ import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.EmptyHttpHeaders;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
@@ -135,7 +136,13 @@ public class EasyChatStreamingHandler extends ChannelInboundHandlerAdapter {
 			// Pass temp file path to downstream via channel attribute
 			ctx.channel().attr(STREAMING_BODY_FILE).set(this.tempFile);
 
-			// Build FullHttpRequest with empty body — data is in the temp file
+			// Build FullHttpRequest with empty body — data is in the temp file.
+			// The forwarded request must not keep the original Content-Length /
+			// Transfer-Encoding: downstream handlers (e.g. HttpContentLimitHandler)
+			// read them as the declared body size and would wrongly count the bytes
+			// already offloaded to disk.
+			initialRequest.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
+			initialRequest.headers().set(HttpHeaderNames.CONTENT_LENGTH, 0);
 			FullHttpRequest fullRequest = new DefaultFullHttpRequest(
 				initialRequest.protocolVersion(),
 				initialRequest.method(),
