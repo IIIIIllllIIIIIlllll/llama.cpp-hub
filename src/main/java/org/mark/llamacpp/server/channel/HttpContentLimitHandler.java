@@ -72,13 +72,17 @@ public class HttpContentLimitHandler extends ChannelInboundHandlerAdapter {
     }
 
     /**
-     * 主服务限额表：音频转录 / 会话全量同步 / 背景图上传为合法大 body 端点
+     * 主服务限额表：音频转录 / 会话全量同步 / 背景图上传为合法大 body 端点。
+     * 多模态聊天（/api/chat/stream-chat）不设上限：上游 EasyChatStreamingHandler
+     * 已把 body 全部落盘到临时文件，到达本守卫的只是空 body 的转发请求，
+     * 不存在聚合大 body 占内存的路径。
      */
     public static HttpContentLimitHandler forMainServer() {
         Map<String, Integer> limits = new LinkedHashMap<>();
         limits.put("/v1/audio/transcriptions", 16 * MB);
         limits.put("/api/chat/sync", 16 * MB);
         limits.put("/api/chat/background/upload", 4 * MB);
+        limits.put("/api/chat/stream-chat", Integer.MAX_VALUE);
         return new HttpContentLimitHandler(DEFAULT_MAX_BYTES, limits);
     }
 
