@@ -68,7 +68,7 @@ Use at your own risk.
 
 ### Memory
 
-This app is built with Java, which means JVM — the notorious memory hog — is unavoidable. Memory usage has been optimized as much as possible. The JVM default heap is only 128MB (will be reduced further in the future; the author personally runs on 64MB).
+This app is built with Java, which means JVM — the notorious memory hog — is unavoidable. Memory usage has been optimized as much as possible. The JVM default heap is only 96MB (will be reduced further in the future; the author personally runs on 64MB).
 
 The trade-off: when request payloads get too large, they spill to disk. In other words, if someone decides to be creative and submits some ridiculously oversized requests, the app will buffer them to disk rather than let JVM memory explode.
 

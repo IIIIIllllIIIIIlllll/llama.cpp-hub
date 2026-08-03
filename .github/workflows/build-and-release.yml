@@ -123,27 +123,39 @@ jobs:
           echo "总文件数:"
           find build/classes -type f | wc -l
 
-      - name: 下载精简版 JRE (Linux)
+      - name: jlink 构建精简版 JRE (Linux)
         run: |
+          JLINK_MODULES="java.base,java.compiler,java.desktop,java.naming,java.net.http,java.rmi,java.scripting,java.sql,jdk.management,jdk.sctp,jdk.unsupported,jdk.crypto.ec"
           mkdir -p jre-linux
-          curl -L -o jre-linux.zip https://github.com/IIIIIllllIIIIIlllll/Mini-JRE/releases/download/v1.0.0/mini-jre-26.0.1-linux-x64.zip
-          unzip -qo jre-linux.zip -d jre-linux
-          JRE_NAME=$(ls jre-linux | head -1)
-          mv jre-linux/$JRE_NAME jre-linux/jre
+          "$JAVA_HOME/bin/jlink" \
+            --module-path "$JAVA_HOME/jmods" \
+            --add-modules "$JLINK_MODULES" \
+            --strip-debug --no-man-pages --no-header-files --compress=2 \
+            --output jre-linux/jre
+          # 生成默认 CDS 存档，降低启动内存
+          jre-linux/jre/bin/java -Xshare:dump
           chmod +x jre-linux/jre/bin/java
-          find jre-linux/jre -name jspawnhelper -exec chmod 755 {} \;
-          rm jre-linux.zip
-          echo "Linux JRE 下载完成"
+          find jre-linux/jre -name jspawnhelper -exec chmod 755 {} \; 2>/dev/null || true
+          jre-linux/jre/bin/java -version
+          echo "Linux JRE jlink 构建完成"
 
-      - name: 下载精简版 JRE (Windows)
+      - name: jlink 构建精简版 JRE (Windows)
         run: |
+          JLINK_MODULES="java.base,java.compiler,java.desktop,java.naming,java.net.http,java.rmi,java.scripting,java.sql,jdk.management,jdk.sctp,jdk.unsupported,jdk.crypto.ec"
+          # 下载 Windows 版 Temurin JDK，仅取 jmods 作为模块源
+          curl -L -o jdk-win.zip "https://api.adoptium.net/v3/binary/latest/26/ga/windows/x64/jdk/hotspot/normal/eclipse"
+          mkdir -p jdk-win
+          unzip -qo jdk-win.zip -d jdk-win
+          WIN_JDK=$(find jdk-win -mindepth 1 -maxdepth 1 -type d | head -1)
           mkdir -p jre-win
-          curl -L -o jre-win.zip https://github.com/IIIIIllllIIIIIlllll/Mini-JRE/releases/download/v1.0.0/mini-jre-26.0.1-win-x64.zip
-          unzip -qo jre-win.zip -d jre-win
-          JRE_NAME=$(ls jre-win | head -1)
-          mv jre-win/$JRE_NAME jre-win/jre
-          rm jre-win.zip
-          echo "Windows JRE 下载完成"
+          "$JAVA_HOME/bin/jlink" \
+            --module-path "$WIN_JDK/jmods" \
+            --add-modules "$JLINK_MODULES" \
+            --strip-debug --no-man-pages --no-header-files --compress=2 \
+            --output jre-win/jre
+          rm -rf jdk-win jdk-win.zip
+          ls jre-win/jre/bin/
+          echo "Windows JRE jlink 构建完成"
 
       - name: 安装 MinGW-w64 交叉编译工具
         run: |
@@ -170,15 +182,21 @@ jobs:
           cat > launcher.conf.linux << 'EOF'
           ##MAINCLASS=org.mark.llamacpp.server.LlamaServer
           -Djava.class.path=./classes:./lib/gson-2.8.9.jar:./lib/netty-all-4.1.35.Final.jar:./lib/log4j-api-2.22.1.jar:./lib/log4j-core-2.22.1.jar:./lib/log4j-slf4j2-impl-2.22.1.jar:./lib/slf4j-api-2.0.9.jar
-          -Xms128m
-          -Xmx128m
+          -Xms96m
+          -Xmx96m
+          -XX:+UseSerialGC
+          -XX:TieredStopAtLevel=1
+          -XX:ReservedCodeCacheSize=48m
           -XX:MaxDirectMemorySize=128m
           EOF
           cat > launcher.conf.win << 'EOF'
           ##MAINCLASS=org.mark.llamacpp.server.LlamaServer
           -Djava.class.path=./classes;./lib/gson-2.8.9.jar;./lib/netty-all-4.1.35.Final.jar;./lib/log4j-api-2.22.1.jar;./lib/log4j-core-2.22.1.jar;./lib/log4j-slf4j2-impl-2.22.1.jar;./lib/slf4j-api-2.0.9.jar
-          -Xms128m
-          -Xmx128m
+          -Xms96m
+          -Xmx96m
+          -XX:+UseSerialGC
+          -XX:TieredStopAtLevel=1
+          -XX:ReservedCodeCacheSize=48m
           -XX:MaxDirectMemorySize=128m
           EOF
 
@@ -202,16 +220,16 @@ jobs:
           # ============================================================
           # JVM 内存参数说明 / JVM Memory Configuration
           # ============================================================
-          # 本应用是轻量级 HTTP 服务器，默认分配 128MB 内存。
+          # 本应用是轻量级 HTTP 服务器，默认分配 96MB 内存。
           # 模型由外部 llama.cpp 进程加载，不占用此 JVM 内存。
           # 通常不需要调整。仅在遇到 OutOfMemoryError 时才考虑增加。
           #
-          # This is a lightweight HTTP server with 128MB default memory.
+          # This is a lightweight HTTP server with 96MB default memory.
           # Models are loaded by external llama.cpp processes, not this JVM.
           # Normally no adjustment needed. Only increase if you encounter
           # OutOfMemoryError (e.g. many concurrent connections or large uploads).
           # ============================================================
-          ./jre/bin/java -Xms128m -Xmx128m -XX:MaxDirectMemorySize=128m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer "$@"
+          ./jre/bin/java -Xms96m -Xmx96m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=128m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer "$@"
           EOF
           chmod +x build/run.sh
 
@@ -224,16 +242,16 @@ jobs:
           rem ============================================================
           rem JVM 内存参数说明 / JVM Memory Configuration
           rem ============================================================
-          rem 本应用是轻量级 HTTP 服务器，默认分配 128MB 内存。
+          rem 本应用是轻量级 HTTP 服务器，默认分配 96MB 内存。
           rem 模型由外部 llama.cpp 进程加载，不占用此 JVM 内存。
           rem 通常不需要调整。仅在遇到 OutOfMemoryError 时才考虑增加。
           rem
-          rem This is a lightweight HTTP server with 128MB default memory.
+          rem This is a lightweight HTTP server with 96MB default memory.
           rem Models are loaded by external llama.cpp processes, not this JVM.
           rem Normally no adjustment needed. Only increase if you encounter
           rem OutOfMemoryError (e.g. many concurrent connections or large uploads).
           rem ============================================================
-          start "" jre\bin\javaw.exe -Xms128m -Xmx128m -XX:MaxDirectMemorySize=128m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
+          start "" jre\bin\javaw.exe -Xms96m -Xmx96m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=128m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
           EOF
 
       - name: 创建启动脚本 (平台无关, 使用系统 Java)
@@ -248,16 +266,16 @@ jobs:
           # ============================================================
           # Java 的内存管理机制与其他语言运行时不同：-Xmx 设定的最大堆内存
           # 是硬性上限，JVM 无法弹性突破。如果加载大模型时遇到
-          # 本应用是轻量级 HTTP 服务器，默认分配 128MB 内存。
+          # 本应用是轻量级 HTTP 服务器，默认分配 96MB 内存。
           # 模型由外部 llama.cpp 进程加载，不占用此 JVM 内存。
           # 通常不需要调整。仅在遇到 OutOfMemoryError 时才考虑增加。
           #
-          # This is a lightweight HTTP server with 128MB default memory.
+          # This is a lightweight HTTP server with 96MB default memory.
           # Models are loaded by external llama.cpp processes, not this JVM.
           # Normally no adjustment needed. Only increase if you encounter
           # OutOfMemoryError (e.g. many concurrent connections or large uploads).
           # ============================================================
-          java -Xms128m -Xmx128m -XX:MaxDirectMemorySize=128m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer "$@"
+          java -Xms96m -Xmx96m -XX:MaxDirectMemorySize=128m -classpath "./classes:./lib/*" org.mark.llamacpp.server.LlamaServer "$@"
           EOF
           chmod +x build-standalone/run.sh
           cat > build-standalone/run.bat << 'EOF'
@@ -267,16 +285,16 @@ jobs:
           rem ============================================================
           rem JVM 内存参数说明 / JVM Memory Configuration
           rem ============================================================
-          rem 本应用是轻量级 HTTP 服务器，默认分配 128MB 内存。
+          rem 本应用是轻量级 HTTP 服务器，默认分配 96MB 内存。
           rem 模型由外部 llama.cpp 进程加载，不占用此 JVM 内存。
           rem 通常不需要调整。仅在遇到 OutOfMemoryError 时才考虑增加。
           rem
-          rem This is a lightweight HTTP server with 128MB default memory.
+          rem This is a lightweight HTTP server with 96MB default memory.
           rem Models are loaded by external llama.cpp processes, not this JVM.
           rem Normally no adjustment needed. Only increase if you encounter
           rem OutOfMemoryError (e.g. many concurrent connections or large uploads).
           rem ============================================================
-          start "" javaw.exe -Xms128m -Xmx128m -XX:MaxDirectMemorySize=128m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
+          start "" javaw.exe -Xms96m -Xmx96m -XX:MaxDirectMemorySize=128m -classpath "./classes;./lib/*" org.mark.llamacpp.server.LlamaServer %*
           EOF
 
       - name: 复制文档到 build 目录
@@ -510,7 +528,7 @@ jobs:
           ### 📦 完整版本（内置 JRE）
           - 编译后的 class 文件
           - 所有依赖库（lib/*.jar）
-          - 精简版 JRE 26.0.1（内置，无需额外安装 Java 运行环境）
+          - 精简版 JRE 26（jlink 定制的 HotSpot 运行时，内置，无需额外安装 Java 运行环境）
           - 启动脚本（run.sh / run.bat）
 
           ### 🧩 llama.cpp 版本
@@ -605,15 +623,15 @@ jobs:
 
           ### ⚠️ JVM 内存配置 / JVM Memory Configuration
 
-          本应用是轻量级 HTTP 服务器，默认分配 128MB 内存。
+          本应用是轻量级 HTTP 服务器，默认分配 96MB 内存。
           模型由外部 llama.cpp 进程加载，不占用此 JVM 内存。
 
-          This is a lightweight HTTP server with 128MB default memory.
+          This is a lightweight HTTP server with 96MB default memory.
           Models are loaded by external llama.cpp processes, not this JVM.
 
-          > 💡 **作者的话 / Author's Note**: 我不想浪费兄弟们的内存，就设置个 128MB 又不是不能用！
+          > 💡 **作者的话 / Author's Note**: 我不想浪费兄弟们的内存，就设置个 96MB 又不是不能用！
           > 真出问题了再改大，然后告诉我是怎么不够用的吧！
-          > I don't want to waste everyone's memory - 128MB works just fine!
+          > I don't want to waste everyone's memory - 96MB works just fine!
           > If you really run into issues, increase it and let me know what went wrong!
           ---
           ### 📌 最新提交

@@ -20,8 +20,11 @@ cmake --build launcher\build --config Release
 ```
 ##MAINCLASS=org.mark.llamacpp.server.LlamaServer
 -Djava.class.path=classes;libs\gson-2.8.9.jar;libs\netty-all-4.1.35.Final.jar
--Xms128m
--Xmx128m
+-Xms96m
+-Xmx96m
+-XX:+UseSerialGC
+-XX:TieredStopAtLevel=1
+-XX:ReservedCodeCacheSize=48m
 -XX:MaxDirectMemorySize=128m
 ```
 
