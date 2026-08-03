@@ -85,7 +85,7 @@ const UI = {
 /* ================= 应用壳 ================= */
 const App = {
     currentPage: 'models',
-    PAGE_TITLES: { models: '模型', hf: '模型搜索', downloads: '下载', sysinfo: '系统信息', logs: '系统日志', settings: '设置' },
+    PAGE_TITLES: { models: '模型', hf: '模型搜索', downloads: '下载', bench: '性能测试', sysinfo: '系统信息', logs: '系统日志', settings: '设置' },
 
     async start() {
         await I18n.load();
@@ -96,6 +96,7 @@ const App = {
         ModelConfig.init();
         ModelDetail.init();
         HfSearch.init();
+        Benchmark.init();
         Logs.init();
         MiscPages.init();
         Settings.init();
@@ -122,6 +123,7 @@ const App = {
         $('#refreshBtn').addEventListener('click', () => {
             if (this.currentPage === 'models') Models.load(true);
             else if (this.currentPage === 'hf') HfSearch.refresh();
+            else if (this.currentPage === 'bench') Benchmark.load();
             else if (this.currentPage === 'downloads') Downloads.load();
             else if (this.currentPage === 'sysinfo') SysInfo.load();
             else if (this.currentPage === 'logs') Logs.refresh();
@@ -138,6 +140,7 @@ const App = {
         $('#headerTitle').textContent = this.PAGE_TITLES[name];
         document.body.classList.remove('drawer-open');
         if (name === 'downloads') Downloads.load();
+        if (name === 'bench') Benchmark.load();
         if (name === 'sysinfo') SysInfo.load();
         if (name === 'logs') Logs.load();
         if (name === 'models') Models.renderCount();

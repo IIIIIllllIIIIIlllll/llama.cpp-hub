@@ -23,6 +23,7 @@
         <button class="active" data-page="models"><i class="fas fa-cubes"></i><span>模型</span></button>
         <button data-page="hf"><i class="fas fa-magnifying-glass"></i><span>模型搜索</span></button>
         <button data-page="downloads"><i class="fas fa-download"></i><span>下载</span></button>
+        <button data-page="bench"><i class="fas fa-gauge-high"></i><span>性能测试</span></button>
         <button data-page="sysinfo"><i class="fas fa-microchip"></i><span>系统信息</span></button>
         <button data-page="logs"><i class="fas fa-terminal"></i><span>日志</span></button>
         <button data-page="settings"><i class="fas fa-gear"></i><span>设置</span></button>
@@ -130,6 +131,93 @@
                             <a class="link" id="hfReadmeLink" target="_blank" rel="noopener noreferrer" style="display:none;font-size:12.5px">打开原文 <i class="fas fa-arrow-up-right-from-square"></i></a>
                         </div>
                         <div id="hfReadmeBody"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 性能测试页 ============ -->
+        <section class="page" id="page-bench">
+            <div class="bench-split">
+                <!-- 左栏：模型选择（两种模式共享） -->
+                <div class="bench-models">
+                    <div class="search-wrap" style="max-width:none;margin-bottom:8px">
+                        <i class="fas fa-search"></i>
+                        <input type="search" id="benchSearch" placeholder="搜索模型…">
+                    </div>
+                    <select id="benchNodeFilter" class="select-inline" style="width:100%;margin-bottom:8px"></select>
+                    <div class="bench-model-list" id="benchModelList"></div>
+                </div>
+                <!-- 右栏：模式 chips + 面板 -->
+                <div class="bench-main">
+                    <div class="chip-row" id="benchModeChips">
+                        <button class="chip active" data-mode="server"><i class="fas fa-server"></i> API 压测</button>
+                        <button class="chip" data-mode="bench"><i class="fas fa-flask"></i> llama-bench</button>
+                    </div>
+
+                    <!-- ===== API 压测 ===== -->
+                    <div class="bench-pane active" data-pane="server">
+                        <div class="card">
+                            <div class="bench-run-row">
+                                <div class="field"><label>提示词长度</label><input type="number" id="svPromptTokens" value="8192" min="1"></div>
+                                <div class="field"><label>输出长度</label><input type="number" id="svMaxTokens" value="256" min="1"></div>
+                                <div class="field"><label>并发数</label><input type="number" id="svConcurrency" value="1" min="1" step="1"></div>
+                                <button class="btn primary" id="svRunBtn"><i class="fas fa-play"></i> 运行</button>
+                            </div>
+                            <div class="muted" id="svStatus"></div>
+                        </div>
+                        <div class="card">
+                            <div class="bench-card-head"><h3>速度对比</h3><span class="muted">最近 30 次 · 紫=预填充 绿=生成</span></div>
+                            <div class="bench-chart-wrap" id="svChartWrap">
+                                <canvas id="svChart"></canvas>
+                                <div class="bench-chart-empty" id="svChartEmpty"><i class="fas fa-chart-column"></i>暂无数据</div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="bench-card-head">
+                                <h3>测试记录</h3>
+                                <div class="row-gap">
+                                    <button class="btn mini" id="svExpCsv"><i class="fas fa-file-csv"></i> CSV</button>
+                                    <button class="btn mini" id="svExpJson"><i class="fas fa-file-code"></i> JSON</button>
+                                    <button class="btn mini" id="svExpMd"><i class="fas fa-file-lines"></i> MD</button>
+                                </div>
+                            </div>
+                            <div class="bench-table-wrap">
+                                <table class="si-table bench-table">
+                                    <thead><tr>
+                                        <th>时间</th><th class="num">提示词</th><th class="num">预填充 t/s</th>
+                                        <th class="num">输出</th><th class="num">生成 t/s</th><th>投机解码</th><th></th>
+                                    </tr></thead>
+                                    <tbody id="svResultBody"></tbody>
+                                </table>
+                            </div>
+                            <div class="empty" id="svEmpty"><i class="fas fa-flask"></i>选择左侧模型开始测试</div>
+                        </div>
+                    </div>
+
+                    <!-- ===== llama-bench ===== -->
+                    <div class="bench-pane" data-pane="bench">
+                        <div class="card">
+                            <div class="field"><label>Llama.cpp 版本</label><select id="benchLlamaBin"></select></div>
+                            <div class="row-gap">
+                                <button class="btn" id="benchParamsBtn"><i class="fas fa-sliders"></i> 参数设置</button>
+                                <button class="btn primary grow" id="benchRunBtn"><i class="fas fa-play"></i> 运行</button>
+                            </div>
+                            <div class="muted" id="benchStatus" style="margin-top:8px"></div>
+                        </div>
+                        <div class="card">
+                            <div class="bench-card-head">
+                                <h3>测试记录</h3>
+                                <div class="row-gap">
+                                    <button class="btn mini" id="benchCopyBtn" disabled><i class="fas fa-copy"></i> 复制</button>
+                                    <button class="btn mini" id="benchExportBtn" disabled><i class="fas fa-download"></i> 导出 TXT</button>
+                                </div>
+                            </div>
+                            <div class="bench-result-split">
+                                <div class="bench-history" id="benchHistory"></div>
+                                <pre class="bench-output log-view" id="benchOutput">选择左侧模型查看历史记录</pre>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -336,6 +424,7 @@
     <button class="active" data-page="models"><i class="fas fa-cubes"></i>模型</button>
     <button data-page="hf"><i class="fas fa-magnifying-glass"></i>搜索</button>
     <button data-page="downloads"><i class="fas fa-download"></i>下载</button>
+    <button data-page="bench"><i class="fas fa-gauge-high"></i>测试</button>
     <button data-page="sysinfo"><i class="fas fa-microchip"></i>系统</button>
     <button data-page="logs"><i class="fas fa-terminal"></i>日志</button>
     <button data-page="settings"><i class="fas fa-gear"></i>设置</button>
@@ -612,6 +701,24 @@
     </div>
 </div>
 
+<!-- ===== llama-bench 参数设置弹层 ===== -->
+<div class="sheet config-sheet" id="benchParamsSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>llama-bench 参数</h2>
+        <button class="icon-btn" onclick="UI.closeSheet()"><i class="fas fa-xmark"></i></button></div>
+    <div class="sheet-body">
+        <div class="field"><label>设备</label>
+            <div id="bpDevices" class="device-list"><span class="muted">选择 Llama.cpp 版本后加载</span></div></div>
+        <div class="field"><label>主 GPU</label><select id="bpMainGpu"><option value="-1">默认</option></select></div>
+        <div id="bpParamForm"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" id="bpResetBtn"><i class="fas fa-rotate-left"></i> 恢复默认</button>
+        <span class="muted grow" id="bpCount" style="align-self:center"></span>
+        <button class="btn primary" onclick="UI.closeSheet()"><i class="fas fa-check"></i> 完成</button>
+    </div>
+</div>
+
 <!-- ===== 通用文本结果弹层 ===== -->
 <div class="sheet" id="msgSheet">
     <div class="sheet-handle"></div>
@@ -630,6 +737,7 @@
 <script src="js/newui/model-config.js"></script>
 <script src="js/newui/model-detail.js"></script>
 <script src="js/newui/hf.js"></script>
+<script src="js/newui/benchmark.js"></script>
 <script src="js/newui/logs.js"></script>
 <script src="js/newui/misc-pages.js"></script>
 <script src="js/newui/settings.js"></script>
