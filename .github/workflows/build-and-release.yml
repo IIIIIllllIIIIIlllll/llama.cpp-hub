@@ -136,9 +136,9 @@ jobs:
           jre-linux/jre/bin/java -Xshare:dump
           chmod +x jre-linux/jre/bin/java
           find jre-linux/jre -name jspawnhelper -exec chmod 755 {} \; 2>/dev/null || true
-          # 校验产物平台
-          if [ ! -f jre-linux/jre/bin/server/libjvm.so ]; then
-            echo "ERROR: jre-linux/jre 不是 Linux 镜像（缺少 bin/server/libjvm.so）"
+          # 校验产物平台（Linux 的 JVM 库在 lib/server/libjvm.so）
+          if [ ! -f jre-linux/jre/lib/server/libjvm.so ]; then
+            echo "ERROR: jre-linux/jre 不是 Linux 镜像（缺少 lib/server/libjvm.so）"
             exit 1
           fi
           jre-linux/jre/bin/java -version
