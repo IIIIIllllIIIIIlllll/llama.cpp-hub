@@ -152,7 +152,8 @@ jobs:
           curl -L -o jmods-win.zip "https://api.adoptium.net/v3/binary/latest/26/ga/windows/x64/jmods/hotspot/normal/eclipse"
           mkdir -p jmods-win
           unzip -qo jmods-win.zip -d jmods-win
-          WIN_JMODS=$(find jmods-win -type d -name jmods | head -1)
+          # jmods 压缩包内是 jdk-<ver>-jmods/*.jmod，没有 jmods 子目录，按 java.base.jmod 定位
+          WIN_JMODS=$(dirname "$(find jmods-win -name 'java.base.jmod' | head -1)")
           if [ -z "$WIN_JMODS" ] || ! ls "$WIN_JMODS"/*.jmod > /dev/null 2>&1; then
             echo "ERROR: 未找到有效的 Windows jmods: '$WIN_JMODS'"
             exit 1
