@@ -586,6 +586,9 @@ public class NodeManager {
      */
     private void onNodeStatusChanged(LlamaHubNode node, LlamaHubNode.NodeStatus oldStatus) {
         logger.info("节点状态变化: {} {} -> {}", node.nodeId, oldStatus, node.status);
+        // 广播状态变化，让前端（模型列表 / 设置面板）实时更新节点在线状态
+        org.mark.llamacpp.server.websocket.WebSocketManager.getInstance()
+                .sendNodeStatusEvent(node.nodeId, node.status.name());
         if (!LlamaServer.isMasterNode()) return;
         if (oldStatus == LlamaHubNode.NodeStatus.OFFLINE && node.status == LlamaHubNode.NodeStatus.ONLINE) {
             if (node.baseUrl != null) {

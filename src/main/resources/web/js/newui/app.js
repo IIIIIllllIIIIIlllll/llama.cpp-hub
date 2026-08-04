@@ -200,6 +200,20 @@ const WS = {
             case 'model_busy':
                 if (d.modelId) Models.patch(d.modelId, { busy: !!d.busy }, d.nodeId);
                 break;
+            case 'nodeStatus': {
+                // 节点上下线：同步模型列表分组头与设置面板的状态
+                if (!d.nodeId) break;
+                if (Models.nodes && Models.nodes[d.nodeId]) {
+                    Models.nodes[d.nodeId].status = d.status;
+                    if (App.currentPage === 'models') Models.render();
+                }
+                const sn = SettingsNodes.nodes.find(n => n.nodeId === d.nodeId);
+                if (sn) {
+                    sn.status = d.status;
+                    if (App.currentPage === 'settings') SettingsNodes.renderNodes();
+                }
+                break;
+            }
             case 'model_slots':
                 // slots 细节暂不展示，忽略
                 break;

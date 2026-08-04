@@ -269,6 +269,18 @@ public class WebSocketManager {
     }
     
     /**
+     * 发送远程节点状态变化事件
+     */
+    public void sendNodeStatusEvent(String nodeId, String status) {
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "nodeStatus");
+        event.addProperty("nodeId", nodeId != null ? nodeId : "");
+        event.addProperty("status", status != null ? status : "");
+        event.addProperty("timestamp", System.currentTimeMillis());
+        broadcast(JsonUtil.toJson(event));
+    }
+
+    /**
      * 发送下载状态更新事件
      */
     public void sendDownloadStatusEvent(String taskId, String state, long downloadedBytes, long totalBytes,

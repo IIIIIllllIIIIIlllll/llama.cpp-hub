@@ -329,7 +329,8 @@
                 <button data-anchor="set-llamacpp">Llama.cpp 路径</button>
                 <button data-anchor="set-modelpath">模型路径</button>
                 <button data-anchor="set-nodes">节点</button>
-                <button data-anchor="set-update">更新</button>
+                <button data-anchor="set-update">应用更新</button>
+                <button data-anchor="set-llamacpp-dl">llama.cpp 下载</button>
                 <button data-anchor="set-about">关于</button>
             </nav>
             <div class="set-main">
@@ -438,7 +439,7 @@
                 <button class="btn" id="nodeAdd"><i class="fas fa-plus"></i> 添加远程节点</button>
             </div>
             <div class="card span2" id="set-update">
-                <h3><i class="fas fa-circle-up"></i> 更新</h3>
+                <h3><i class="fas fa-circle-up"></i> 应用更新</h3>
                 <div class="kv"><span class="k">当前版本</span><span class="v" id="updCurrent">…</span></div>
                 <div class="row-gap" style="flex-wrap:wrap;margin:8px 0">
                     <button class="btn" id="updCheck"><i class="fas fa-rotate"></i> 检查更新</button>
@@ -470,14 +471,13 @@
                     <button class="btn primary" id="updDownload" style="display:none"></button>
                     <button class="btn primary" id="updApply" style="display:none"></button>
                 </div>
-                <div class="si-sec" style="margin-top:14px">
-                    <div class="kv" style="border:none;padding-top:0">
-                        <span class="k" style="font-weight:600;color:var(--text)">llama.cpp 下载</span>
-                        <span class="v"><button class="btn mini" id="lcRelLoad"><i class="fas fa-rotate"></i> 获取最新版本</button></span>
-                    </div>
-                    <div class="muted" id="lcRelInfo" style="font-size:12.5px;margin-bottom:8px"></div>
-                    <div id="lcAssets" class="set-list" style="margin-bottom:0"></div>
-                </div>
+            </div>
+            <div class="card span2" id="set-llamacpp-dl">
+                <h3><i class="fas fa-file-zipper"></i> llama.cpp 下载</h3>
+                <div class="kv"><span class="k">Release 版本</span>
+                    <span class="v"><button class="btn mini" id="lcRelLoad"><i class="fas fa-rotate"></i> 获取最新版本</button></span></div>
+                <div class="muted" id="lcRelInfo" style="font-size:12.5px;margin-bottom:8px"></div>
+                <div id="lcAssets" class="set-list" style="margin-bottom:0"></div>
             </div>
             <div class="card" id="set-about">
                 <h3><i class="fas fa-circle-info"></i> 关于</h3>
