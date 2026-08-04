@@ -24,6 +24,7 @@
         <button data-page="hf"><i class="fas fa-magnifying-glass"></i><span>模型搜索</span></button>
         <button data-page="downloads"><i class="fas fa-download"></i><span>下载</span></button>
         <button data-page="bench"><i class="fas fa-gauge-high"></i><span>性能测试</span></button>
+        <button data-page="usage"><i class="fas fa-chart-simple"></i><span>用量报表</span></button>
         <button data-page="sysinfo"><i class="fas fa-microchip"></i><span>系统信息</span></button>
         <button data-page="logs"><i class="fas fa-terminal"></i><span>日志</span></button>
         <button data-page="settings"><i class="fas fa-gear"></i><span>设置</span></button>
@@ -219,6 +220,76 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ 用量报表页 ============ -->
+        <section class="page" id="page-usage">
+            <div class="chip-row" id="usageTabs">
+                <button class="chip active" data-utab="summary"><i class="fas fa-chart-pie"></i> Token 概览</button>
+                <button class="chip" data-utab="logs"><i class="fas fa-list"></i> 请求记录</button>
+            </div>
+
+            <!-- ===== Token 概览 ===== -->
+            <div class="usage-pane active" data-upane="summary">
+                <div class="ur-stats" id="urStats"></div>
+                <div class="ur-split">
+                    <!-- 左栏：模型用量卡片列表 -->
+                    <div class="card ur-models">
+                        <h3><i class="fas fa-cubes"></i> 模型用量（点击筛选每日图表）</h3>
+                        <div id="urModelList"></div>
+                    </div>
+                    <!-- 右栏：图表 -->
+                    <div class="ur-charts">
+                        <div class="card">
+                            <div class="bench-card-head"><h3>每模型用量</h3><span class="muted">紫=输入 绿=输出</span></div>
+                            <div class="bench-chart-wrap" id="urTokenChartWrap">
+                                <canvas id="urTokenChart"></canvas>
+                                <div class="bench-chart-empty" id="urTokenChartEmpty"><i class="fas fa-chart-column"></i>暂无数据</div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="bench-card-head">
+                                <h3 id="urDailyTitle">每日用量</h3>
+                                <div class="row-gap">
+                                    <select id="urYearSel" class="select-inline"></select>
+                                    <select id="urMonthSel" class="select-inline"></select>
+                                </div>
+                            </div>
+                            <div class="bench-chart-wrap" id="urDailyChartWrap">
+                                <canvas id="urDailyChart"></canvas>
+                                <div class="bench-chart-empty" id="urDailyChartEmpty"><i class="fas fa-chart-column"></i>暂无数据</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 请求记录 ===== -->
+            <div class="usage-pane" data-upane="logs">
+                <div class="toolbar">
+                    <select id="urModelFilter" class="select-inline" title="模型筛选"></select>
+                    <span class="grow"></span>
+                    <div class="ur-pager">
+                        <button class="btn mini" id="urPrev"><i class="fas fa-chevron-left"></i> 上一页</button>
+                        <span class="muted" id="urPageInfo"></span>
+                        <button class="btn mini" id="urNext">下一页 <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="bench-table-wrap">
+                        <table class="si-table bench-table">
+                            <thead><tr>
+                                <th>时间</th><th>模型</th><th>端点</th>
+                                <th class="num">缓存 Token</th><th class="num">Prompt Token</th><th class="num">Predicted Token</th>
+                                <th class="num">总 Token</th><th class="num">耗时(ms)</th>
+                                <th class="num">Prompt t/s</th><th class="num">Predicted t/s</th><th class="num">投机解码</th>
+                            </tr></thead>
+                            <tbody id="urLogBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="empty" id="urLogEmpty" style="display:none"><i class="fas fa-list"></i>暂无请求记录</div>
                 </div>
             </div>
         </section>
@@ -425,6 +496,7 @@
     <button data-page="hf"><i class="fas fa-magnifying-glass"></i>搜索</button>
     <button data-page="downloads"><i class="fas fa-download"></i>下载</button>
     <button data-page="bench"><i class="fas fa-gauge-high"></i>测试</button>
+    <button data-page="usage"><i class="fas fa-chart-simple"></i>用量</button>
     <button data-page="sysinfo"><i class="fas fa-microchip"></i>系统</button>
     <button data-page="logs"><i class="fas fa-terminal"></i>日志</button>
     <button data-page="settings"><i class="fas fa-gear"></i>设置</button>
@@ -738,6 +810,7 @@
 <script src="js/newui/model-detail.js"></script>
 <script src="js/newui/hf.js"></script>
 <script src="js/newui/benchmark.js"></script>
+<script src="js/newui/usage-report.js"></script>
 <script src="js/newui/logs.js"></script>
 <script src="js/newui/misc-pages.js"></script>
 <script src="js/newui/settings.js"></script>
