@@ -127,8 +127,8 @@ jobs:
         run: |
           JLINK_MODULES="java.base,java.compiler,java.desktop,java.naming,java.net.http,java.rmi,java.scripting,java.sql,jdk.management,jdk.sctp,jdk.unsupported,jdk.crypto.ec"
           mkdir -p jre-linux
+          # Temurin 24+ 启用 JEP 493：本平台链接无需 jmods，直接从运行时镜像组装
           "$JAVA_HOME/bin/jlink" \
-            --module-path "$JAVA_HOME/jmods" \
             --add-modules "$JLINK_MODULES" \
             --strip-debug --no-man-pages --no-header-files --compress=2 \
             --output jre-linux/jre
@@ -136,24 +136,39 @@ jobs:
           jre-linux/jre/bin/java -Xshare:dump
           chmod +x jre-linux/jre/bin/java
           find jre-linux/jre -name jspawnhelper -exec chmod 755 {} \; 2>/dev/null || true
+          # 校验产物平台
+          if [ ! -f jre-linux/jre/bin/server/libjvm.so ]; then
+            echo "ERROR: jre-linux/jre 不是 Linux 镜像（缺少 bin/server/libjvm.so）"
+            exit 1
+          fi
           jre-linux/jre/bin/java -version
           echo "Linux JRE jlink 构建完成"
 
       - name: jlink 构建精简版 JRE (Windows)
         run: |
           JLINK_MODULES="java.base,java.compiler,java.desktop,java.naming,java.net.http,java.rmi,java.scripting,java.sql,jdk.management,jdk.sctp,jdk.unsupported,jdk.crypto.ec"
-          # 下载 Windows 版 Temurin JDK，仅取 jmods 作为模块源
-          curl -L -o jdk-win.zip "https://api.adoptium.net/v3/binary/latest/26/ga/windows/x64/jdk/hotspot/normal/eclipse"
-          mkdir -p jdk-win
-          unzip -qo jdk-win.zip -d jdk-win
-          WIN_JDK=$(find jdk-win -mindepth 1 -maxdepth 1 -type d | head -1)
+          # Temurin 24+ 启用 JEP 493，JDK 压缩包不再包含 jmods 目录，
+          # 跨平台链接必须单独下载目标平台的 jmods 作为模块源
+          curl -L -o jmods-win.zip "https://api.adoptium.net/v3/binary/latest/26/ga/windows/x64/jmods/hotspot/normal/eclipse"
+          mkdir -p jmods-win
+          unzip -qo jmods-win.zip -d jmods-win
+          WIN_JMODS=$(find jmods-win -type d -name jmods | head -1)
+          if [ -z "$WIN_JMODS" ] || ! ls "$WIN_JMODS"/*.jmod > /dev/null 2>&1; then
+            echo "ERROR: 未找到有效的 Windows jmods: '$WIN_JMODS'"
+            exit 1
+          fi
           mkdir -p jre-win
           "$JAVA_HOME/bin/jlink" \
-            --module-path "$WIN_JDK/jmods" \
+            --module-path "$WIN_JMODS" \
             --add-modules "$JLINK_MODULES" \
             --strip-debug --no-man-pages --no-header-files --compress=2 \
             --output jre-win/jre
-          rm -rf jdk-win jdk-win.zip
+          rm -rf jmods-win jmods-win.zip
+          # 交叉链接在模块源无效时会静默回退为宿主平台镜像，必须显式校验产物
+          if [ ! -f jre-win/jre/bin/server/jvm.dll ]; then
+            echo "ERROR: jre-win/jre 不是 Windows 镜像（缺少 bin/server/jvm.dll）"
+            exit 1
+          fi
           ls jre-win/jre/bin/
           echo "Windows JRE jlink 构建完成"
 
