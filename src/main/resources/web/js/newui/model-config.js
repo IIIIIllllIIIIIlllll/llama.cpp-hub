@@ -19,7 +19,6 @@ const ModelConfig = {
         $('#paramModeBtn').addEventListener('click', () => this.toggleCmdMode());
         $('#cfgLlama').addEventListener('change', () => { this.loadDevices(); this.refreshCmd(); });
         $('#cfgMainGpu').addEventListener('change', () => this.refreshCmd());
-        $('#cfgVision').addEventListener('change', () => this.refreshCmd());
         $('#cfgCmd').addEventListener('input', () => { if (this.cmdMode) this.refreshPreview($('#cfgCmd').value); });
         $('#cfgExtra').addEventListener('input', () => this.refreshCmd());
         $('#cfgSaveBtn').addEventListener('click', () => this.saveConfig(false));
@@ -43,10 +42,14 @@ const ModelConfig = {
         this.model = m;
         this.cmdMode = false;
         $('#cmdField').style.display = 'none';
+        $('#paramForm').style.display = '';
+        $('#extraField').style.display = '';
+        $('#paramHint').textContent = '参数改动实时生成命令行';
         $('#paramModeBtn').innerHTML = '<i class="fas fa-terminal"></i> 命令行';
         $('#configTitle').textContent = (m.isLoaded ? '配置 - ' : '加载 ') + (m.alias || m.name);
         $('#cfgModelName').value = m.id;
         $('#cfgAlias').value = m.alias || '';
+        $('#cfgVramResult').textContent = '';
         $('.config-body').dataset.active = 'basic';
         $$('#configTabs button').forEach((x, i) => x.classList.toggle('active', i === 0));
         // 桌面端把「高级」栏内容并入左栏
@@ -118,10 +121,22 @@ const ModelConfig = {
             this.setMainGpuOptions();
             $('#cfgMainGpu').value = String(Number.isFinite(cfg.mg) ? cfg.mg : -1);
         });
-        $('#cfgVision').checked = typeof cfg.enableVision === 'boolean' ? cfg.enableVision : true;
         this.applyCmdToForm(cfg.cmd || '');
+        this.autoFillMmproj(cfg);
         $('#cfgExtra').value = cfg.extraParams || '';
         this.refreshCmd();
+    },
+
+    /* 模型自带 mmproj 且已保存配置未显式指定时，自动把 mmproj 绝对路径填入 --mmproj 参数并启用 */
+    autoFillMmproj(cfg) {
+        const path = this.model && this.model.mmproj;
+        if (!path) return;
+        if (String(this.values['mmproj'] || '').trim()) return;
+        if (/--no-mmproj\b/.test((cfg && cfg.cmd) || '')) return;
+        this.values['mmproj'] = path;
+        this.enabled['mmproj'] = true;
+        this.syncFormFromState();
+        this.refreshGroupCounts();
     },
 
     addConfig() {
@@ -445,10 +460,16 @@ const ModelConfig = {
         if (this.cmdMode) {
             $('#cfgCmd').value = this.buildCmd();
             $('#cmdField').style.display = '';
+            $('#paramForm').style.display = 'none';
+            $('#extraField').style.display = 'none';
+            $('#paramHint').textContent = '手动编辑命令行参数';
             $('#paramModeBtn').innerHTML = '<i class="fas fa-list"></i> 表单';
             this.refreshPreview($('#cfgCmd').value);
         } else {
             $('#cmdField').style.display = 'none';
+            $('#paramForm').style.display = '';
+            $('#extraField').style.display = '';
+            $('#paramHint').textContent = '参数改动实时生成命令行';
             $('#paramModeBtn').innerHTML = '<i class="fas fa-terminal"></i> 命令行';
             this.applyCmdToForm($('#cfgCmd').value);
             this.refreshCmd();
@@ -464,7 +485,7 @@ const ModelConfig = {
             modelId: m.id,
             modelName: m.name,
             llamaBinPathSelect: $('#cfgLlama').value,
-            enableVision: $('#cfgVision').checked,
+            enableVision: this.deriveEnableVision(),
             device: this.selectedDevices(),
             mg: parseInt($('#cfgMainGpu').value, 10),
             mode: this.cmdMode ? 'cmd' : 'form',
@@ -473,6 +494,14 @@ const ModelConfig = {
         if (m.isClone && m.sourceModelId) payload.sourceModelId = m.sourceModelId;
         const nid = Models.nodeParam(m); if (nid) payload.nodeId = nid;
         return payload;
+    },
+
+    /* enableVision 由 --mmproj 参数状态派生：勾选并填值 → true；
+       已知模型有 mmproj 但未勾选 → false（让用户能禁用视觉）；其余 → true（保持旧默认） */
+    deriveEnableVision() {
+        const mmVal = String(this.values['mmproj'] || '').trim();
+        const mmOn = !!this.enabled['mmproj'] && !!mmVal;
+        return mmOn ? true : (this.model && this.model.mmproj ? false : true);
     },
 
     saveConfig(thenStart, configName) {
@@ -512,14 +541,15 @@ const ModelConfig = {
 
     estimateVram() {
         const btn = $('#cfgVramBtn');
+        const result = $('#cfgVramResult');
         btn.disabled = true;
         post('/api/models/vram/estimate', this.buildPayload()).then(r => {
             btn.disabled = false;
             if (!r.success) { toast(r.error || '估算失败', 'error'); return; }
             const d = r.data || {};
-            if (d.vram) toast('预计显存占用：' + d.vram + ' MiB', 'success');
-            else if (d.message) toast(d.message);
-            else toast('估算完成，无返回数据');
+            if (d.vram) result.textContent = '预计显存占用：' + d.vram + ' MiB';
+            else if (d.message) result.textContent = d.message;
+            else result.textContent = '估算完成，无返回数据';
         }).catch(e => { btn.disabled = false; toast(e.message, 'error'); });
     },
 

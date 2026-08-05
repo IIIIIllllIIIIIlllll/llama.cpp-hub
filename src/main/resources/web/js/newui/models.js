@@ -4,10 +4,14 @@
 const Models = {
     all: [], filter: 'all', sortKey: 'name', sortAsc: true, search: '', nodeFilter: 'all',
     busyIds: new Set(), loadedCount: 0, nodes: {},
+    view: (function () { try { return localStorage.getItem('newuiModelView') || 'card'; } catch (e) { return 'card'; } })(),
 
     init() {
         $('#modelSearch').addEventListener('input', e => { this.search = e.target.value; this.render(); });
         $('#nodeFilter').addEventListener('change', e => { this.nodeFilter = e.target.value; this.render(); });
+        const viewBtn = $('#modelViewToggle');
+        if (viewBtn) viewBtn.addEventListener('click', () => this.toggleView());
+        this.applyView();
         $$('#modelChips .chip').forEach(c => c.addEventListener('click', () => {
             if (c.dataset.filter) {
                 this.filter = c.dataset.filter;
@@ -69,7 +73,25 @@ const Models = {
         $('#headerTitle').innerHTML = '模型 <small>' + this.loadedCount + '/' + this.all.length + '</small>';
     },
 
+    toggleView() {
+        this.view = this.view === 'card' ? 'list' : 'card';
+        try { localStorage.setItem('newuiModelView', this.view); } catch (e) {}
+        this.applyView();
+    },
+
+    applyView() {
+        const list = $('#modelList');
+        if (list) list.classList.toggle('list-view', this.view === 'list');
+        const btn = $('#modelViewToggle');
+        if (btn) {
+            const icon = btn.querySelector('i');
+            if (icon) icon.className = this.view === 'card' ? 'fas fa-list' : 'fas fa-th-large';
+            btn.title = this.view === 'card' ? '切换为列表布局' : '切换为卡片布局';
+        }
+    },
+
     render() {
+        this.applyView();
         const q = this.search.toLowerCase();
         let arr = this.all.filter(m => {
             const name = (m.alias || m.name || '').toLowerCase();
@@ -137,7 +159,7 @@ const Models = {
             : m.isLoaded
                 ? '<button class="btn primary btn-sq" onclick="Models.stop(\'' + key + '\')" title="停止"><i class="fas fa-stop"></i></button>' +
                   '<button class="btn btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置"><i class="fas fa-sliders"></i></button>'
-                : '<button class="btn primary-soft btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="配置 / 启动"><i class="fas fa-sliders"></i></button>' +
+                : '<button class="btn primary btn-sq" onclick="ModelConfig.open(\'' + key + '\')" title="启动"><i class="fas fa-play"></i></button>' +
                   '<button class="btn btn-sq" onclick="Models.quickStart(\'' + key + '\')" title="快速启动（按已保存配置直接启动）"><i class="fas fa-bolt"></i></button>';
         const cloneBtn = m.isClone
             ? '<button class="btn danger-soft" onclick="Models.deleteClone(\'' + key + '\')" title="删除克隆体"><i class="fas fa-trash"></i></button>'

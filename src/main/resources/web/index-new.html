@@ -56,6 +56,7 @@
                     <i class="fas fa-search"></i>
                     <input type="search" id="modelSearch" placeholder="搜索模型…">
                 </div>
+                <button class="icon-btn" id="modelViewToggle" title="切换为列表布局"><i class="fas fa-list"></i></button>
                 <select id="nodeFilter" class="select-inline" style="display:none"></select>
             </div>
             <div class="chip-row" id="modelChips">
@@ -546,10 +547,6 @@
                     <label>主 GPU</label>
                     <select id="cfgMainGpu"><option value="-1">默认</option></select>
                 </div>
-                <div class="field grow">
-                    <label>&nbsp;</label>
-                    <label class="check-line"><input type="checkbox" id="cfgVision"> 启用视觉 (mmproj)</label>
-                </div>
             </div>
         </div>
         <!-- 右栏：动态参数 -->
@@ -563,7 +560,7 @@
                 <label>命令行</label>
                 <textarea id="cfgCmd" spellcheck="false" rows="4"></textarea>
             </div>
-            <div class="field">
+            <div class="field" id="extraField">
                 <label>额外参数（无法识别的参数会归入此处）</label>
                 <input type="text" id="cfgExtra" spellcheck="false">
             </div>
@@ -604,6 +601,7 @@
     </div>
     <div class="sheet-foot">
         <button class="btn" id="cfgVramBtn"><i class="fas fa-memory"></i> 估算显存</button>
+        <span id="cfgVramResult" class="vram-result"></span>
         <button class="btn" id="cfgSaveBtn"><i class="fas fa-floppy-disk"></i> 保存配置</button>
         <button class="btn primary grow" id="cfgStartBtn"><i class="fas fa-play"></i> 启动</button>
     </div>

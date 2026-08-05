@@ -351,6 +351,10 @@ public class ModelActionController implements BaseController {
 			modelInfo.put("isMultimodal", isMultimodal);
 			modelInfo.put("supportsVision", supportsVision);
 			modelInfo.put("supportsAudio", supportsAudio);
+			// 前端新版 UI 自动填充 --mmproj 参数用：mmproj 文件绝对路径
+			if (mmproj != null) {
+				modelInfo.put("mmproj", mmproj.getFilePath());
+			}
 
 			if (manager.isLoading(modelId)) {
 				modelInfo.put("isLoading", true);
@@ -413,6 +417,9 @@ public class ModelActionController implements BaseController {
 						sourceModel.getMmproj() != null && sourceModel.getMmproj().isSupportsVision());
 				modelInfo.put("supportsAudio",
 						sourceModel.getMmproj() != null && sourceModel.getMmproj().isSupportsAudio());
+				if (sourceModel.getMmproj() != null) {
+					modelInfo.put("mmproj", sourceModel.getMmproj().getFilePath());
+				}
 				if (manager.isLoading(cloneId)) {
 					modelInfo.put("isLoading", true);
 				}

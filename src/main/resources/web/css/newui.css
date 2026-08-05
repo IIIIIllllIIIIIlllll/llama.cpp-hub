@@ -164,6 +164,28 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .mc-foot { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .mc-foot .spacer { flex: 1; }
 
+/* 列表布局：单行横向排列（头部 + 元信息在左，状态与操作按钮在右并跨行纵向居中） */
+.model-grid.list-view { grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 601px) {
+    .model-grid.list-view .model-card {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "fav icon name status foot"
+            "fav icon meta status foot";
+        align-items: center; column-gap: 10px; row-gap: 4px; padding: 10px 14px;
+    }
+    /* mc-head 拆散为 contents，让收藏/图标/名称/状态直接参与卡片网格 */
+    .model-grid.list-view .mc-head { display: contents; }
+    .model-grid.list-view .mc-fav { grid-area: fav; }
+    .model-grid.list-view .mc-icon { grid-area: icon; }
+    .model-grid.list-view .mc-name-wrap { grid-area: name; }
+    .model-grid.list-view .status-chip { grid-area: status; justify-self: end; }
+    .model-grid.list-view .mc-meta { grid-area: meta; margin-top: 0; flex-wrap: nowrap; overflow: hidden; }
+    .model-grid.list-view .mc-foot { grid-area: foot; margin-top: 0; flex-wrap: nowrap; }
+    .model-grid.list-view .mc-foot .spacer { display: none; }
+}
+
 /* ================= 按钮 ================= */
 .btn {
     height: 38px; padding: 0 16px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
@@ -264,6 +286,9 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .sheet-head h2 { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sheet-body { overflow-y: auto; padding: 14px 16px; flex: 1; min-height: 0; }
 .sheet-foot { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+/* 估算显存结果：持久化展示，醒目红色 */
+.vram-result { align-self: center; font-size: 15px; font-weight: 700; color: var(--danger); }
+.vram-result:empty { display: none; }
 .prompt-sheet { max-width: 420px; }
 
 /* ================= 表单 ================= */
@@ -337,6 +362,11 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .toast.error { border-left-color: var(--danger); }
 .toast.success { border-left-color: var(--success); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
+/* 桌面端：toast 改为右上角浮动通知，固定合适宽度，不再横跨整个屏幕 */
+@media (min-width: 901px) {
+    .toasts { left: auto; right: 24px; width: min(420px, 40vw); }
+    .toast { font-size: 14px; }
+}
 .skeleton { border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); height: 110px; overflow: hidden; position: relative; }
 .skeleton::after {
     content: ''; position: absolute; inset: 0;
@@ -366,7 +396,7 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 
 /* ================= 桌面端 ================= */
 @media (min-width: 901px) {
-    .model-grid { grid-template-columns: repeat(auto-fill, minmax(370px, 1fr)); }
+    .model-grid:not(.list-view) { grid-template-columns: repeat(auto-fill, minmax(370px, 1fr)); }
     .sheet {
         left: 50%; right: auto; bottom: auto; top: 50%;
         transform: translate(-50%, -46%); width: min(720px, 94vw);
