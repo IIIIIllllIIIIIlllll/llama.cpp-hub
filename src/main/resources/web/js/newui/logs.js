@@ -35,7 +35,7 @@ const Logs = {
             if (it) this.setFilter(it.dataset.filter || '');
         };
         $('#logSources').addEventListener('click', onSrc);
-        $('#logSrcChips').addEventListener('click', onSrc);
+        $('#logSrcSelect').addEventListener('change', e => this.setFilter(e.target.value));
     },
 
     /* 进入页面(App.switchPage 调用) */
@@ -79,7 +79,7 @@ const Logs = {
     },
 
     /* 日志源列表:全部 / 系统 / 当前节点各模型(已加载在前) + 有历史日志的离线模型
-     * 桌面竖排列表(#logSources)与移动 chips(#logSrcChips)同步重建 */
+     * 桌面竖排列表(#logSources)与移动下拉框(#logSrcSelect)同步重建 */
     async renderSources() {
         const gen = ++this.srcGen;
         const nid = this.nodeId;
@@ -110,10 +110,10 @@ const Logs = {
                 (i.loaded ? '<span class="ls-dot"></span>' : '') +
                 '<span class="ls-name">' + esc(i.name) + (i.star || i.loaded ? '' : '（未加载）') + '</span>' +
             '</div>').join('');
-        $('#logSrcChips').innerHTML = all.map(i =>
-            '<button class="chip' + (i.filter === this.filter ? ' active' : '') + '" data-filter="' + esc(i.filter) + '">' +
-                esc(i.name) + (i.star || i.loaded ? '' : '（未加载）') +
-            '</button>').join('');
+        const sel = $('#logSrcSelect');
+        sel.innerHTML = all.map(i =>
+            '<option value="' + esc(i.filter) + '">' + esc(i.name) + (i.star || i.loaded ? '' : '（未加载）') + '</option>').join('');
+        sel.value = this.filter;
     },
 
     /* 拉取当前节点控制台快照(纯文本) */
@@ -142,7 +142,7 @@ const Logs = {
     setFilter(f) {
         this.filter = f;
         $$('#logSources .log-src-item').forEach(it => it.classList.toggle('active', it.dataset.filter === f));
-        $$('#logSrcChips .chip').forEach(it => it.classList.toggle('active', it.dataset.filter === f));
+        $('#logSrcSelect').value = f;
         if (f && f !== 'system') {
             const key = f + '|||' + this.nodeId;
             if (this.modelSnaps[key] == null) {

@@ -158,6 +158,8 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 [data-theme="dark"] .status-chip.loaded { background: #12321d; }
 .status-chip.loading { background: #fef4e2; color: var(--warning); }
 [data-theme="dark"] .status-chip.loading { background: #33270f; }
+/* 已加载且后端生成中（busy）：嵌在 loaded 芯片里的旋转指示（对应旧版 .model-busy-indicator） */
+.mc-busy { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; color: var(--warning); }
 .mc-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 8px; font-size: 12.5px; color: var(--text-2); }
 .mc-meta i { margin-right: 4px; font-size: 11px; }
 .mc-speed { color: var(--primary); font-weight: 600; }
@@ -528,7 +530,7 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 .log-src-item .ls-name { word-break: break-all; line-height: 1.3; }
 
 .log-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.log-src-chips { display: none; } /* 移动端才显示,见下方媒体查询 */
+.log-src-select { display: none; } /* 移动端才显示,见下方媒体查询 */
 
 /* 深色终端视图 */
 .log-view {
@@ -542,7 +544,11 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 
 @media (max-width: 900px) {
     .log-sources { display: none; }
-    .log-src-chips { display: flex; }
+    .log-src-select {
+        display: block; width: 100%; margin-bottom: 14px;
+        border: 1px solid var(--border); border-radius: 10px;
+        background: var(--surface-2); color: var(--text); padding: 10px 12px; outline: none; font-size: 14px;
+    }
 }
 
 /* ================= 设置页（系统设置） ================= */
@@ -575,29 +581,45 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
 /* 更新卡：加速地址下拉（非 .field 容器内，单独补样式） */
 #updProxy { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); padding: 8px 10px; font-size: 13px; }
 
-/* ================= 设置页：桌面端锚点侧栏 + 双列卡片（移动端不变） ================= */
-/* 移动端：锚点侧栏隐藏，卡片平铺滚动（默认形态） */
-.set-anchor { display: none; }
+/* ================= 设置页：分组切换（点击菜单仅显示对应分组，其它隐藏） ================= */
+/* 卡片默认隐藏，仅当前分组显示 */
+.set-main > .card { display: none; }
+.set-main > .card.active { display: block; }
+/* 移动端（默认形态）：分组菜单整页平铺；点开分组后菜单隐藏、内容区显示，顶部有返回条 */
+.set-anchor {
+    display: flex; flex-direction: column; gap: 2px; padding: 6px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.set-anchor button {
+    display: flex; align-items: center; justify-content: space-between;
+    text-align: left; padding: 12px 14px; border: none; background: none; border-radius: 8px;
+    color: var(--text); font-size: 14px; cursor: pointer;
+}
+.set-anchor button::after { content: '›'; color: var(--text-2); }
+.set-anchor button:hover { background: var(--surface-2); }
+.set-anchor button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.set-layout > .set-main { display: none; }
+.set-back {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    padding: 8px 12px; border: none; background: none; border-radius: 8px;
+    color: var(--primary); font-size: 14px; cursor: pointer;
+}
+.set-back:active { opacity: .6; }
+/* 点开分组的状态（仅移动端）：隐藏菜单、显示内容。桌面端由下方媒体查询保持菜单常驻，
+   注意 .open 规则优先级更高，必须限定在移动端，否则桌面端点击后菜单也会被隐藏 */
+@media (max-width: 900px) {
+    .set-layout.open .set-anchor { display: none; }
+    .set-layout.open > .set-main { display: block; }
+}
+/* 桌面端（≥901px）：左侧菜单与右侧内容常驻并排，无返回条 */
 @media (min-width: 901px) {
     .set-layout { display: flex; gap: 16px; align-items: flex-start; }
-    .set-anchor {
-        display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; width: 150px;
-        position: sticky; top: 4px; padding: 6px;
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
-    }
-    .set-anchor button {
-        text-align: left; padding: 7px 10px; border: none; background: none; border-radius: 8px;
-        color: var(--text-2); font-size: 13px; cursor: pointer; white-space: nowrap;
-    }
-    .set-anchor button:hover { background: var(--surface-2); color: var(--text); }
-    .set-anchor button.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
-    .set-main { flex: 1; min-width: 0; max-width: 860px; }
-}
-/* 宽屏（≥1200px）：小卡两列、大卡（span2）通栏 */
-@media (min-width: 1200px) {
-    .set-main { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; max-width: none; }
-    .set-main > .card { margin-bottom: 0; }
-    .set-main > .card.span2 { grid-column: 1 / -1; }
+    .set-layout .set-anchor { display: flex; flex-shrink: 0; width: 150px; position: sticky; top: 4px; }
+    .set-layout > .set-main { display: block; max-width: 860px; }
+    .set-anchor button { padding: 7px 10px; font-size: 13px; color: var(--text-2); white-space: nowrap; }
+    .set-anchor button::after { content: none; }
+    .set-anchor button.active { color: var(--primary); }
+    .set-back { display: none; }
 }
 /* 桌面端：节点/路径/证书弹层表单双列（.wide 通栏），移动端保持单列 */
 @media (min-width: 901px) {

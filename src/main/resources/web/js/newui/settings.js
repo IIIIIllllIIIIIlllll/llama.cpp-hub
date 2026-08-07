@@ -69,18 +69,29 @@ const Settings = {
         this.initAnchor();
     },
 
-    /* 桌面端锚点侧栏：点击平滑滚动定位并高亮（不做滚动跟随——底部卡片太短滚不到触发线，跟随不可靠） */
+    /* 分组切换：点击菜单仅显示对应分组卡片，其它隐藏。
+       移动端点开分组后菜单隐藏（.set-layout.open），返回键回到菜单列表；桌面端菜单与内容常驻并排。 */
     initAnchor() {
         const nav = $('#setAnchor');
         if (!nav) return;
+        const layout = nav.closest('.set-layout');
         const btns = Array.from(nav.querySelectorAll('button[data-anchor]'));
+        const cards = Array.from(layout.querySelectorAll('.set-main > .card'));
+        const select = id => {
+            btns.forEach(x => x.classList.toggle('active', x.dataset.anchor === id));
+            cards.forEach(c => c.classList.toggle('active', c.id === id));
+        };
         nav.addEventListener('click', e => {
             const b = e.target.closest('button[data-anchor]');
             if (!b) return;
-            btns.forEach(x => x.classList.toggle('active', x === b));
-            const el = document.getElementById(b.dataset.anchor);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            select(b.dataset.anchor);
+            layout.classList.add('open');
+            const page = $('#page-settings');
+            if (page) page.scrollTop = 0;
         });
+        const back = $('#setBack');
+        if (back) back.addEventListener('click', () => layout.classList.remove('open'));
+        select('set-appearance');
     },
 
     load() {

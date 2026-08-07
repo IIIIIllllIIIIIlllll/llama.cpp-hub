@@ -305,10 +305,11 @@
         <section class="page" id="page-logs">
             <div class="chip-row" id="logNodes" style="display:none"></div>
             <div class="logs-wrap">
-                <!-- 桌面端左侧日志源竖排列表（移动端隐藏，用下方 chips 代替） -->
+                <!-- 桌面端左侧日志源竖排列表（移动端隐藏，用下方下拉框代替） -->
                 <div class="log-sources" id="logSources"></div>
                 <div class="log-main">
-                    <div class="chip-row log-src-chips" id="logSrcChips"></div>
+                    <!-- 移动端日志源下拉（桌面端隐藏，用左侧竖排列表） -->
+                    <select class="log-src-select" id="logSrcSelect"></select>
                     <div class="log-view" id="logView"><pre id="logPre"></pre></div>
                     <div class="log-status" id="logStatus"></div>
                 </div>
@@ -318,7 +319,7 @@
         <!-- ============ 设置页 ============ -->
         <section class="page" id="page-settings">
             <div class="set-layout">
-            <!-- 桌面端锚点侧栏（≤900px 隐藏，移动端整页平铺滚动） -->
+            <!-- 分组菜单：点击后仅显示对应分组，其它隐藏；移动端点开分组隐藏菜单，用返回键回到列表 -->
             <nav class="set-anchor" id="setAnchor">
                 <button class="active" data-anchor="set-appearance">外观</button>
                 <button data-anchor="set-server">服务器</button>
@@ -335,6 +336,8 @@
                 <button data-anchor="set-about">关于</button>
             </nav>
             <div class="set-main">
+            <!-- 移动端返回分组列表（桌面端隐藏） -->
+            <button class="set-back" id="setBack"><i class="fas fa-arrow-left"></i> 设置</button>
             <div class="card" id="set-appearance">
                 <h3><i class="fas fa-palette"></i> 外观</h3>
                 <div class="kv"><span class="k">夜间模式</span>

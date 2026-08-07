@@ -150,7 +150,8 @@ const Models = {
         const status = this.busyIds.has(m.id)
             ? '<span class="status-chip loading"><i class="fas fa-spinner fa-spin"></i>处理中</span>'
             : m.isLoaded
-                ? '<span class="status-chip loaded"><i class="fas fa-circle" style="font-size:7px"></i>已加载' + (m.port ? ' · ' + m.port : '') + '</span>'
+                ? '<span class="status-chip loaded"><i class="fas fa-circle" style="font-size:7px"></i>已加载' + (m.port ? ' · ' + m.port : '') +
+                  (m.busy ? '<span class="mc-busy"><i class="fas fa-sync-alt fa-spin"></i>工作中</span>' : '') + '</span>'
                 : '<span class="status-chip stopped">已停止</span>';
         const speed = (m.inSpeed || m.outSpeed)
             ? '<span class="mc-speed"><i class="fas fa-bolt"></i>' + (fmtSpeed(m.inSpeed) || '—') + ' / ' + (fmtSpeed(m.outSpeed) || '—') + ' t/s</span>' : '';
