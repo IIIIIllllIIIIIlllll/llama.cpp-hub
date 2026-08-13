@@ -9,6 +9,7 @@ function getModelIcon(architecture) {
 		'gpt': 'icon/openai.png',
 		'seed': 'icon/seed_oss.png',
 		'llama': 'icon/llama.png',
+		'muse': 'icon/llama.png',
 		'kimi': 'icon/kimi.png',
 		'minimax': 'icon/minimax.png',
 		'gemma': 'icon/gemma.png',
