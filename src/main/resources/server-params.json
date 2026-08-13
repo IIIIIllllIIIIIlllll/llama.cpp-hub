@@ -150,7 +150,7 @@
       }
     ],
     "sort": 6.5,
-	"defaultEnabled": false,
+	  "defaultEnabled": false,
     "group": "page.params.group.sampler_chain",
     "groupOrder": 21,
     "groupCollapsed": false

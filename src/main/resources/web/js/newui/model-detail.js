@@ -205,7 +205,7 @@ const SAMPLER_OPTIONS = ['penalties', 'dry', 'top_n_sigma', 'top_k', 'typ_p', 't
 const SAMP_HIDDEN_KEYS = ['dry_allowed_length', 'dry_penalty_last_n', 'dry_sequence_breakers'];
 
 Object.assign(ModelDetail, {
-    sampConfigs: {}, sampLoaded: false,
+    sampConfigs: {}, sampLoaded: false, sampOrder: [],
 
     loadSampling() {
         const m = this.model;
@@ -229,7 +229,11 @@ Object.assign(ModelDetail, {
         const name = $('#sampSelect').value;
         if (!name) { $('#sampBody').innerHTML = '<div class="empty"><i class="fas fa-toggle-off"></i>采样覆盖已关闭，选择一个配置即可开启</div>'; return; }
         const cfg = this.sampConfigs[name] || {};
-        const samplers = Array.isArray(cfg.samplers) ? cfg.samplers : [];
+        // 采样器链：有序。兼容数组与 "a;b" 字符串两种存储形态（对应旧版 normalizeModelSamplingStringArray）
+        let samplers = [];
+        if (Array.isArray(cfg.samplers)) samplers = cfg.samplers.slice();
+        else if (typeof cfg.samplers === 'string') samplers = cfg.samplers.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+        this.sampOrder = samplers;
         $('#sampBody').innerHTML =
             '<div class="samp-grid">' + SAMP_FIELDS.map(([k, label, flag]) =>
                 '<div class="samp-field"><label>' + label + '<span class="sf-flag">' + flag + '</span></label>' +
@@ -239,8 +243,8 @@ Object.assign(ModelDetail, {
             '<label class="check-line"><input type="checkbox" data-sk="force_enable_thinking"' + (cfg.force_enable_thinking ? ' checked' : '') + '> 强制指定 thinking 开关</label>' +
             '<label class="check-line"><input type="checkbox" data-sk="enable_thinking"' + (cfg.enable_thinking ? ' checked' : '') + (cfg.force_enable_thinking ? '' : ' disabled') + '> 启用 thinking</label>' +
             '<div class="section-title" style="margin-top:16px"><i class="fas fa-list-ol"></i> 采样器链（按顺序生效）</div>' +
-            '<div class="samp-chips">' + SAMPLER_OPTIONS.map(s =>
-                '<button class="samp-chip' + (samplers.includes(s) ? ' active' : '') + '" data-sampler="' + s + '">' + s + '</button>').join('') + '</div>';
+            '<div class="muted" style="font-size:12px;margin-bottom:10px">勾选表示启用该采样器；下方顺序为实际执行次序，最终值按分号拼接后传给 --samplers。</div>' +
+            '<div id="sampChain"></div>';
 
         // 事件
         $$('#sampBody input[data-sk]').forEach(inp => {
@@ -254,10 +258,55 @@ Object.assign(ModelDetail, {
                 inp.addEventListener(inp.type === 'checkbox' ? 'change' : 'input', () => this.autoSaveSampling());
             }
         });
-        $$('#sampBody .samp-chip').forEach(c => c.addEventListener('click', () => {
-            c.classList.toggle('active');
+        // 采样器链：事件委托挂在容器上，renderSampChain 只重建容器内部，绑定不失效
+        $('#sampChain').addEventListener('click', e => this.onSampChainClick(e));
+        this.renderSampChain();
+    },
+
+    /* 采样器链（有序多选，对应旧版 ordered-multiselect 的特殊处理）：
+       点击备选加入链尾/从链中移除；↑↓ 调整执行顺序；最终值按 ; 拼接 */
+    renderSampChain() {
+        const el = $('#sampChain');
+        if (!el) return;
+        const order = this.sampOrder || [];
+        const inChain = new Set(order);
+        el.innerHTML =
+            '<div class="sc-heading">点击添加采样器</div>' +
+            '<div class="samp-chips">' + SAMPLER_OPTIONS.map(s =>
+                '<button class="samp-chip' + (inChain.has(s) ? ' active' : '') + '" data-sc-opt="' + s + '">' + s + '</button>').join('') + '</div>' +
+            '<div class="sc-heading" style="margin-top:12px">当前执行顺序</div>' +
+            (order.length
+                ? '<div class="sc-list">' + order.map((s, i) =>
+                    '<div class="sc-item"><span class="sc-text">' + esc(s) + '</span><span class="sc-actions">' +
+                    '<button class="sc-btn" data-sc-act="up" data-sc-i="' + i + '" title="上移"' + (i === 0 ? ' disabled' : '') + '><i class="fas fa-arrow-up"></i></button>' +
+                    '<button class="sc-btn" data-sc-act="down" data-sc-i="' + i + '" title="下移"' + (i === order.length - 1 ? ' disabled' : '') + '><i class="fas fa-arrow-down"></i></button>' +
+                    '<button class="sc-btn danger" data-sc-act="rm" data-sc-i="' + i + '" title="移除"><i class="fas fa-xmark"></i></button>' +
+                    '</span></div>').join('') + '</div>'
+                : '<div class="sc-empty">未选择</div>') +
+            '<div class="sc-preview">最终值：' + esc(order.join(';')) + '</div>';
+    },
+
+    onSampChainClick(e) {
+        const opt = e.target.closest('[data-sc-opt]');
+        if (opt) {
+            const s = opt.dataset.scOpt;
+            const i = this.sampOrder.indexOf(s);
+            if (i > -1) this.sampOrder.splice(i, 1); else this.sampOrder.push(s);
+            this.renderSampChain();
             this.autoSaveSampling();
-        }));
+            return;
+        }
+        const btn = e.target.closest('[data-sc-act]');
+        if (!btn || btn.disabled) return;
+        const i = parseInt(btn.dataset.scI, 10);
+        const order = this.sampOrder;
+        const act = btn.dataset.scAct;
+        if (act === 'rm') order.splice(i, 1);
+        else if (act === 'up' && i > 0) { const t = order[i - 1]; order[i - 1] = order[i]; order[i] = t; }
+        else if (act === 'down' && i < order.length - 1) { const t = order[i + 1]; order[i + 1] = order[i]; order[i] = t; }
+        else return;
+        this.renderSampChain();
+        this.autoSaveSampling();
     },
 
     collectSampling() {
@@ -275,8 +324,8 @@ Object.assign(ModelDetail, {
             out.force_enable_thinking = force.checked;
             if (force.checked) out.enable_thinking = $('#sampBody input[data-sk="enable_thinking"]').checked;
         }
-        const act = $$('#sampBody .samp-chip.active').map(c => c.dataset.sampler);
-        if (act.length) out.samplers = SAMPLER_OPTIONS.filter(s => act.includes(s));
+        // 采样器链：保持用户设定的执行顺序（不再按 SAMPLER_OPTIONS 固定顺序重排）
+        if (this.sampOrder && this.sampOrder.length) out.samplers = this.sampOrder.slice();
         // 隐藏字段从已存配置 merge 保留
         const cur = this.sampConfigs[$('#sampSelect').value] || {};
         SAMP_HIDDEN_KEYS.forEach(k => { if (cur[k] !== undefined) out[k] = cur[k]; });

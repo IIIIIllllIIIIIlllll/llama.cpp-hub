@@ -232,6 +232,28 @@ const ModelConfig = {
         return 'unnamed_' + String(p.name || '').replace(/\W+/g, '_') + '_' + (p.sort || 0);
     },
 
+    /* 有序多选参数（如 --samplers，对应旧版 ordered-multiselect 特殊处理） */
+    isOmn(p) { return String(p.uiType || '').trim().toLowerCase() === 'ordered-multiselect'; },
+    omnDelim(p) { return String(p.delimiter || ';').trim() || ';'; },
+    /* 兼容字符串与 {value,label} 对象两种枚举形态（对应旧版 getParamOptionValues） */
+    optionList(p) {
+        const vals = Array.isArray(p.values) ? p.values : [];
+        return vals.map(v => {
+            if (v && typeof v === 'object') {
+                const value = String(v.value != null ? v.value : '').trim();
+                return value ? { value, label: I18n.t(v.label, value) } : null;
+            }
+            const value = String(v != null ? v : '').trim();
+            return value ? { value, label: value } : null;
+        }).filter(Boolean);
+    },
+    /* this.values[fn] 中存的是 delimiter 拼接的字符串，解析为有序数组 */
+    omnOrder(fn, p) {
+        const delim = this.omnDelim(p);
+        const re = delim === ';' ? /[;,]/ : delim;
+        return String(this.values[fn] || '').split(re).map(s => s.trim()).filter(Boolean);
+    },
+
     groups() {
         const g = {};
         this.params.forEach(p => {
@@ -251,7 +273,7 @@ const ModelConfig = {
                 const label = I18n.t(p.name, (p.fullName || p.abbreviation || p.name));
                 const flag = (p.fullName || p.abbreviation || '').trim();
                 const input = this.inputHtml(p, fn);
-                return '<div class="param-item disabled" data-fn="' + esc(fn) + '">' +
+                return '<div class="param-item disabled' + (this.isOmn(p) ? ' omn' : '') + '" data-fn="' + esc(fn) + '">' +
                     '<input type="checkbox" class="p-check">' +
                     '<div class="p-label">' + esc(label) + '<span class="p-flag">' + esc(flag) + '</span></div>' +
                     '<div class="p-input">' + input + '</div></div>';
@@ -279,18 +301,76 @@ const ModelConfig = {
         // 初始化默认值
         this.resetParamsToDefault();
         this.refreshGroupCounts();
+        this.renderOmnWidgets();
     },
 
     inputHtml(p, fn) {
         const type = String(p.type || 'STRING').toUpperCase();
-        const values = Array.isArray(p.values) ? p.values : [];
         if (type === 'LOGIC' || type === 'BOOLEAN') return '<span class="muted" style="font-size:12px">开关</span>';
-        if (values.length) {
-            return '<select>' + values.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') + '</select>';
+        // 有序多选（--samplers）：占位容器，由 renderOmnWidgets 填充
+        if (this.isOmn(p)) return '<div class="omn-box" data-omn="' + esc(fn) + '"></div>';
+        const opts = this.optionList(p);
+        if (opts.length) {
+            return '<select>' + opts.map(o => '<option value="' + esc(o.value) + '">' + esc(o.label) + '</option>').join('') + '</select>';
         }
         const ph = p.defaultValue != null ? String(p.defaultValue) : '';
         const inputType = (type === 'INTEGER' || type === 'FLOAT') ? 'number' : 'text';
         return '<input type="' + inputType + '" placeholder="' + esc(ph) + '" value="' + esc(ph) + '">';
+    },
+
+    /* 有序多选组件：渲染 + 交互（点击备选加入链尾/移除，↑↓ 调序，值按 delimiter 拼接写回 this.values[fn]） */
+    renderOmnWidgets() {
+        $$('#paramForm [data-omn]').forEach(box => {
+            const fn = box.dataset.omn;
+            const p = this.params.find(x => this.fieldName(x) === fn);
+            if (!p) return;
+            if (!box.__bound) {
+                box.__bound = true;
+                box.addEventListener('click', e => this.onOmnClick(box, p, fn, e));
+            }
+            this.renderOmnWidget(box, p, fn);
+        });
+    },
+
+    renderOmnWidget(box, p, fn) {
+        const delim = this.omnDelim(p);
+        const order = this.omnOrder(fn, p);
+        const inChain = new Set(order);
+        box.innerHTML =
+            '<div class="samp-chips" style="margin-bottom:8px">' + this.optionList(p).map(o =>
+                '<button type="button" class="samp-chip' + (inChain.has(o.value) ? ' active' : '') + '" data-omn-opt="' + esc(o.value) + '">' + esc(o.label) + '</button>').join('') + '</div>' +
+            (order.length
+                ? '<div class="sc-list">' + order.map((s, i) =>
+                    '<div class="sc-item"><span class="sc-text">' + esc(s) + '</span><span class="sc-actions">' +
+                    '<button type="button" class="sc-btn" data-omn-act="up" data-omn-i="' + i + '" title="上移"' + (i === 0 ? ' disabled' : '') + '><i class="fas fa-arrow-up"></i></button>' +
+                    '<button type="button" class="sc-btn" data-omn-act="down" data-omn-i="' + i + '" title="下移"' + (i === order.length - 1 ? ' disabled' : '') + '><i class="fas fa-arrow-down"></i></button>' +
+                    '<button type="button" class="sc-btn danger" data-omn-act="rm" data-omn-i="' + i + '" title="移除"><i class="fas fa-xmark"></i></button>' +
+                    '</span></div>').join('') + '</div>'
+                : '<div class="sc-empty">未选择</div>') +
+            '<div class="sc-preview">最终值：' + esc(order.join(delim)) + '</div>';
+    },
+
+    onOmnClick(box, p, fn, e) {
+        const delim = this.omnDelim(p);
+        const order = this.omnOrder(fn, p);
+        const opt = e.target.closest('[data-omn-opt]');
+        if (opt) {
+            const v = opt.dataset.omnOpt;
+            const i = order.indexOf(v);
+            if (i > -1) order.splice(i, 1); else order.push(v);
+        } else {
+            const btn = e.target.closest('[data-omn-act]');
+            if (!btn || btn.disabled) return;
+            const i = parseInt(btn.dataset.omnI, 10);
+            const act = btn.dataset.omnAct;
+            if (act === 'rm') order.splice(i, 1);
+            else if (act === 'up' && i > 0) { const t = order[i - 1]; order[i - 1] = order[i]; order[i] = t; }
+            else if (act === 'down' && i < order.length - 1) { const t = order[i + 1]; order[i + 1] = order[i]; order[i] = t; }
+            else return;
+        }
+        this.values[fn] = order.join(delim);
+        this.renderOmnWidget(box, p, fn);
+        this.refreshCmd();
     },
 
     resetParamsToDefault() {
@@ -299,7 +379,7 @@ const ModelConfig = {
             const type = String(p.type || '').toUpperCase();
             this.enabled[fn] = !!p.defaultEnabled;
             let v = p.defaultValue != null ? String(p.defaultValue) : '';
-            if (!v && Array.isArray(p.values) && p.values.length) v = String(p.values[0]);
+            if (!v) { const ol = this.optionList(p); if (ol.length) v = ol[0].value; }
             if ((type === 'LOGIC' || type === 'BOOLEAN') && !v) v = '0';
             this.values[fn] = v;
         });
@@ -315,6 +395,8 @@ const ModelConfig = {
             row.classList.toggle('disabled', !chk.checked);
             if (ctl && ctl.type !== 'checkbox') ctl.value = this.values[fn] != null ? this.values[fn] : '';
         });
+        // 有序多选组件按最新 state 重绘
+        this.renderOmnWidgets();
     },
 
     refreshGroupCounts() {
