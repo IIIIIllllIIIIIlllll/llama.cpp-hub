@@ -916,6 +916,8 @@
   "param.server.reasoning_budget.desc": "--reasoning-budget：控制允许的思考量；-1 表示无限制思考预算，或 0 表示禁用思考，其它任意参数：思维链的最大长度，但是未必一定有效（默认：-1）。",
   "param.server.reasoning_preserve.name": "保留推理痕迹",
   "param.server.reasoning_preserve.desc": "--reasoning-preserve：在完整的对话历史中保留推理/思考痕迹，而不仅仅是最后一条assistant消息。兼容支持 supports_preserve_reasoning 能力的模板（默认：auto，由模板决定）。",
+  "param.server.reasoning_effort.name": "推理力度",
+  "param.server.reasoning_effort.desc": "--reasoning-effort：传递给聊天模板的推理力度级别；'default' 表示保持模板默认，或指定 'minimal'、'low'、'medium'、'high'、'xhigh'、'max'（默认：default）。注意：并非所有档位对所有模型都有效，具体支持的档位需查阅模型的官方说明，例如 Qwen3.8 仅支持 low、medium、xhigh 三个档位，不支持其它档位。",
   "param.server.no_mmproj_offload.name": "禁用mmproj卸载",
   "param.server.no_mmproj_offload.desc": "--no-mmproj-offload：卸载mmproj投影到CPU，当GPU显存不足时，可以开启该选项，但是CPU处理图片的性能往往不如GPU。",
   "param.server.mmproj.name": "多模态投影文件 (mmproj)",

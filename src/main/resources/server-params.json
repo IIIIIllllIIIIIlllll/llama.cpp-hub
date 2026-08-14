@@ -758,6 +758,28 @@
     "groupCollapsed": true
   },
   {
+    "name": "param.server.reasoning_effort.name",
+    "fullName": "--reasoning-effort",
+    "abbreviation": "--reasoning-effort",
+    "type": "STRING",
+    "defaultValue": "default",
+    "description": "param.server.reasoning_effort.desc",
+    "values": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "sort": 31.1,
+    "defaultEnabled": false,
+    "group": "page.params.group.template",
+    "groupOrder": 50,
+    "groupCollapsed": true
+  },
+  {
     "name": "param.server.mmproj.name",
     "fullName": "--mmproj",
     "abbreviation": "",

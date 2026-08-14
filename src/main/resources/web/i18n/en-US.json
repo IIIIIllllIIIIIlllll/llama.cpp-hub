@@ -916,6 +916,8 @@
   "param.server.reasoning_budget.desc": "--reasoning-budget: Controls the allowed amount of reasoning; -1 indicates an unlimited reasoning budget, or 0 indicates disabling thinking. Any other value specifies the maximum length of the reasoning chain, though this may not always be fully effective (default: -1).",
   "param.server.reasoning_preserve.name": "Preserve Reasoning",
   "param.server.reasoning_preserve.desc": "--reasoning-preserve: Preserve reasoning trace in the full history, not just the last assistant message. Compatible with templates having supports_preserve_reasoning capability (default: auto, template default).",
+  "param.server.reasoning_effort.name": "Reasoning Effort",
+  "param.server.reasoning_effort.desc": "--reasoning-effort: Reasoning effort level passed to the chat template; 'default' keeps the template default, or a level such as 'minimal', 'low', 'medium', 'high', 'xhigh', 'max' (default: default). Note: not all levels are supported by every model; check the model's official documentation for the supported levels (e.g., Qwen3.8 only supports low, medium and xhigh).",
   "param.server.no_mmproj_offload.name": "no mmproj offload",
   "param.server.no_mmproj_offload.desc": "--no-mmproj-offload: Offload mmproj projection to CPU. You can enable this option when GPU VRAM is insufficient, but CPU image processing performance is typically inferior to that of the GPU.",
   "param.server.mmproj.name": "Multimodal projector (mmproj)",
