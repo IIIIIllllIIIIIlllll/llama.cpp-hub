@@ -2767,6 +2767,36 @@
                                 <div class="settings-toggle-list" style="margin-top: 0.75rem;">
                                     <div class="settings-toggle-row">
                                         <div class="settings-toggle-title">
+                                            <i class="fas fa-unlock"></i><span
+                                                data-i18n="page.settings.server.http_only_port">page.settings.server.http_only_port</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="form-check" style="margin: 0;">
+                                                <input class="form-check-input" type="checkbox" id="toggleHttpOnlyEnabled">
+                                                <label class="form-check-label" for="toggleHttpOnlyEnabled"
+                                                    data-i18n="common.enable">common.enable</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
+                                            <i class="fas fa-hashtag"></i><span
+                                                data-i18n="common.port">common.port</span>
+                                        </div>
+                                        <div class="settings-compat-actions">
+                                            <div class="settings-port-field">
+                                                <input class="form-control settings-port-input" type="number"
+                                                    id="httpOnlyPortInput" min="1" max="65535" placeholder="8081">
+                                            </div>
+                                            <button class="btn btn-primary btn-sm" id="saveHttpOnlyPortsBtn"
+                                                data-i18n="common.save"
+                                                style="margin-left: 0.5rem;">common.save</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-toggle-list" style="margin-top: 0.75rem;">
+                                    <div class="settings-toggle-row">
+                                        <div class="settings-toggle-title">
                                             <i class="fas fa-server"></i><span
                                                 data-i18n="page.settings.server.mcp_server">page.settings.server.mcp_server</span>
                                         </div>

@@ -344,6 +344,10 @@
         if (s) {
             const webPort = byId('webPortInput');
             if (webPort && s.webPort) webPort.value = s.webPort;
+            const httpOnlyToggle = byId('toggleHttpOnlyEnabled');
+            if (httpOnlyToggle) httpOnlyToggle.checked = !!s.httpOnlyEnabled;
+            const httpOnlyPort = byId('httpOnlyPortInput');
+            if (httpOnlyPort && s.httpOnlyPort) httpOnlyPort.value = s.httpOnlyPort;
         }
 
         // Compatibility
@@ -505,6 +509,33 @@
                 return;
             }
             toast(t('toast.success', '成功'), t('common.saved', '已保存'), 'success');
+            loadSettings();
+        } catch (e) {
+            toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        }
+    }
+
+    async function saveHttpOnlyPort() {
+        const toggle = byId('toggleHttpOnlyEnabled');
+        const portInput = byId('httpOnlyPortInput');
+        const payload = { httpOnlyEnabled: toggle ? toggle.checked : false };
+        if (portInput && portInput.value) payload.httpOnlyPort = Number(portInput.value);
+        if (payload.httpOnlyPort && (payload.httpOnlyPort < 1 || payload.httpOnlyPort > 65535)) {
+            toast(t('toast.error', '错误'), '端口必须在 1-65535 之间', 'error');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/sys/setting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (!data || !data.success) {
+                toast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
+                return;
+            }
+            toast(t('toast.success', '成功'), t('common.saved', '已保存') + '，' + t('page.settings.nodes.role.hint', '需重启服务生效'), 'success');
             loadSettings();
         } catch (e) {
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
@@ -2002,6 +2033,12 @@
         // Server tab
         const saveServerBtn = byId('saveServerPortsBtn');
         if (saveServerBtn) saveServerBtn.addEventListener('click', saveServerPorts);
+
+        // HTTP-only dedicated port (plain HTTP, for clients that reject self-signed certs)
+        const saveHttpOnlyBtn = byId('saveHttpOnlyPortsBtn');
+        if (saveHttpOnlyBtn) saveHttpOnlyBtn.addEventListener('click', saveHttpOnlyPort);
+        const httpOnlyToggle = byId('toggleHttpOnlyEnabled');
+        if (httpOnlyToggle) httpOnlyToggle.addEventListener('change', () => { if (!_populating) saveHttpOnlyPort(); });
 
         const mcpToggle = byId('toggleMcpServer');
         if (mcpToggle) mcpToggle.addEventListener('change', () => { if (!_populating) setMcpServer(mcpToggle.checked); });

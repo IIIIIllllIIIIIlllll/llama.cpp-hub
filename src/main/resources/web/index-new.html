@@ -353,6 +353,13 @@
                         <button class="btn" id="sysWebPortSave">保存</button>
                     </div>
                 </div>
+                <div class="field"><label>独立 HTTP 端口（纯 HTTP，不启用 TLS/重定向；修改后需重启生效）</label>
+                    <div class="row-gap">
+                        <input type="number" id="sysHttpOnlyPort" class="grow" min="1" max="65535" placeholder="8081">
+                        <button class="btn" id="sysHttpOnlyPortSave">保存</button>
+                    </div>
+                </div>
+                <label class="check-line"><input type="checkbox" id="sysHttpOnlyEnable"> 启用独立 HTTP 端口（供不支持自签证书的应用）</label>
                 <label class="check-line"><input type="checkbox" id="sysMcpEnable"> 启用 MCP Server</label>
             </div>
             <div class="card" id="set-security">

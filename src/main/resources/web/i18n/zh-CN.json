@@ -701,6 +701,7 @@
   "page.settings.server.web_port": "Web 端口",
   "page.settings.server.web_port_desc": "OpenAI 兼容 API 端口，修改后需重启服务",
   "page.settings.server.mcp_server": "MCP Server",
+  "page.settings.server.http_only_port": "独立 HTTP 端口（纯 HTTP，不启用 TLS/重定向）",
   "page.settings.server.hint": "⚠ 端口修改后需手动重启服务器生效；MCP Server 可动态生效",
   "page.settings.security.title": "API Key 验证",
   "page.settings.security.desc": "启用后，所有 API 请求需携带有效的 API Key",

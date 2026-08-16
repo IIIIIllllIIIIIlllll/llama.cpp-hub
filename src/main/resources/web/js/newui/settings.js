@@ -11,6 +11,20 @@ const Settings = {
             if (!p || p < 1 || p > 65535) { toast('端口必须在 1-65535 之间', 'error'); return; }
             this.save({ webPort: p }, '已保存，重启服务后生效');
         });
+        // ===== 独立 HTTP 专用端口（纯 HTTP，供不支持自签证书的应用） =====
+        $('#sysHttpOnlyEnable').addEventListener('change', e => {
+            if (this._pop) return;
+            const on = e.target.checked;
+            const p = parseInt($('#sysHttpOnlyPort').value, 10);
+            const fields = { httpOnlyEnabled: on };
+            if (p && p >= 1 && p <= 65535) fields.httpOnlyPort = p;
+            this.save(fields, (on ? '已启用独立HTTP端口' : '已停用独立HTTP端口') + '，重启服务后生效');
+        });
+        $('#sysHttpOnlyPortSave').addEventListener('click', () => {
+            const p = parseInt($('#sysHttpOnlyPort').value, 10);
+            if (!p || p < 1 || p > 65535) { toast('端口必须在 1-65535 之间', 'error'); return; }
+            this.save({ httpOnlyEnabled: $('#sysHttpOnlyEnable').checked, httpOnlyPort: p }, '已保存，重启服务后生效');
+        });
         $('#sysMcpEnable').addEventListener('change', e => {
             if (this._pop) return;
             const enable = e.target.checked;
@@ -112,7 +126,15 @@ const Settings = {
     populate(d) {
         this._pop = true;
         try {
-            if (d.server && d.server.webPort) $('#sysWebPort').value = d.server.webPort;
+            if (d.server) {
+                if (d.server.webPort) $('#sysWebPort').value = d.server.webPort;
+                const httpOnlyEnable = $('#sysHttpOnlyEnable');
+                if (httpOnlyEnable) httpOnlyEnable.checked = !!d.server.httpOnlyEnabled;
+                if (d.server.httpOnlyPort) {
+                    const httpOnlyPort = $('#sysHttpOnlyPort');
+                    if (httpOnlyPort) httpOnlyPort.value = d.server.httpOnlyPort;
+                }
+            }
             if (d.compat && d.compat.mcpServer) $('#sysMcpEnable').checked = !!d.compat.mcpServer.enabled;
             const sec = d.security || {};
             $('#sysApiKeyEnable').checked = !!sec.apiKeyEnabled;

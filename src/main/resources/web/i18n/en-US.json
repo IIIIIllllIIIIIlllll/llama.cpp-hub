@@ -701,6 +701,7 @@
   "page.settings.server.web_port": "Web Port",
   "page.settings.server.web_port_desc": "OpenAI-compatible API port, requires restart after change",
   "page.settings.server.mcp_server": "MCP Server",
+  "page.settings.server.http_only_port": "Dedicated HTTP Port (plain HTTP, no TLS/redirect)",
   "page.settings.server.hint": "⚠ Port changes require manual server restart; MCP Server takes effect dynamically",
   "page.settings.security.title": "API Key Authentication",
   "page.settings.security.desc": "When enabled, all API requests must include a valid API Key",

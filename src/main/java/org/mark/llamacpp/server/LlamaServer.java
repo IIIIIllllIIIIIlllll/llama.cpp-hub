@@ -223,6 +223,20 @@ public class LlamaServer {
 		});
 		t1.start();
 
+		// 独立的 HTTP 专用端口：纯 HTTP，不启用 TLS、不做 HTTP→HTTPS 重定向，
+		// 供不支持自签名证书的应用访问。绑定失败不影响主服务（exitOnBindFailure=false）。
+		if (httpOnlyEnabled && httpOnlyPort > 0 && httpOnlyPort <= 65535 && httpOnlyPort != webPort) {
+			final int httpOnlyPortValue = httpOnlyPort;
+			Thread t2 = new Thread(() -> {
+				NettyWebServer httpServer = new NettyWebServer(httpOnlyPortValue, false, null, null, false);
+				httpServer.start();
+			}, "http-only-server");
+			t2.start();
+			logger.info("已启用独立HTTP专用端口: {}（纯HTTP，无TLS/重定向）", httpOnlyPortValue);
+		} else if (httpOnlyEnabled) {
+			logger.info("独立HTTP端口已启用但配置无效（端口未设置或 {} 与Web端口冲突），跳过绑定", httpOnlyPort);
+		}
+
 		if (mcpServerEnabled) {
 			try {
 				startMcpServerListener();
@@ -345,7 +359,12 @@ public class LlamaServer {
 	 * 	默认端口：OpenAI + 程序主要业务
 	 */
 	private static final int DEFAULT_WEB_PORT = 8080;
-	
+
+	/**
+	 * 	独立 HTTP 专用端口的默认值（纯 HTTP，不启用 TLS/重定向）
+	 */
+	private static final int DEFAULT_HTTP_ONLY_PORT = 8081;
+
 	private static final int DEFAULT_MCP_SERVER_PORT = 8075;
 
 	/**
@@ -394,6 +413,17 @@ public class LlamaServer {
 	private static volatile boolean httpsEnabled = false;
 	private static volatile String httpsCertPath = "ssl/keystore.p12";
 	private static volatile String httpsPassword = "changeit";
+
+	/**
+	 * 是否启用独立的 HTTP 专用端口（纯 HTTP，不启用 TLS、不做 HTTP→HTTPS 重定向）。
+	 * 用于兼容不支持自签名证书的应用。
+	 */
+	private static volatile boolean httpOnlyEnabled = false;
+	/**
+	 * 独立 HTTP 专用端口。仅当 httpOnlyEnabled 为 true 且端口合法、且不等于 webPort 时才会绑定。
+	 */
+	private static volatile int httpOnlyPort = DEFAULT_HTTP_ONLY_PORT;
+
 	private static final Object RESTART_LOCK = new Object();
 
 	private static volatile String nodeRole = null;
@@ -477,6 +507,12 @@ public class LlamaServer {
 			JsonObject server = root.getAsJsonObject("server");
 			if (server.has("webPort")) {
 				webPort = server.get("webPort").getAsInt();
+			}
+			if (server.has("httpOnlyEnabled")) {
+				httpOnlyEnabled = server.get("httpOnlyEnabled").getAsBoolean();
+			}
+			if (server.has("httpOnlyPort")) {
+				httpOnlyPort = server.get("httpOnlyPort").getAsInt();
 			}
 		}
 
@@ -565,6 +601,8 @@ public class LlamaServer {
 
 				JsonObject server = new JsonObject();
 				server.addProperty("webPort", webPort);
+				server.addProperty("httpOnlyEnabled", httpOnlyEnabled);
+				server.addProperty("httpOnlyPort", httpOnlyPort);
 				root.add("server", server);
 	
 				JsonObject download = new JsonObject();
@@ -698,6 +736,33 @@ public class LlamaServer {
 			}
 			if (password != null) {
 				httpsPassword = password;
+			}
+			saveApplicationConfig();
+		}
+	}
+
+	// ==================== 独立 HTTP 专用端口 ====================
+
+	public static boolean isHttpOnlyEnabled() {
+		return httpOnlyEnabled;
+	}
+
+	public static int getHttpOnlyPort() {
+		return httpOnlyPort;
+	}
+
+	/**
+	 * 更新独立 HTTP 专用端口配置并持久化。
+	 * 传入 null 的字段保持原值；端口非法（<=0 或 >65535）时忽略。
+	 * 注意：仅写入配置，运行时的绑定需重启服务生效。
+	 */
+	public static void updateHttpOnlyConfig(Boolean enabled, Integer port) {
+		synchronized (APPLICATION_CONFIG_LOCK) {
+			if (enabled != null) {
+				httpOnlyEnabled = enabled;
+			}
+			if (port != null && port > 0 && port <= 65535) {
+				httpOnlyPort = port;
 			}
 			saveApplicationConfig();
 		}
