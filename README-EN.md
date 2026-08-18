@@ -2,6 +2,8 @@
 
 [🇬🇧 English](./README-EN.md) | [🇨🇳 中文](./README.md)
 
+> ⚠️ **Project status**: The feature set is fairly complete and bugs are relatively few (though some still exist). The author currently lacks the motivation to continue maintaining the project or adding new features.
+
 > **Please do not store important content in Easy Chat.**
 > **Place each model in its own separate folder; if you are concerned about the `mmproj` file, place it in a separate folder as well, and simply select it via the startup parameters.**
 
