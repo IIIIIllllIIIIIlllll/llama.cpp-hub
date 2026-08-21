@@ -1637,6 +1637,7 @@
   "page.chat.main.file.images_oversized": "{n} image(s) exceed 10 MB, not added",
   "page.chat.main.file.text_oversized": "{n} text file(s) exceed 512 KB, not added",
   "page.chat.main.file.audio_oversized": "{n} audio file(s) exceed 25 MB, not added",
+  "page.chat.main.file.image_convert_failed": "Image could not be decoded, not added",
   "page.chat.main.message.default_assistant": "Default Assistant",
   "page.chat.main.message.new_assistant": "New Assistant",
   "page.chat.main.message.assistant_n": "Assistant {n}",

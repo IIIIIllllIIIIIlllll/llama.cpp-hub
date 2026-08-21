@@ -1640,6 +1640,7 @@
   "page.chat.main.file.images_oversized": "{n} 张图片超过 10 MB，未添加",
   "page.chat.main.file.text_oversized": "{n} 个文本文件超过 512 KB，未添加",
   "page.chat.main.file.audio_oversized": "{n} 个音频文件超过 25 MB，未添加",
+  "page.chat.main.file.image_convert_failed": "图片无法解析，未添加",
   "page.chat.main.message.default_assistant": "默认助手",
   "page.chat.main.message.new_assistant": "新助手",
   "page.chat.main.message.assistant_n": "助手 {n}",
