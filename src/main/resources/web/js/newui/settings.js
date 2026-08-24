@@ -11,6 +11,11 @@ const Settings = {
             if (!p || p < 1 || p > 65535) { toast('端口必须在 1-65535 之间', 'error'); return; }
             this.save({ webPort: p }, '已保存，重启服务后生效');
         });
+        $('#sysListenAddressSave').addEventListener('click', () => {
+            const addr = $('#sysListenAddress').value.trim();
+            if (!addr) { toast('监听地址不能为空', 'error'); return; }
+            this.save({ listenAddress: addr }, '已保存，重启服务后生效');
+        });
         // ===== 独立 HTTP 专用端口（纯 HTTP，供不支持自签证书的应用） =====
         $('#sysHttpOnlyEnable').addEventListener('change', e => {
             if (this._pop) return;
@@ -128,6 +133,10 @@ const Settings = {
         try {
             if (d.server) {
                 if (d.server.webPort) $('#sysWebPort').value = d.server.webPort;
+                if (d.server.listenAddress) {
+                    const la = $('#sysListenAddress');
+                    if (la) la.value = d.server.listenAddress;
+                }
                 const httpOnlyEnable = $('#sysHttpOnlyEnable');
                 if (httpOnlyEnable) httpOnlyEnable.checked = !!d.server.httpOnlyEnabled;
                 if (d.server.httpOnlyPort) {

@@ -365,6 +365,11 @@ public class LlamaServer {
 	 */
 	private static final int DEFAULT_HTTP_ONLY_PORT = 8081;
 
+	/**
+	 * 	默认监听地址：仅回环，拒绝所有非本机客户端。
+	 */
+	private static final String DEFAULT_LISTEN_ADDRESS = "127.0.0.1";
+
 	private static final int DEFAULT_MCP_SERVER_PORT = 8075;
 
 	/**
@@ -423,6 +428,13 @@ public class LlamaServer {
 	 * 独立 HTTP 专用端口。仅当 httpOnlyEnabled 为 true 且端口合法、且不等于 webPort 时才会绑定。
 	 */
 	private static volatile int httpOnlyPort = DEFAULT_HTTP_ONLY_PORT;
+
+	/**
+	 * Web 服务监听地址（主 Web 端口与独立 HTTP 端口共用）。
+	 * "127.0.0.1" 表示仅回环监听，非本机客户端全部拒绝；
+	 * "0.0.0.0" 表示监听所有网卡，允许局域网内客户端访问。
+	 */
+	private static volatile String listenAddress = DEFAULT_LISTEN_ADDRESS;
 
 	private static final Object RESTART_LOCK = new Object();
 
@@ -514,6 +526,14 @@ public class LlamaServer {
 			if (server.has("httpOnlyPort")) {
 				httpOnlyPort = server.get("httpOnlyPort").getAsInt();
 			}
+			if (server.has("listenAddress")) {
+				String addr = server.get("listenAddress").getAsString();
+				if (isValidListenAddress(addr)) {
+					listenAddress = normalizeListenAddress(addr);
+				} else {
+					logger.warn("配置文件中 listenAddress 不合法: {}，使用默认值 {}", addr, listenAddress);
+				}
+			}
 		}
 
 		if (root.has("download")) {
@@ -603,6 +623,7 @@ public class LlamaServer {
 				server.addProperty("webPort", webPort);
 				server.addProperty("httpOnlyEnabled", httpOnlyEnabled);
 				server.addProperty("httpOnlyPort", httpOnlyPort);
+				server.addProperty("listenAddress", listenAddress);
 				root.add("server", server);
 	
 				JsonObject download = new JsonObject();
@@ -765,6 +786,59 @@ public class LlamaServer {
 				httpOnlyPort = port;
 			}
 			saveApplicationConfig();
+		}
+	}
+
+	// ==================== 监听地址 ====================
+
+	public static String getListenAddress() {
+		return listenAddress;
+	}
+
+	/**
+	 * 校验监听地址：只接受纯 IP 字面量（如 127.0.0.1、0.0.0.0、::1），
+	 * 以及表示"所有网卡"的 *；不接受主机名，避免 DNS 解析歧义。
+	 */
+	public static boolean isValidListenAddress(String address) {
+		if (address == null) {
+			return false;
+		}
+		String a = address.trim();
+		if (a.isEmpty()) {
+			return false;
+		}
+		if ("*".equals(a)) {
+			return true;
+		}
+		try {
+			java.net.InetAddress ia = java.net.InetAddress.getByName(a);
+			// getByName 同时会解析主机名，需反查确认输入就是 IP 字面量本身
+			return a.equalsIgnoreCase(ia.getHostAddress());
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/**
+	 * 规范化监听地址：去除首尾空白，* 归一化为 0.0.0.0。
+	 */
+	public static String normalizeListenAddress(String address) {
+		String a = address == null ? "" : address.trim();
+		return "*".equals(a) ? "0.0.0.0" : a;
+	}
+
+	/**
+	 * 更新监听地址并持久化。地址非法时返回 false 并保持原值。
+	 * ⚠ 仅写入配置，已绑定的端口需重启服务后生效。
+	 */
+	public static boolean updateListenAddress(String address) {
+		synchronized (APPLICATION_CONFIG_LOCK) {
+			if (!isValidListenAddress(address)) {
+				return false;
+			}
+			listenAddress = normalizeListenAddress(address);
+			saveApplicationConfig();
+			return true;
 		}
 	}
 

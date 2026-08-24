@@ -74,6 +74,7 @@ public class SystemController implements BaseController {
 	private static final String I18N_PARAM_ENABLE_REQUIRED = "api.error.param.enable.required";
 	//private static final String I18N_PARAM_PORT_INVALID = "api.error.param.port.invalid";
 	private static final String I18N_PARAM_WEB_PORT_INVALID = "api.error.param.web.port.invalid";
+	private static final String I18N_PARAM_LISTEN_ADDRESS_INVALID = "api.error.param.listen.address.invalid";
 	private static final String I18N_PARAM_MODEL_ID_MISSING = "api.error.param.modelId.missing";
 	private static final String I18N_PARAM_MODEL_ID_MISSING_REQUIRED = "api.error.param.modelId.required";
 	private static final String I18N_PARAM_LLAMA_BIN_REQUIRED = "api.error.param.llamaBinPath.required";
@@ -791,6 +792,7 @@ public class SystemController implements BaseController {
 			server.put("webPort", LlamaServer.getWebPort());
 			server.put("httpOnlyEnabled", LlamaServer.isHttpOnlyEnabled());
 			server.put("httpOnlyPort", LlamaServer.getHttpOnlyPort());
+			server.put("listenAddress", LlamaServer.getListenAddress());
 			data.put("server", server);
 			
 			Map<String, Object> download = new HashMap<>();
@@ -854,9 +856,13 @@ Map<String, Object> https = new HashMap<>();
 			Boolean logRequestHeader = firstBoolean(obj, "LlamaServer.logRequestHeader", "logRequestHeader", "log_request_header");
 			Boolean logRequestBody = firstBoolean(obj, "LlamaServer.logRequestBody", "logRequestBody", "log_request_body");
 			
-Integer webPort = firstPort(obj, "webPort", "web_port");
+		Integer webPort = firstPort(obj, "webPort", "web_port");
 		Integer httpOnlyPort = firstPort(obj, "httpOnlyPort", "http_only_port");
 		Boolean httpOnlyEnabled = firstBoolean(obj, "httpOnlyEnabled", "http_only_enabled");
+		String listenAddress = JsonUtil.getJsonStringAny(obj, "", "listenAddress", "listen_address");
+		if (listenAddress != null && listenAddress.trim().isEmpty()) {
+			listenAddress = null;
+		}
 		Boolean apiKeyEnabled = firstBoolean(obj, "apiKeyEnabled", "api_key_enabled");
 		String apiKey = JsonUtil.getJsonString(obj, "apiKey", null);
 		Boolean httpsEnabled = firstBoolean(obj, "httpsEnabled", "https_enabled");
@@ -865,12 +871,13 @@ Integer webPort = firstPort(obj, "webPort", "web_port");
 		String downloadDirectory = JsonUtil.getJsonString(obj, "downloadDirectory", null);
 		String nodeRole = JsonUtil.getJsonString(obj, "nodeRole", null);
 
-		if (logRequestUrl == null && logRequestHeader == null && logRequestBody == null
-			&& webPort == null && httpOnlyPort == null && httpOnlyEnabled == null
-			&& apiKeyEnabled == null && apiKey == null
-			&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
-			&& downloadDirectory == null
-			&& nodeRole == null) {
+			if (logRequestUrl == null && logRequestHeader == null && logRequestBody == null
+				&& webPort == null && httpOnlyPort == null && httpOnlyEnabled == null
+				&& listenAddress == null
+				&& apiKeyEnabled == null && apiKey == null
+				&& httpsEnabled == null && httpsCertPath == null && httpsPassword == null
+				&& downloadDirectory == null
+				&& nodeRole == null) {
 				LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_SAVABLE_MISSING));
 				return;
 			}
@@ -893,6 +900,13 @@ Integer webPort = firstPort(obj, "webPort", "web_port");
 					return;
 				}
 				LlamaServer.updateHttpOnlyConfig(httpOnlyEnabled, httpOnlyPort);
+			}
+
+			if (listenAddress != null) {
+				if (!LlamaServer.updateListenAddress(listenAddress)) {
+					LlamaServer.sendJsonResponse(ctx, ApiResponse.error(I18N_PARAM_LISTEN_ADDRESS_INVALID));
+					return;
+				}
 			}
 
 			if (apiKeyEnabled != null || apiKey != null) {

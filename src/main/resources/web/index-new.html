@@ -353,6 +353,12 @@
                         <button class="btn" id="sysWebPortSave">保存</button>
                     </div>
                 </div>
+                <div class="field"><label>监听地址（127.0.0.1=仅本机访问，0.0.0.0=允许局域网访问；修改后需重启生效）</label>
+                    <div class="row-gap">
+                        <input type="text" id="sysListenAddress" class="grow" placeholder="127.0.0.1" autocomplete="off">
+                        <button class="btn" id="sysListenAddressSave">保存</button>
+                    </div>
+                </div>
                 <div class="field"><label>独立 HTTP 端口（纯 HTTP，不启用 TLS/重定向；修改后需重启生效）</label>
                     <div class="row-gap">
                         <input type="number" id="sysHttpOnlyPort" class="grow" min="1" max="65535" placeholder="8081">

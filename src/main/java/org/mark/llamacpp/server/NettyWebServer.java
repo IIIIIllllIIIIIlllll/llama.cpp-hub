@@ -2,6 +2,7 @@ package org.mark.llamacpp.server;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.net.InetSocketAddress;
 import java.security.KeyStore;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -55,6 +56,12 @@ public class NettyWebServer {
     private final boolean exitOnBindFailure;
 
     /**
+     * 监听地址。"0.0.0.0" 监听所有网卡（允许局域网访问）；
+     * "127.0.0.1" 仅回环，非本机客户端全部拒绝。
+     */
+    private final String bindAddress;
+
+    /**
      * 本服务实例使用的 SSL 上下文；为 null 表示纯 HTTP（不启用 TLS、不做 HTTP→HTTPS 重定向）。
      * 与共享静态上下文解耦，避免独立 HTTP 端口误继承主端口的 SSL 上下文而被强制重定向。
      */
@@ -80,11 +87,19 @@ public class NettyWebServer {
     }
 
     public NettyWebServer(int port, boolean httpsEnabled, String certPath, String password, boolean exitOnBindFailure) {
+        this(port, httpsEnabled, certPath, password, exitOnBindFailure, LlamaServer.getListenAddress());
+    }
+
+    /**
+     * @param bindAddress 监听地址；"0.0.0.0" 表示所有网卡，"127.0.0.1" 表示仅回环
+     */
+    public NettyWebServer(int port, boolean httpsEnabled, String certPath, String password, boolean exitOnBindFailure, String bindAddress) {
         this.port = port;
         this.httpsEnabled = httpsEnabled;
         this.certPath = certPath;
         this.password = password;
         this.exitOnBindFailure = exitOnBindFailure;
+        this.bindAddress = LlamaServer.normalizeListenAddress(bindAddress);
     }
 
     /**
@@ -192,9 +207,16 @@ public class NettyWebServer {
                         }
                     });
 
-            ChannelFuture future = bootstrap.bind(port).sync();
-            logger.info("Web服务启动成功，端口: {} {}", port,
-                    (sslContext == null) ? "(纯HTTP，无TLS/重定向)" : "(HTTP/HTTPS统一)");
+            // bindAddress 为空或 0.0.0.0 时绑定通配地址（所有网卡），否则绑定到指定地址（如 127.0.0.1 仅本机）
+            InetSocketAddress local = (bindAddress == null || bindAddress.isEmpty() || "0.0.0.0".equals(bindAddress))
+                    ? new InetSocketAddress(port)
+                    : new InetSocketAddress(bindAddress, port);
+            ChannelFuture future = bootstrap.bind(local).sync();
+            boolean loopbackOnly = "127.0.0.1".equals(bindAddress) || "::1".equals(bindAddress);
+            logger.info("Web服务启动成功，端口: {} 监听地址: {} ({}), {}", port,
+                    local.getAddress() == null ? "0.0.0.0" : local.getAddress().getHostAddress(),
+                    loopbackOnly ? "仅回环，局域网客户端无法访问" : "所有网卡，局域网客户端可访问",
+                    (sslContext == null) ? "纯HTTP，无TLS/重定向" : "HTTP/HTTPS统一");
             logger.info("访问地址: http://localhost:{}", port);
             registerWebServerChannel(future.channel());
 

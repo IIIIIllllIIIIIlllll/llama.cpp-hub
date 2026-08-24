@@ -344,6 +344,8 @@
         if (s) {
             const webPort = byId('webPortInput');
             if (webPort && s.webPort) webPort.value = s.webPort;
+            const listenAddress = byId('listenAddressInput');
+            if (listenAddress && s.listenAddress) listenAddress.value = s.listenAddress;
             const httpOnlyToggle = byId('toggleHttpOnlyEnabled');
             if (httpOnlyToggle) httpOnlyToggle.checked = !!s.httpOnlyEnabled;
             const httpOnlyPort = byId('httpOnlyPortInput');
@@ -509,6 +511,31 @@
                 return;
             }
             toast(t('toast.success', '成功'), t('common.saved', '已保存'), 'success');
+            loadSettings();
+        } catch (e) {
+            toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
+        }
+    }
+
+    async function saveListenAddress() {
+        const input = byId('listenAddressInput');
+        const addr = input ? input.value.trim() : '';
+        if (!addr) {
+            toast(t('toast.error', '错误'), '请填写监听地址', 'error');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/sys/setting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listenAddress: addr })
+            });
+            const data = await resp.json();
+            if (!data || !data.success) {
+                toast(t('toast.error', '错误'), (data && data.error) ? data.error : t('common.save_failed', '保存失败'), 'error');
+                return;
+            }
+            toast(t('toast.success', '成功'), t('common.saved', '已保存') + '，' + t('page.settings.nodes.role.hint', '需重启服务生效'), 'success');
             loadSettings();
         } catch (e) {
             toast(t('toast.error', '错误'), t('common.network_request_failed', '网络请求失败'), 'error');
@@ -2033,6 +2060,10 @@
         // Server tab
         const saveServerBtn = byId('saveServerPortsBtn');
         if (saveServerBtn) saveServerBtn.addEventListener('click', saveServerPorts);
+
+        // Listen address (127.0.0.1 = loopback only, 0.0.0.0 = all interfaces)
+        const saveListenAddressBtn = byId('saveListenAddressBtn');
+        if (saveListenAddressBtn) saveListenAddressBtn.addEventListener('click', saveListenAddress);
 
         // HTTP-only dedicated port (plain HTTP, for clients that reject self-signed certs)
         const saveHttpOnlyBtn = byId('saveHttpOnlyPortsBtn');
