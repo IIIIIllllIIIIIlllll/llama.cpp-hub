@@ -793,6 +793,19 @@
     "groupCollapsed": true
   },
   {
+    "name": "param.server.mmproj_device.name",
+    "fullName": "--mmproj-device",
+    "abbreviation": "",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "param.server.mmproj_device.desc",
+    "sort": 31.6,
+    "defaultEnabled": false,
+    "group": "page.params.group.multimodal",
+    "groupOrder": 60,
+    "groupCollapsed": true
+  },
+  {
     "name": "param.server.no_mmproj_offload.name",
     "fullName": "--no-mmproj-offload",
     "abbreviation": "--no-mmproj-offload",

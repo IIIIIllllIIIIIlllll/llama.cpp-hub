@@ -5873,7 +5873,17 @@ llama.cpp-hub</textarea>
 
                     case 'STRING':
                     default:
-                        if (fieldName === 'spec-draft-model' || fieldName === 'json-schema-file' || fieldName === 'mmproj') {
+                        if (fieldName === 'mmproj-device') {
+                            // 设备选项（CUDA0/CUDA1/Vulkan0/...）由 model-action-modal.js 的 loadDeviceList()
+                            // 拿到 /api/model/device/list 结果后动态填充（renderMmprojDeviceOptions）
+                            html += '<div class="form-group param-field">';
+                            html += labelHtml;
+                            html += `<select class="form-control" id="${fieldId}" name="${fieldName}">`;
+                            html += `<option value="" ${defaultValue === '' ? 'selected' : ''}>${escapeHtml(t('modal.model_action.param.mmproj_device.auto', '自动（默认）'))}</option>`;
+                            html += `<option value="none" ${defaultValue === 'none' ? 'selected' : ''}>${escapeHtml(t('modal.model_action.param.mmproj_device.none', 'none（CPU）'))}</option>`;
+                            html += '</select>';
+                            html += '</div>';
+                        } else if (fieldName === 'spec-draft-model' || fieldName === 'json-schema-file' || fieldName === 'mmproj') {
                             const filePlaceholder = fieldName === 'spec-draft-model'
                                 ? t('modal.model_action.param.draft_model_placeholder', '草稿模型 .gguf 文件路径')
                                 : (fieldName === 'mmproj'

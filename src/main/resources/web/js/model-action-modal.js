@@ -69,7 +69,16 @@ function setFieldValue(modal, keys, value) {
             return true;
         }
         if ('value' in el) {
-            el.value = value === null || value === undefined ? '' : String(value);
+            const target = value === null || value === undefined ? '' : String(value);
+            el.value = target;
+            if (el.tagName === 'SELECT') {
+                // select 没有匹配的 option 时赋值是 no-op：暂存期望值，供后续动态填充选项时恢复
+                if (el.value !== target) {
+                    el.dataset.pendingValue = target;
+                } else {
+                    delete el.dataset.pendingValue;
+                }
+            }
             if (el.dataset && el.dataset.paramUi === 'ordered-multiselect' && typeof el.dispatchEvent === 'function') {
                 try {
                     el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -2096,6 +2105,47 @@ function deviceMatchesSelection(deviceLabel, selectedEntries) {
     return false;
 }
 
+/* --mmproj-device 专用：取设备标签首个冒号前的前缀（如 CUDA0/Vulkan0/ROCm0），保留大小写，
+   与 deviceKeyFromLabel 的区别是不做 toLowerCase（后端名大小写敏感） */
+function mmprojDeviceKeyFromLabel(label) {
+    if (label === null || label === undefined) return '';
+    const s = String(label).trim();
+    if (!s) return '';
+    const colonIndex = s.indexOf(':');
+    if (colonIndex > 0) {
+        const key = s.slice(0, colonIndex).trim();
+        if (key) return key;
+    }
+    return s;
+}
+
+/* 根据 /api/model/device/list 返回的 devices 动态填充 --mmproj-device 下拉选项。
+   选项 = 自动（空值）+ none + 各设备前缀；配置中已保存但本次列表里没有的值会被保留，避免丢失。 */
+function renderMmprojDeviceOptions(modal, devices) {
+    const select = findById(modal, 'param_mmproj-device') || findFieldByName(modal, 'mmproj-device');
+    if (!select || String(select.tagName || '').toUpperCase() !== 'SELECT') return;
+    const current = (select.value != null && select.value !== '') ? select.value : (select.dataset.pendingValue || '');
+    const options = [
+        { value: '', label: t('modal.model_action.param.mmproj_device.auto', '自动（默认）') },
+        { value: 'none', label: t('modal.model_action.param.mmproj_device.none', 'none（CPU）') }
+    ];
+    const seen = new Set(options.map(o => o.value));
+    (Array.isArray(devices) ? devices : []).forEach((device) => {
+        const key = mmprojDeviceKeyFromLabel(device);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        options.push({ value: key, label: String(device).trim() });
+    });
+    if (current && !seen.has(current)) {
+        seen.add(current);
+        options.push({ value: current, label: current });
+    }
+    select.innerHTML = options.map(o =>
+        `<option value="${escapeHtml(o.value)}"${o.value === current ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
+    ).join('');
+    delete select.dataset.pendingValue;
+}
+
 function getSelectedDevicesFromChecklist() {
     const modal = getLoadModelModal();
     const list = findById(modal, 'deviceChecklist');
@@ -2180,6 +2230,7 @@ function loadDeviceList() {
             const devices = data.data.devices;
             window.__availableDevices = devices;
             window.__availableDeviceCount = devices.length;
+            renderMmprojDeviceOptions(modal, devices);
             const selected = window.__loadModelSelectedDevices || [];
             const defaultAll = selected.includes('All') || selected.includes('-1') || selected.length === 0;
             const items = devices.map((device) => {

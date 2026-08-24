@@ -180,7 +180,7 @@ const ModelConfig = {
     loadDevices() {
         const bin = $('#cfgLlama').value;
         const box = $('#cfgDevices');
-        if (!bin) { box.innerHTML = '<span class="muted">无可用运行库</span>'; this.devices = []; return Promise.resolve(); }
+        if (!bin) { box.innerHTML = '<span class="muted">无可用运行库</span>'; this.devices = []; this.renderMmprojDeviceOptions(); return Promise.resolve(); }
         box.innerHTML = '<span class="muted">探测设备中…</span>';
         const nid = Models.nodeParam(this.model);
         return api('/api/model/device/list?llamaBinPath=' + encodeURIComponent(bin) + (nid ? '&nodeId=' + encodeURIComponent(nid) : ''))
@@ -190,6 +190,7 @@ const ModelConfig = {
                 const valid = arr.filter(l => typeof l === 'string' && l.indexOf(':') > 0 && !/失败|failed|error/i.test(l.split(':')[0]));
                 const errs = arr.filter(l => !valid.includes(l));
                 this.devices = valid.map(label => ({ key: String(label).split(':')[0].trim().toLowerCase(), label }));
+                this.renderMmprojDeviceOptions();
                 if (!this.devices.length) {
                     box.innerHTML = '<span class="muted" style="word-break:break-all">' + (errs.length ? esc(errs[0]) : '未检测到设备') + '</span>';
                     this.setMainGpuOptions();
@@ -223,6 +224,47 @@ const ModelConfig = {
         sel.innerHTML = '<option value="-1">默认</option>' + Array.from({ length: n }, (_, i) =>
             '<option value="' + i + '">GPU ' + i + '</option>').join('');
         sel.value = [...sel.options].some(o => o.value === cur) ? cur : '-1';
+    },
+
+    /* --mmproj-device：取设备标签首个冒号前的前缀（如 CUDA0/Vulkan0/ROCm0），保留大小写
+       （this.devices 的 key 已 toLowerCase，而后端名大小写敏感，故从 label 重新提取） */
+    mmprojDeviceKey(label) {
+        const s = String(label == null ? '' : label).trim();
+        if (!s) return '';
+        const i = s.indexOf(':');
+        if (i > 0) {
+            const key = s.slice(0, i).trim();
+            if (key) return key;
+        }
+        return s;
+    },
+
+    /* 根据 this.devices 动态填充 --mmproj-device 下拉。选项 = 自动（空值）+ none + 各设备前缀。
+       this.values 是唯一数据源：配置回填早于设备探测时 select 赋值 no-op 不影响状态，
+       此处按 this.values 重建选项；已保存但本次列表里没有的值保留，避免丢失。 */
+    renderMmprojDeviceOptions() {
+        const row = $$('#paramForm .param-item').find(r => r.dataset.fn === 'mmproj-device');
+        const sel = row && row.querySelector('.p-input select');
+        if (!sel) return;
+        const cur = String(this.values['mmproj-device'] != null ? this.values['mmproj-device'] : '').trim();
+        const options = [
+            { value: '', label: I18n.t('modal.model_action.param.mmproj_device.auto', '自动（默认）') },
+            { value: 'none', label: I18n.t('modal.model_action.param.mmproj_device.none', 'none（CPU）') }
+        ];
+        const seen = new Set(options.map(o => o.value));
+        (this.devices || []).forEach(d => {
+            const label = String(d && d.label != null ? d.label : '').trim();
+            const key = this.mmprojDeviceKey(label);
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            options.push({ value: key, label });
+        });
+        if (cur && !seen.has(cur)) {
+            seen.add(cur);
+            options.push({ value: cur, label: cur });
+        }
+        sel.innerHTML = options.map(o =>
+            '<option value="' + esc(o.value) + '"' + (o.value === cur ? ' selected' : '') + '>' + esc(o.label) + '</option>').join('');
     },
 
     /* ---------------- 动态参数表单 ---------------- */
@@ -309,6 +351,14 @@ const ModelConfig = {
         if (type === 'LOGIC' || type === 'BOOLEAN') return '<span class="muted" style="font-size:12px">开关</span>';
         // 有序多选（--samplers）：占位容器，由 renderOmnWidgets 填充
         if (this.isOmn(p)) return '<div class="omn-box" data-omn="' + esc(fn) + '"></div>';
+        // --mmproj-device：设备选项（CUDA0/CUDA1/Vulkan0/...）由 loadDevices() 探测到设备后
+        // 经 renderMmprojDeviceOptions 动态填充
+        if (fn === 'mmproj-device') {
+            return '<select>' +
+                '<option value="">' + esc(I18n.t('modal.model_action.param.mmproj_device.auto', '自动（默认）')) + '</option>' +
+                '<option value="none">' + esc(I18n.t('modal.model_action.param.mmproj_device.none', 'none（CPU）')) + '</option>' +
+                '</select>';
+        }
         const opts = this.optionList(p);
         if (opts.length) {
             return '<select>' + opts.map(o => '<option value="' + esc(o.value) + '">' + esc(o.label) + '</option>').join('') + '</select>';
