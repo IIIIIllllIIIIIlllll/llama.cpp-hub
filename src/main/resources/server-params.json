@@ -420,6 +420,19 @@
     "groupCollapsed": true
   },
   {
+    "name": "param.server.kv_unified_per_slot.name",
+    "fullName": "--kv-unified-per-slot",
+    "abbreviation": "",
+    "type": "INTEGER",
+    "defaultValue": "0",
+    "description": "param.server.kv_unified_per_slot.desc",
+    "sort": 7.5,
+	"defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
     "name": "param.server.ctx_checkpoints.name",
     "fullName": "--ctx-checkpoints",
     "abbreviation": "--ctx-checkpoints",
@@ -845,6 +858,45 @@
     "groupCollapsed": true
   },
   {
+    "name": "param.server.video_fps.name",
+    "fullName": "--video-fps",
+    "abbreviation": "",
+    "type": "FLOAT",
+    "defaultValue": "4.0",
+    "description": "param.server.video_fps.desc",
+    "sort": 35,
+	"defaultEnabled": false,
+    "group": "page.params.group.multimodal",
+    "groupOrder": 60,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.video_timestamp_interval.name",
+    "fullName": "--video-timestamp-interval",
+    "abbreviation": "",
+    "type": "INTEGER",
+    "defaultValue": "5000",
+    "description": "param.server.video_timestamp_interval.desc",
+    "sort": 36,
+	"defaultEnabled": false,
+    "group": "page.params.group.multimodal",
+    "groupOrder": 60,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.video_ffmpeg_dir.name",
+    "fullName": "--video-ffmpeg-dir",
+    "abbreviation": "",
+    "type": "STRING",
+    "defaultValue": "",
+    "description": "param.server.video_ffmpeg_dir.desc",
+    "sort": 37,
+	"defaultEnabled": false,
+    "group": "page.params.group.multimodal",
+    "groupOrder": 60,
+    "groupCollapsed": true
+  },
+  {
     "name": "param.server.split_mode.name",
     "fullName": "--split-mode",
     "abbreviation": "-sm",
@@ -915,6 +967,37 @@
     "defaultValue": "0",
     "description": "param.server.n_cpu_moe.desc",
     "sort": 14,
+    "defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.n_cpu_ffn.name",
+    "fullName": "--n-cpu-ffn",
+    "abbreviation": "-ncffn",
+    "type": "INTEGER",
+    "defaultValue": "0",
+    "description": "param.server.n_cpu_ffn.desc",
+    "sort": 14.2,
+    "defaultEnabled": false,
+    "group": "page.params.group.performance",
+    "groupOrder": 30,
+    "groupCollapsed": true
+  },
+  {
+    "name": "param.server.lazy_mode.name",
+    "fullName": "--lazy-mode",
+    "abbreviation": "-lzm",
+    "type": "STRING",
+    "defaultValue": "auto",
+    "description": "param.server.lazy_mode.desc",
+    "values": [
+      "on",
+      "auto",
+      "off"
+    ],
+    "sort": 14.5,
     "defaultEnabled": false,
     "group": "page.params.group.performance",
     "groupOrder": 30,
