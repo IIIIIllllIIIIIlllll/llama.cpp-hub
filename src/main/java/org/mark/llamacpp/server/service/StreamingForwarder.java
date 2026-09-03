@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -63,6 +64,9 @@ public class StreamingForwarder {
     private boolean inValueString;
     private int boolMatchLen;
     private boolean inThinkingObject;
+
+    /* key 跨分块时暂存的尾部字节（从开引号到 chunk 末尾，最长为目标 key 长度 + 1） */
+    private byte[] pendingKeyTail;
 
     /* nodeId 由外部从请求头设置，不从 body 提取 */
     private volatile String nodeId;
@@ -244,6 +248,16 @@ public class StreamingForwarder {
             return;
         }
 
+        /* 上个 chunk 末尾可能有跨分块的 key，拼接后重扫 */
+        byte[] pending = this.pendingKeyTail;
+        if (pending != null) {
+            byte[] merged = new byte[pending.length + chunk.length];
+            System.arraycopy(pending, 0, merged, 0, pending.length);
+            System.arraycopy(chunk, 0, merged, pending.length, chunk.length);
+            this.pendingKeyTail = null;
+            chunk = merged;
+        }
+
         //logger.debug("[状态机] === chunk: {} 字节, preview={}", chunk.length, previewChunk(chunk));
 
         for (int i = 0; i < chunk.length; i++) {
@@ -268,18 +282,25 @@ public class StreamingForwarder {
                     }
                     if (b == '"') {
                         if (!this.inString) {
-                        	this.inString = true;
                             /* 前瞻检查：是否为顶层目标字段 key，或 thinking 对象内的 type */
                             if (this.depth == 1 || (this.inThinkingObject && depth == 2)) {
                                 TargetField matched = findMatchingTarget(chunk, i + 1, this.depth, this.inThinkingObject);
                                 if (matched != null) {
+                                	this.inString = true;
                                 	this.currentTarget = matched;
                                     this.keyMatchLen = 0;
                                     this.state = STATE_KEY_MATCH;
                                     //logger.debug("[状态机] pos={} 匹配到 {} key 开头", i, matched.name());
                                     break;
                                 }
+                                /* key 可能跨分块：暂存从开引号到 chunk 末尾的字节，等下个 chunk 拼接后重扫 */
+                                if (hasPartialKeyTail(chunk, i + 1, this.depth, this.inThinkingObject)) {
+                                	this.pendingKeyTail = Arrays.copyOfRange(chunk, i, chunk.length);
+                                    //logger.debug("[状态机] pos={} key 可能跨分块，暂存 {} 字节", i, this.pendingKeyTail.length);
+                                    return;
+                                }
                             }
+                        	this.inString = true;
                         } else {
                         	this.inString = false;
                         }
@@ -632,7 +653,7 @@ public class StreamingForwarder {
     /**
      * 检查 chunk 中从 offset 开始是否匹配任意目标字段的 key。
      * 匹配成功返回对应的 TargetField，否则返回 null。
-     * chunk 数据不足时返回 null（等下个 chunk 再试）。
+     * 数据不足（key 跨分块）时也返回 null，由调用方通过 hasPartialKeyTail 暂存尾部后重试。
      */
     static TargetField findMatchingTarget(byte[] chunk, int offset, int depth, boolean inThinkingObject) {
         for (TargetField target : ALL_TARGETS) {
@@ -660,6 +681,42 @@ public class StreamingForwarder {
         return null;
     }
 
+    /**
+     * 检查 chunk 尾部是否可能是某个目标 key 的不完整前缀（即 key 被分块边界切开）。
+     * 仅当 offset 之后的剩余字节是某候选 key 的前缀时返回 true，
+     * 包括：剩余长度为 0（开引号是最后一个字节）、key 完整但闭合引号缺失的情况。
+     * 剩余长度超过 key 长度时完整匹配已被 findMatchingTarget 排除，无需暂存。
+     */
+    static boolean hasPartialKeyTail(byte[] chunk, int offset, int depth, boolean inThinkingObject) {
+        int remaining = chunk.length - offset;
+        for (TargetField target : ALL_TARGETS) {
+            if (target.nestedOnly()) {
+                if (!(inThinkingObject && depth == 2)) {
+                    continue;
+                }
+            } else {
+                if (depth != 1) {
+                    continue;
+                }
+            }
+            byte[] key = target.keyBytes();
+            if (remaining > key.length) {
+                continue;
+            }
+            boolean prefix = true;
+            for (int k = 0; k < remaining; k++) {
+                if (chunk[offset + k] != key[k]) {
+                    prefix = false;
+                    break;
+                }
+            }
+            if (prefix) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static String stateName(int s) {
         return switch (s) {
             case STATE_NORMAL -> "NORMAL";
@@ -676,7 +733,7 @@ public class StreamingForwarder {
 
     /**
      * 检查 chunk 中从 offset 开始是否完整匹配 key。
-     * chunk 数据不足时返回 false（等下个 chunk 再试）。
+     * 数据不足时返回 false，由调用方通过 hasPartialKeyTail 暂存尾部后重试。
      */
     static boolean matchesKey(byte[] chunk, int offset, byte[] key) {
         if (offset + key.length > chunk.length) {
