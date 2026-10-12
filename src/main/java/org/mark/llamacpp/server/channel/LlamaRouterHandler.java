@@ -138,6 +138,11 @@ public class LlamaRouterHandler extends SimpleChannelInboundHandler<FullHttpRequ
 				this.openAIServerHandler.handleOpenAIRerankRequest(ctx, request);
 				return;
 			}
+			// 系统一（决策模型）：llama.cpp 0.1.36 起提供 /v1/systemone
+			if (uri.startsWith("/v1/systemone") || uri.startsWith("/systemone")) {
+				this.openAIServerHandler.handleOpenAISystemOneRequest(ctx, request);
+				return;
+			}
 			// 音频
 			if(uri.startsWith("/v1/audio/transcriptions") || uri.startsWith("/audio/transcriptions")) {
 				this.openAIServerHandler.handleOpenAIAudioTranscriptionsRequest(ctx, request);
