@@ -538,6 +538,17 @@ public class OpenAIService {
 		this.forwardRawJsonToTarget(ctx, request, modelName, targetUrl, null, endpoint, bodyJson);
 	}
 
+	private void forwardSystemOneToRemoteRaw(ChannelHandlerContext ctx, FullHttpRequest request,
+			String modelName, String targetUrl, String remoteApiKey, String endpoint, JsonObject bodyJson) {
+		this.forwardRawJsonToTarget(ctx, request, modelName, targetUrl, remoteApiKey, endpoint, bodyJson);
+	}
+
+	private void forwardSystemOneToLlamaCppRaw(ChannelHandlerContext ctx, FullHttpRequest request,
+			String modelName, int port, String endpoint, JsonObject bodyJson) {
+		String targetUrl = String.format("http://localhost:%d%s", port, endpoint);
+		this.forwardRawJsonToTarget(ctx, request, modelName, targetUrl, null, endpoint, bodyJson);
+	}
+
 	private void forwardRawJsonToTarget(ChannelHandlerContext ctx, FullHttpRequest request,
 			String modelName, String targetUrl, String remoteApiKey, String endpoint, JsonObject bodyJson) {
 		byte[] bodyBytes = JsonUtil.toJson(bodyJson).getBytes(StandardCharsets.UTF_8);
@@ -796,6 +807,10 @@ public class OpenAIService {
 
 	private String[] resolveRerankFromRemoteNodes(String modelName) {
 		return this.resolveFromRemoteNodes(modelName, "[OpenAIRerank路由]");
+	}
+
+	private String[] resolveSystemOneFromRemoteNodes(String modelName) {
+		return this.resolveFromRemoteNodes(modelName, "[OpenAISystemOne路由]");
 	}
 
 	private String[] resolveResponsesFromRemoteNodes(String modelName) {
@@ -1074,6 +1089,125 @@ public class OpenAIService {
 			}
 		} catch (Exception e) {
 			logger.info("处理OpenAI rerank 请求时发生错误", e);
+			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
+		}
+	}
+
+	/**
+	 * 	对应端点：/v1/systemone
+	 * 	原生决策模型（System One）的结构化问答端点：请求体为 state + questions，
+	 * 	响应为各问题的答案与概率，均为非流式 JSON，转发方式与 rerank 相同。
+	 * 	识别决策模型的方式见 GGUF 元数据 {arch}.decision.type（capabilities 的 decision 字段）。
+	 * @param ctx
+	 * @param request
+	 */
+	public void handleOpenAISystemOneRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+		try {
+			if (request.method() != HttpMethod.POST) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 405, null, "Only POST method is supported", "method");
+				return;
+			}
+			byte[] bodyBytes = JsonUtil.readRequestBytes(request);
+			if (bodyBytes == null || bodyBytes.length == 0) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is empty", "state");
+				return;
+			}
+			JsonObject requestJson = JsonUtil.fromJson(bodyBytes, JsonObject.class);
+			if (requestJson == null) {
+				this.sendOpenAIErrorResponseWithCleanup(ctx, 400, null, "Request body is not a valid JSON object", null);
+				return;
+			}
+
+			String endpoint = request.uri();
+			if (endpoint != null && endpoint.startsWith("/systemone")) {
+				endpoint = "/v1" + endpoint;
+			}
+			if (endpoint == null || endpoint.isBlank()) {
+				endpoint = "/v1/systemone";
+			}
+
+			String bodyNodeId = JsonUtil.getJsonString(requestJson, "nodeId", "");
+			if (bodyNodeId != null && !bodyNodeId.isBlank()) {
+				requestJson.remove("nodeId");
+			}
+
+			String modelName;
+			if (!requestJson.has("model")) {
+				modelName = LlamaServerManager.getInstance().getFirstModelName();
+			} else {
+				modelName = requestJson.get("model").getAsString();
+			}
+			// 模型名是转发追踪（ModelRequestTracker）的键，为空会让其在 ConcurrentHashMap 上抛 NPE，
+			// 这里兜底一个占位名，保证未指定 model 时请求仍能正常转发。
+			if (modelName == null || modelName.isBlank()) {
+				modelName = "unknown";
+			}
+
+			String targetUrl = null;
+			String remoteApiKey = null;
+			Integer localPort = null;
+			String loadError = null;
+
+			if (bodyNodeId != null && !bodyNodeId.isBlank()) {
+				logger.info("[OpenAISystemOne路由] 请求体指定 nodeId，直接路由远程节点: nodeId={}, model={}", bodyNodeId, modelName);
+				LlamaHubNode node = NodeManager.getInstance().getNode(bodyNodeId);
+				if (node == null || !node.isEnabled()) {
+					this.sendOpenAIErrorResponseWithCleanup(ctx, 404, null, "Remote node not found or disabled: " + bodyNodeId, null);
+					return;
+				}
+				targetUrl = node.getBaseUrl() + endpoint;
+				remoteApiKey = node.getApiKey();
+			} else {
+				if (modelName != null && !modelName.isBlank()) {
+					LlamaServerManager manager = LlamaServerManager.getInstance();
+					if (!manager.getLoadedProcesses().containsKey(modelName)) {
+						String resolved = manager.findModelIdByAlias(modelName);
+						if (resolved != null) {
+							modelName = resolved;
+						}
+					}
+					if (!manager.getLoadedProcesses().containsKey(modelName)) {
+						loadError = this.tryAutoLoadModel(manager, modelName);
+						if (loadError == null) {
+							Integer port = manager.getModelPort(modelName);
+							if (port != null) {
+								localPort = port;
+								targetUrl = String.format("http://localhost:%d%s", localPort.intValue(), endpoint);
+							}
+						}
+					}
+					if (manager.getLoadedProcesses().containsKey(modelName)) {
+						manager.updateModelLastUsedTime(modelName);
+						localPort = manager.getModelPort(modelName);
+						if (localPort != null) {
+							targetUrl = String.format("http://localhost:%d%s", localPort.intValue(), endpoint);
+						}
+					}
+				}
+				if (targetUrl == null && modelName != null && !modelName.isBlank()) {
+					logger.info("[OpenAISystemOne路由] 本地未找到模型，开始搜索远程节点: model={}", modelName);
+					String[] remote = this.resolveSystemOneFromRemoteNodes(modelName);
+					if (remote != null) {
+						targetUrl = remote[0] + endpoint;
+						remoteApiKey = remote[1];
+					}
+				}
+			}
+
+			if (targetUrl == null) {
+				int statusCode = loadError != null ? 500 : 404;
+				this.sendOpenAIErrorResponseWithCleanup(ctx, statusCode, null,
+						loadError != null ? loadError : "Model not found: " + (modelName != null ? modelName : "unknown"), "model");
+				return;
+			}
+
+			if (localPort != null) {
+				this.forwardSystemOneToLlamaCppRaw(ctx, request, modelName, localPort, endpoint, requestJson);
+			} else {
+				this.forwardSystemOneToRemoteRaw(ctx, request, modelName, targetUrl, remoteApiKey, endpoint, requestJson);
+			}
+		} catch (Exception e) {
+			logger.info("处理OpenAI systemone 请求时发生错误", e);
 			this.sendOpenAIErrorResponseWithCleanup(ctx, 500, null, e.getMessage(), null);
 		}
 	}

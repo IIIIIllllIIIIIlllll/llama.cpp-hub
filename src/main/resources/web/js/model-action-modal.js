@@ -894,6 +894,7 @@ function getModelCapabilitiesEls(modal) {
         tools: findById(modal, 'capabilityTools'),
         rerank: findById(modal, 'capabilityRerank'),
         embedding: findById(modal, 'capabilityEmbedding'),
+        decision: findById(modal, 'capabilityDecision'),
         vision: findById(modal, 'capabilityVision'),
         audio: findById(modal, 'capabilityAudio')
     };
@@ -908,6 +909,7 @@ function normalizeModelCapabilities(input) {
         tools: parseBooleanLike(base && base.tools, false),
         rerank: parseBooleanLike(base && base.rerank, false),
         embedding: parseBooleanLike(base && base.embedding, false),
+        decision: parseBooleanLike(base && base.decision, false),
         vision: parseBooleanLike(base && base.vision, false),
         audio: parseBooleanLike(base && base.audio, false)
     };
@@ -923,6 +925,7 @@ function readModelCapabilitiesFromUi(modal) {
         tools: !!els.tools.checked,
         rerank: !!els.rerank.checked,
         embedding: !!els.embedding.checked,
+        decision: !!(els.decision && els.decision.checked),
         vision: !!els.vision.checked,
         audio: !!els.audio.checked
     };
@@ -943,12 +946,22 @@ function enforceModelCapabilitiesRules(modal, changedKey) {
     if (changedKey === 'rerank' && els.rerank.checked) els.embedding.checked = false;
     if (changedKey === 'embedding' && els.embedding.checked) els.rerank.checked = false;
 
-    if ((changedKey === 'thinking' || changedKey === 'tools') && (els.thinking.checked || els.tools.checked)) {
-        els.rerank.checked = false;
-        els.embedding.checked = false;
+    // 决策模型（System One）只回答结构化问题，不生成文本：与 rerank / embedding / thinking / tools 互斥
+    if (els.decision && els.decision.checked) {
+        if (changedKey === 'decision') {
+            // 勾选决策 → 让位给其他能力
+            els.rerank.checked = false;
+            els.embedding.checked = false;
+            els.thinking.checked = false;
+            els.tools.checked = false;
+        } else if (changedKey === 'rerank' || changedKey === 'embedding'
+                || changedKey === 'thinking' || changedKey === 'tools') {
+            // 勾选其他能力 → 决策让位
+            els.decision.checked = false;
+        }
     }
 
-    const isNonChat = !!(els.rerank.checked || els.embedding.checked);
+    const isNonChat = !!(els.rerank.checked || els.embedding.checked || (els.decision && els.decision.checked));
     if (isNonChat) {
         els.thinking.checked = false;
         els.tools.checked = false;
@@ -963,6 +976,7 @@ function enforceModelCapabilitiesRules(modal, changedKey) {
     if (hasVisionOrAudio) {
         els.rerank.checked = false;
         els.embedding.checked = false;
+        if (els.decision) els.decision.checked = false;
     }
 }
 
@@ -974,6 +988,7 @@ function applyModelCapabilitiesToUi(modal, caps) {
     els.tools.checked = !!c.tools;
     els.rerank.checked = !!c.rerank;
     els.embedding.checked = !!c.embedding;
+    if (els.decision) els.decision.checked = !!c.decision;
     if (els.vision) els.vision.checked = !!c.vision;
     if (els.audio) els.audio.checked = !!c.audio;
     enforceModelCapabilitiesRules(modal, '');
