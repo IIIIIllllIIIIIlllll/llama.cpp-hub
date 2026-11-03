@@ -2174,7 +2174,7 @@ public class LlamaServerManager {
 
 			process.setOutputHandler(line -> {
 				LlamaServer.sendConsoleLineEvent(modelId, line);
-				if (line.contains("llama_server: model loaded") || line.contains("update_slots: all slots are idle")) {
+				if (isModelLoadedLine(line) || line.contains("update_slots: all slots are idle")) {
 					if (latchResolved.compareAndSet(false, true)) {
 						loadSuccess.set(true);
 						latch.countDown();
@@ -2344,6 +2344,16 @@ if (loadSuccess.get()) {
 		synchronized (this.processLock) {
 			return this.canceledLoadingModels.contains(modelId);
 		}
+	}
+
+	/**
+	 * 	判断是否为模型加载成功日志。
+	 * 	llama.cpp 的该日志由 SRV_INF("%s", "model loaded") 输出，前缀是 __func__：
+	 * 	旧版为 "srv  llama_server: model loaded"，新版为 "srv  server_run_i: model loaded"
+	 * 	（__func__ 被 %12.*s 截断为 12 个字符）。这里不绑定函数名，兼容新旧版本。
+	 */
+	private static boolean isModelLoadedLine(String line) {
+		return line.contains("srv") && line.contains(": model loaded");
 	}
 
 	private static boolean isModelErrorLine(String lower) {
