@@ -55,9 +55,12 @@ public class GGUFMetaData {
 
 	private final String generalType;
 
+	/** 决策模型类型（{arch}.decision.type）：非空表示为原生决策模型，供 /v1/systemone 使用。 */
+	private final String decisionType;
+
 	private GGUFMetaData(String fileName, String filePath, String architecture, Integer contextLength, Integer fileType,
 			String baseName, String name, String sizeLabel, boolean supportsAudio, boolean supportsVision,
-			String chatTemplate, MtpInfo mtpInfo, String generalType) {
+			String chatTemplate, MtpInfo mtpInfo, String generalType, String decisionType) {
 		this.fileName = fileName;
 		this.filePath = filePath;
 		this.architecture = architecture;
@@ -71,6 +74,7 @@ public class GGUFMetaData {
 		this.chatTemplate = chatTemplate;
 		this.mtpInfo = mtpInfo;
 		this.generalType = generalType;
+		this.decisionType = decisionType;
 	}
 
 	public static GGUFMetaData readFile(File file) {
@@ -88,6 +92,7 @@ public class GGUFMetaData {
 		boolean supportsVision = false;
 		String chatTemplate = null;
 		String generalType = null;
+		String decisionType = null;
 		Integer blockCount = null;
 		Integer nextnPredictLayers = null;
 		Map<String, Number> archIntValues = new HashMap<>();
@@ -156,6 +161,10 @@ public class GGUFMetaData {
 				} else if ("tokenizer.chat_template".equals(key)) {
 					chatTemplate = readStringValue(bis, valueTypeId, buf);
 					handled = true;
+				} else if (key.endsWith(".decision.type")) {
+					// 原生决策模型（如 openjev/laya/lev）的元数据标记，llama.cpp 的 /v1/systemone 依赖它
+					decisionType = readStringValue(bis, valueTypeId, buf);
+					handled = true;
 				} else if (architecture != null && key.equals(architecture + ".block_count")) {
 					Number v = readNumberValue(bis, valueTypeId, buf);
 					if (v != null)
@@ -198,7 +207,7 @@ public class GGUFMetaData {
 		}
 
 		return new GGUFMetaData(file.getName(), file.getAbsolutePath(), architecture, contextLength, fileType, baseName,
-				name, sizeLabel, supportsAudio, supportsVision, chatTemplate, mtpInfo, generalType);
+				name, sizeLabel, supportsAudio, supportsVision, chatTemplate, mtpInfo, generalType, decisionType);
 	}
 
 	static void readFully(BufferedInputStream bis, byte[] buf) throws IOException {
@@ -419,6 +428,16 @@ public class GGUFMetaData {
 
 	public String getGeneralType() {
 		return generalType;
+	}
+
+	/**
+	 * 决策模型的类型（GGUF 元数据 {arch}.decision.type）。
+	 * 非空表示该模型是原生决策模型，应通过 llama.cpp 的 /v1/systemone 端点调用。
+	 *
+	 * @return 决策类型字符串；非决策模型为 null
+	 */
+	public String getDecisionType() {
+		return decisionType;
 	}
 
 	/**

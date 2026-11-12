@@ -696,14 +696,16 @@ const ModelConfig = {
     },
 
     saveCapabilities() {
-        // 互斥规则：embedding/rerank 互斥（embedding 优先）；rerank||embedding → thinking=tools=false；vision||audio → rerank=embedding=false
+        // 互斥规则：embedding/rerank 互斥（embedding 优先）；rerank||embedding → thinking=tools=false；vision||audio → rerank=embedding=false；
+        // decision（决策模型）不生成文本，与 embedding/rerank/thinking/tools 互斥
         const get = n => $('#capGrid input[data-cap="' + n + '"]').checked;
         const set = (n, v) => { $('#capGrid input[data-cap="' + n + '"]').checked = v; };
         if (get('embedding') && get('rerank')) set('rerank', false);
         if (get('rerank') || get('embedding')) { set('thinking', false); set('tools', false); }
         if (get('vision') || get('audio')) { set('rerank', false); set('embedding', false); }
+        if (get('decision')) { set('rerank', false); set('embedding', false); set('thinking', false); set('tools', false); }
         const body = { modelId: this.model.id };
-        ['thinking', 'tools', 'rerank', 'embedding', 'vision', 'audio'].forEach(n => body[n] = get(n));
+        ['thinking', 'tools', 'rerank', 'embedding', 'vision', 'audio', 'decision'].forEach(n => body[n] = get(n));
         const nid = Models.nodeParam(this.model); if (nid) body.nodeId = nid;
         post('/api/models/capabilities/set', body).then(r => {
             if (r.success) toast('能力设置已保存', 'success');

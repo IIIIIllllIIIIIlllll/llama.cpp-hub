@@ -4201,8 +4201,10 @@ llama.cpp-hub</textarea>
 
                             <!-- 2025-07: 隐藏「能力」区域 — 该功能仅为标签标记，不影响模型实际行为，
                                  容易让用户困惑。后端仍会在刷新时自动检测并更新 audio/vision 能力，
-                                 聊天页的音频输入功能不受影响。如需恢复，删除 style="display:none" 即可。 -->
-                            <div class="capabilities-section" id="modelCapabilitiesGroup" style="display:none">
+                                 聊天页的音频输入功能不受影响。如需恢复，删除 style="display:none" 即可。
+                                 2026-10-13: 改为默认展开 — 决策模型（System One）无法通过启动参数指定，
+                                 只能在此手动标记；embedding / rerank 也需要手动指定。 -->
+                            <div class="capabilities-section" id="modelCapabilitiesGroup">
                                 <div class="capabilities-header" onclick="this.parentElement.classList.toggle('open')">
                                     <span class="capabilities-chevron"><i class="fas fa-chevron-down"></i></span>
                                     <span
@@ -4238,6 +4240,11 @@ llama.cpp-hub</textarea>
                                             <input class="form-check-input" type="checkbox" id="capabilityEmbedding">
                                             <label class="form-check-label" for="capabilityEmbedding"
                                                 data-i18n="modal.model_action.capabilities.embedding">modal.model_action.capabilities.embedding</label>
+                                        </div>
+                                        <div class="form-check" style="margin-bottom: 0.5rem;">
+                                            <input class="form-check-input" type="checkbox" id="capabilityDecision">
+                                            <label class="form-check-label" for="capabilityDecision"
+                                                data-i18n="modal.model_action.capabilities.decision">modal.model_action.capabilities.decision</label>
                                         </div>
                                         <div class="form-check" style="margin-bottom: 0.5rem;">
                                             <input class="form-check-input" type="checkbox" id="capabilityVision">
